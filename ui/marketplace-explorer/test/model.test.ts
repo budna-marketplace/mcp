@@ -133,6 +133,27 @@ describe("marketplace result normalization", () => {
     expect(normalized.view.listing.title).toBe(hostile);
   });
 
+  it.each([8_640_000_000_000_001, Number.MAX_SAFE_INTEGER])(
+    "rejects timestamps outside the Date range: %s",
+    (endTime) => {
+      expect(
+        normalizeToolResult(detailResult(1, { end_time: endTime }), {
+          arguments: { listing_id: 1 },
+          name: "get_listing",
+        }),
+      ).toEqual({ ok: false, reason: "malformed" });
+    },
+  );
+
+  it("accepts the maximum valid Date timestamp", () => {
+    expect(
+      normalizeToolResult(detailResult(1, { end_time: 8_640_000_000_000_000 }), {
+        arguments: { listing_id: 1 },
+        name: "get_listing",
+      }),
+    ).toMatchObject({ ok: true });
+  });
+
   it("rejects unapproved listing URLs and drops unapproved image URLs", () => {
     const badListing = searchResult([
       listing(1, {

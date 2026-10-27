@@ -602,7 +602,10 @@ function finiteNumberInRange(
 }
 
 function epochMilliseconds(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value > 0 &&
+    value <= 8_640_000_000_000_000
     ? value
     : undefined;
 }

@@ -48,10 +48,23 @@ jobs:
         working-directory: ui/marketplace-explorer
       - run: npm audit --audit-level=high
         working-directory: ui/marketplace-explorer
+      - run: npm run format
+        working-directory: ui/marketplace-explorer
       - run: npm run check
         working-directory: ui/marketplace-explorer
       - run: npm run build
         working-directory: ui/marketplace-explorer
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: audited-marketplace-explorer
+          path: |
+            crates/budna-mcp-server/assets/marketplace-explorer-v1.html
+            ui/marketplace-explorer/src/explorer.ts
+            ui/marketplace-explorer/src/model.ts
+            ui/marketplace-explorer/test/explorer.test.ts
+            ui/marketplace-explorer/test/model.test.ts
+          retention-days: 1
+          if-no-files-found: error
       - name: Check generated asset drift and size
         run: |
           git diff --exit-code -- crates/budna-mcp-server/assets

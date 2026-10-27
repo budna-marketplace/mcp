@@ -84,14 +84,25 @@ afterEach(() => {
 function renderSearch(
   result: CallToolResult = searchResult(),
   bridge = new FakeBridge(),
+  arguments_: Record<string, unknown> = { query: "camera" },
 ): { bridge: FakeBridge; explorer: MarketplaceExplorer; root: HTMLElement } {
   const root = document.createElement("div");
   document.body.append(root);
   const explorer = new MarketplaceExplorer(root, bridge);
-  explorer.receiveToolInput({ query: "camera" });
+  explorer.receiveToolInput(arguments_);
   explorer.connected();
   explorer.receiveToolResult(result);
   return { bridge, explorer, root };
+}
+
+function deferredResult() {
+  let resolve!: (value: CallToolResult) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<CallToolResult>((resolve_, reject_) => {
+    resolve = resolve_;
+    reject = reject_;
+  });
+  return { promise, reject, resolve };
 }
 
 describe("MarketplaceExplorer", () => {
@@ -116,6 +127,68 @@ describe("MarketplaceExplorer", () => {
     );
     expect(bridge.calls[0]?.arguments_).toEqual({ listing_id: 1 });
   });
+
+  it.each(["resolves", "rejects"] as const)(
+    "keeps newer navigation when an older request %s",
+    async (settlement) => {
+      const older = deferredResult();
+      const newer = deferredResult();
+      const { bridge, root } = renderSearch();
+      vi.spyOn(bridge, "callTool")
+        .mockReturnValueOnce(older.promise)
+        .mockReturnValueOnce(newer.promise);
+
+      root.querySelector<HTMLButtonElement>(".title-button")?.click();
+      root.querySelectorAll<HTMLButtonElement>(".title-button")[1]?.click();
+      newer.resolve(detailResult(2, { description: "Newer detail" }));
+      await vi.waitFor(() =>
+        expect(root.textContent).toContain("Newer detail"),
+      );
+
+      if (settlement === "resolves") {
+        older.resolve(detailResult(1, { description: "Older detail" }));
+      } else {
+        older.reject(new Error("Synthetic stale failure"));
+      }
+      await older.promise.catch(() => {});
+      expect(root.textContent).toContain("Newer detail");
+      expect(root.textContent).not.toContain("Older detail");
+      expect(root.querySelector(".status-error")).toBeNull();
+    },
+  );
+
+  it.each(["back", "cancel", "host result"] as const)(
+    "ignores pending navigation superseded by %s",
+    async (action) => {
+      const { bridge, explorer, root } = renderSearch();
+      root.querySelector<HTMLButtonElement>(".title-button")?.click();
+      await vi.waitFor(() =>
+        expect(root.querySelector(".detail")).not.toBeNull(),
+      );
+      const pending = deferredResult();
+      vi.spyOn(bridge, "callTool").mockReturnValueOnce(pending.promise);
+      [...root.querySelectorAll<HTMLButtonElement>("button")]
+        .find((button) => button.textContent === "Related listings")
+        ?.click();
+      expect(root.querySelector('[role="progressbar"]')).not.toBeNull();
+
+      if (action === "back") {
+        [...root.querySelectorAll<HTMLButtonElement>("button")]
+          .find((button) => button.textContent === "Back")
+          ?.click();
+      } else if (action === "cancel") {
+        explorer.receiveCancellation();
+      } else {
+        explorer.receiveToolResult(searchResult([listing(3)]));
+      }
+      const retainedView = root.textContent;
+      expect(root.querySelector('[role="progressbar"]')).toBeNull();
+      pending.resolve(searchResult([listing(4)]));
+      await pending.promise;
+      expect(root.textContent).toBe(retainedView);
+      expect(root.querySelector('[role="progressbar"]')).toBeNull();
+    },
+  );
 
   it("loads bounded listing research only after the user requests it", async () => {
     const bridge = new FakeBridge();
@@ -352,18 +425,37 @@ describe("MarketplaceExplorer", () => {
     },
   );
 
-  it("loads more with deduplication and a hard 50-listing ceiling", async () => {
+  it("keeps offset pagination at a constant page size and caps visible listings at 50", async () => {
     const bridge = new FakeBridge();
-    const initial = Array.from({ length: 49 }, (_, index) =>
+    const listings = Array.from({ length: 60 }, (_, index) =>
       listing(index + 1),
     );
-    bridge.nextResult = searchResult(
-      [listing(49), listing(50), listing(51)],
-      2,
-      2,
+    vi.spyOn(bridge, "callTool").mockImplementation(
+      async (name, arguments_) => {
+        bridge.calls.push({ arguments_, name });
+        const page = Number(arguments_.page ?? 1);
+        const limit = Number(arguments_.limit ?? 10);
+        return result({
+          hits: listings.slice((page - 1) * limit, page * limit),
+          page,
+          per_page: limit,
+          total: listings.length,
+          total_pages: Math.ceil(listings.length / limit),
+        });
+      },
     );
-    const { root } = renderSearch(searchResult(initial, 1, 2), bridge);
-    expect(root.querySelectorAll(".listing-card")).toHaveLength(49);
+    const { root } = renderSearch(
+      result({
+        hits: listings.slice(0, 30),
+        page: 1,
+        per_page: 30,
+        total: listings.length,
+        total_pages: 2,
+      }),
+      bridge,
+      { limit: 30, query: "camera" },
+    );
+    expect(root.querySelectorAll(".listing-card")).toHaveLength(30);
     const loadMore = [
       ...root.querySelectorAll<HTMLButtonElement>("button"),
     ].find((button) => button.textContent === "Load more");
@@ -373,19 +465,23 @@ describe("MarketplaceExplorer", () => {
       expect(root.querySelectorAll(".listing-card")).toHaveLength(50),
     );
     expect(bridge.calls[0]).toMatchObject({
-      arguments_: { limit: 1, page: 2, query: "camera" },
+      arguments_: { limit: 30, page: 2, query: "camera" },
       name: "search_listings",
     });
+    expect(
+      [...root.querySelectorAll(".title-button")].map(
+        (button) => button.textContent,
+      ),
+    ).toEqual(Array.from({ length: 50 }, (_, index) => `Camera ${index + 1}`));
     expect(root.textContent).not.toContain("Camera 51");
 
-    bridge.nextResult = searchResult(initial.slice(0, 2), 1, 2);
     const refresh = [
       ...root.querySelectorAll<HTMLButtonElement>("button"),
     ].find((button) => button.textContent === "Refresh");
     refresh?.click();
     await vi.waitFor(() => expect(bridge.calls).toHaveLength(2));
     expect(bridge.calls[1]).toEqual({
-      arguments_: { query: "camera" },
+      arguments_: { limit: 30, query: "camera" },
       name: "search_listings",
     });
   });
