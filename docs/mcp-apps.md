@@ -6,6 +6,17 @@ Compatible hosts can render listing results as cards inside the conversation.
 Other MCP clients continue to receive the same structured JSON and text
 fallback, so the UI is always progressive enhancement.
 
+## API compatibility
+
+Version 0.3 uses Budna's `external-ids-v1` API contract. The HTTP client sends
+`X-Budna-Contract: external-ids-v1` on public requests. Listing IDs are canonical
+`listing_<UUIDv4>` strings and seller IDs are `user_<UUIDv4>` strings; category
+and filter IDs remain numeric. Use the IDs returned by search and listing tools.
+Legacy numeric listing and seller IDs are rejected before making an API request.
+
+Search no longer advertises a free-shipping filter or shipping facts that the
+API does not return. Open listing details to inspect the available shipping data.
+
 ## User experience
 
 Ask an MCP client to find public Budna listings. In a host with MCP Apps

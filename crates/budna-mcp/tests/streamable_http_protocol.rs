@@ -16,7 +16,7 @@ use serde_json::json;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{method, path},
+    matchers::{header as matches_header, method, path},
 };
 
 const PROTOCOL_TIMEOUT: Duration = Duration::from_secs(10);
@@ -72,6 +72,7 @@ fn assert_success_contract(
 async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> Result<()> {
     let api = MockServer::start().await;
     Mock::given(method("GET"))
+        .and(matches_header("x-budna-contract", "external-ids-v1"))
         .and(path("/api/v1/categories"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "success": true,
@@ -93,13 +94,14 @@ async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> 
         .mount(&api)
         .await;
     Mock::given(method("GET"))
+        .and(matches_header("x-budna-contract", "external-ids-v1"))
         .and(path("/api/v1/search/listings"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "success": true,
             "data": {
                 "hits": [{
-                    "id": 7,
-                    "seller_id": 42,
+                    "id": "listing_00000000-0000-4000-8000-000000000007",
+                    "seller_id": "user_00000000-0000-4000-8000-00000000002a",
                     "title": "Camera",
                     "category_id": 12,
                     "category_name": "Cameras",
@@ -111,8 +113,6 @@ async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> 
                     "starting_price": "100.00",
                     "current_bid": "120.00",
                     "buy_now_price": null,
-                    "shipping_cost": "49.00",
-                    "free_shipping": false,
                     "status": "active",
                     "start_time": 1_700_000_000_000_i64,
                     "end_time": 1_800_000_000_000_i64,
@@ -321,7 +321,9 @@ async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> 
     )?;
     assert_eq!(
         search.pointer("/hits/0/listing_url"),
-        Some(&json!("https://budna.se/l/7"))
+        Some(&json!(
+            "https://budna.se/l/listing_00000000-0000-4000-8000-000000000007"
+        ))
     );
 
     tokio::time::timeout(PROTOCOL_TIMEOUT, client.close())

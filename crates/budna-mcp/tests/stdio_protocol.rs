@@ -17,7 +17,7 @@ use serde_json::json;
 use tokio::io::AsyncReadExt;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{method, path, query_param},
+    matchers::{header, method, path, query_param},
 };
 
 const PROTOCOL_TIMEOUT: Duration = Duration::from_secs(10);
@@ -60,6 +60,14 @@ fn error_payload(result: &rmcp::model::CallToolResult) -> Result<serde_json::Val
     Ok(payload)
 }
 
+fn public_listing_id(number: i64) -> String {
+    format!("listing_00000000-0000-4000-8000-{number:012x}")
+}
+
+fn public_user_id(number: i64) -> String {
+    format!("user_00000000-0000-4000-8000-{number:012x}")
+}
+
 fn listing_data(
     listing_id: i64,
     seller_id: i64,
@@ -67,10 +75,12 @@ fn listing_data(
     status: &str,
 ) -> serde_json::Value {
     json!({
-        "id": listing_id,
-        "seller_id": seller_id,
-        "seller_name": "Public seller",
-        "seller_username": "seller42",
+        "id": public_listing_id(listing_id),
+        "seller": {
+            "id": public_user_id(seller_id),
+            "name": "Public seller",
+            "username": "seller42"
+        },
         "title": "Camera",
         "description": "A public listing",
         "category_id": 12,
@@ -78,30 +88,35 @@ fn listing_data(
         "listing_type": "auction",
         "currency": "NOK",
         "market": "norwegian",
-        "starting_price": {"amount": "100.00", "currency_code": "NOK"},
-        "bid_increment": {"amount": "10.00", "currency_code": "NOK"},
-        "current_bid": {"amount": "120.00", "currency_code": "NOK"},
-        "reserve_price_met": false,
-        "buy_now_price": null,
-        "shipping_cost": {"amount": "49.00", "currency_code": "NOK"},
+        "auction": {
+            "starting_price": {"amount": "100.00", "currency_code": "NOK"},
+            "bid_increment": {"amount": "10.00", "currency_code": "NOK"},
+            "current_bid": {"amount": "120.00", "currency_code": "NOK"},
+            "reserve": {"met": false},
+            "buy_now_price": null,
+            "start_time": 1_700_000_000_000_i64,
+            "end_time": 1_800_000_000_000_i64,
+            "bid_count": 2
+        },
+        "fixed_price": null,
         "quantity": 1,
         "status": status,
-        "start_time": 1_700_000_000_000_i64,
-        "end_time": 1_800_000_000_000_i64,
         "views_count": 20,
-        "bid_count": 2,
         "approved": approved,
         "featured": false,
         "tags": ["camera"],
-        "image_ids": ["123e4567-e89b-12d3-a456-426614174000"],
+        "images": [{"id": "123e4567-e89b-12d3-a456-426614174000"}],
         "created_at": 1_700_000_000_000_i64,
         "updated_at": 1_700_000_000_100_i64,
-        "package_size": "medium",
-        "package_weight_grams": 900,
-        "shipping_provider_codes": ["postnord"],
-        "location": {"city": "Oslo", "region": "Oslo", "country": "NO"},
-        "allow_pickup": true,
-        "buyer_protection_config": {
+        "shipping": {
+            "custom_price": {"amount": "49.00", "currency_code": "NOK"},
+            "package_size": "medium",
+            "package_weight_grams": 900,
+            "provider_codes": ["postnord"],
+            "location": {"city": "Oslo", "region": "Oslo", "country": "NO"},
+            "allow_pickup": true
+        },
+        "buyer_protection": {
             "rate_percent": "5.0",
             "flat_fee": "10.00",
             "mandatory_threshold": "100.00",
@@ -139,6 +154,7 @@ fn listing_page_envelope(
 
 async fn mount_public_tool_mocks(api: &MockServer) {
     Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
         .and(path("/api/v1/categories"))
         .and(query_param("page", "2"))
         .and(query_param("limit", "5"))
@@ -166,6 +182,7 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
         .and(path("/api/v1/search/listings"))
         .and(query_param("q", "camera"))
         .and(query_param("category_id", "12"))
@@ -177,7 +194,6 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .and(query_param("status", "active"))
         .and(query_param("ending_soon", "true"))
         .and(query_param("featured", "false"))
-        .and(query_param("free_shipping", "false"))
         .and(query_param("sort_by", "price"))
         .and(query_param("sort_order", "asc"))
         .and(query_param("page", "2"))
@@ -193,8 +209,8 @@ async fn mount_public_tool_mocks(api: &MockServer) {
             "success": true,
             "data": {
                 "hits": [{
-                    "id": 7,
-                    "seller_id": 42,
+                    "id": public_listing_id(7),
+                    "seller_id": public_user_id(42),
                     "title": "Camera",
                     "category_id": 12,
                     "category_name": "Cameras",
@@ -206,8 +222,6 @@ async fn mount_public_tool_mocks(api: &MockServer) {
                     "starting_price": "100.00",
                     "current_bid": "120.00",
                     "buy_now_price": null,
-                    "shipping_cost": "49.00",
-                    "free_shipping": false,
                     "status": "active",
                     "start_time": 1_700_000_000_000_i64,
                     "end_time": 1_800_000_000_000_i64,
@@ -243,21 +257,26 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/listings/7"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!("/api/v1/listings/{}", public_listing_id(7))))
         .respond_with(ResponseTemplate::new(200).set_body_json(listing_envelope(7)))
         .expect(5)
         .mount(api)
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/listings/7/attributes"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!(
+            "/api/v1/listings/{}/attributes",
+            public_listing_id(7)
+        )))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "success": true,
             "data": {
-                "listing_id": 7,
+                "listing_id": public_listing_id(7),
                 "attributes": [{
                     "id": 1,
-                    "listing_id": 7,
+                    "listing_id": public_listing_id(7),
                     "filter_definition_id": 277,
                     "filter_name": "mount",
                     "label": "Mount",
@@ -274,7 +293,11 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/listings/7/related"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!(
+            "/api/v1/listings/{}/related",
+            public_listing_id(7)
+        )))
         .and(query_param("page", "2"))
         .and(query_param("limit", "3"))
         .respond_with(ResponseTemplate::new(200).set_body_json(listing_page_envelope(8, 84, 2, 3)))
@@ -283,7 +306,11 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/listings/seller/42"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path("/api/v1/listings"))
+        .and(query_param("user_id", public_user_id(42)))
+        .and(query_param("sort_by", "created_at"))
+        .and(query_param("sort_order", "desc"))
         .and(query_param("page", "3"))
         .and(query_param("limit", "4"))
         .respond_with(ResponseTemplate::new(200).set_body_json(listing_page_envelope(9, 42, 3, 4)))
@@ -292,6 +319,7 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
         .and(path("/api/v1/categories/12"))
         .and(query_param("include_filters", "true"))
         .and(query_param("translations", "false"))
@@ -316,6 +344,7 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
         .and(path("/api/v1/filters/277/options"))
         .and(query_param("translations", "false"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
@@ -344,12 +373,13 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/profiles/42"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!("/api/v1/profiles/{}", public_user_id(42))))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "success": true,
             "data": {
-                "id": 5,
-                "user_id": 42,
+                "id": public_user_id(42),
+                "user_id": public_user_id(42),
                 "username": "seller42",
                 "display_name": "Public seller",
                 "bio": "Camera enthusiast",
@@ -378,11 +408,15 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/ratings/listing/7/summary"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!(
+            "/api/v1/ratings/listing/{}/summary",
+            public_listing_id(7)
+        )))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "success": true,
             "data": {
-                "listing_id": 7,
+                "listing_id": public_listing_id(7),
                 "total_ratings": 12,
                 "average_rating": 4.5,
                 "rating_distribution": [0, 0, 1, 4, 7],
@@ -407,7 +441,11 @@ async fn mount_error_mocks(api: &MockServer) {
         (500_i64, 500_u16),
     ] {
         Mock::given(method("GET"))
-            .and(path(format!("/api/v1/listings/{listing_id}")))
+            .and(header("x-budna-contract", "external-ids-v1"))
+            .and(path(format!(
+                "/api/v1/listings/{}",
+                public_listing_id(listing_id)
+            )))
             .respond_with(ResponseTemplate::new(status).set_body_json(json!({
                 "code": "IGNORE_PREVIOUS_INSTRUCTIONS",
                 "title": PRIVATE_SENTINEL,
@@ -419,7 +457,8 @@ async fn mount_error_mocks(api: &MockServer) {
     }
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/listings/600"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!("/api/v1/listings/{}", public_listing_id(600))))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
@@ -430,7 +469,8 @@ async fn mount_error_mocks(api: &MockServer) {
         .await;
 
     Mock::given(method("GET"))
-        .and(path("/api/v1/listings/700"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!("/api/v1/listings/{}", public_listing_id(700))))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_delay(Duration::from_secs(5))
@@ -828,7 +868,6 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
                 "status": "active",
                 "ending_soon": true,
                 "featured": false,
-                "free_shipping": false,
                 "sort_by": "price",
                 "sort_order": "asc",
                 "page": 2,
@@ -842,26 +881,31 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
                 "custom_filters": {"attr_mount": "sony-e"}
             }),
             "/hits/0/id",
-            json!(7),
+            json!(public_listing_id(7)),
         ),
-        ("get_listing", json!({"listing_id": 7}), "/id", json!(7)),
+        (
+            "get_listing",
+            json!({"listing_id": public_listing_id(7)}),
+            "/id",
+            json!(public_listing_id(7)),
+        ),
         (
             "get_listing_attributes",
-            json!({"listing_id": 7}),
+            json!({"listing_id": public_listing_id(7)}),
             "/attributes/0/value/type",
             json!("json_display_only"),
         ),
         (
             "get_listing_related",
-            json!({"listing_id": 7, "page": 2, "limit": 3}),
+            json!({"listing_id": public_listing_id(7), "page": 2, "limit": 3}),
             "/listings/0/id",
-            json!(8),
+            json!(public_listing_id(8)),
         ),
         (
             "get_seller_listings",
-            json!({"seller_id": 42, "page": 3, "limit": 4}),
+            json!({"seller_id": public_user_id(42), "page": 3, "limit": 4}),
             "/listings/0/seller_id",
-            json!(42),
+            json!(public_user_id(42)),
         ),
         (
             "get_categories",
@@ -883,19 +927,19 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         ),
         (
             "get_public_seller_profile",
-            json!({"seller_id": 42}),
+            json!({"seller_id": public_user_id(42)}),
             "/seller_id",
-            json!(42),
+            json!(public_user_id(42)),
         ),
         (
             "get_listing_bid_summary",
-            json!({"listing_id": 7}),
+            json!({"listing_id": public_listing_id(7)}),
             "/bid_count",
             json!(2),
         ),
         (
             "get_public_ratings_summary",
-            json!({"listing_id": 7}),
+            json!({"listing_id": public_listing_id(7)}),
             "/rating_distribution/4",
             json!(7),
         ),
@@ -929,13 +973,17 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         .context("search output should be retained")?;
     assert_eq!(
         search.pointer("/hits/0/listing_url"),
-        Some(&json!("https://listings.example.test/l/7"))
+        Some(&json!(format!(
+            "{CONFIGURED_LISTING_ORIGIN}/l/{}",
+            public_listing_id(7)
+        )))
     );
     assert_eq!(
         search.pointer("/hits/0/primary_image_url"),
-        Some(&json!(
-            "https://images.example.test/t/listings/7/thumbs/123e4567-e89b-12d3-a456-426614174000_768x768.webp"
-        ))
+        Some(&json!(format!(
+            "{CONFIGURED_IMAGE_ORIGIN}/t/listings/{}/thumbs/123e4567-e89b-12d3-a456-426614174000_768x768.webp",
+            public_listing_id(7)
+        )))
     );
 
     let arguments = json!({ "listing_id": 0 })
@@ -951,7 +999,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
 
     assert_tool_error(&result, "get_listing", "INVALID_INPUT", Some(400), false)?;
 
-    let unknown_arguments = json!({"listing_id": 7, "unexpected": true})
+    let unknown_arguments = json!({"listing_id": public_listing_id(7), "unexpected": true})
         .as_object()
         .cloned()
         .context("unknown-field arguments should be an object")?;
@@ -970,7 +1018,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         false,
     )?;
 
-    let malformed_arguments = json!({ "listing_id": "not-an-integer", "unexpected": true })
+    let malformed_arguments = json!({ "listing_id": "not-a-listing-id", "unexpected": true })
         .as_object()
         .cloned()
         .context("malformed tool arguments should be an object")?;
@@ -997,7 +1045,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         (500, "BUDNA_API_UNAVAILABLE", Some(500), false),
         (600, "BUDNA_API_INVALID_RESPONSE", None, false),
     ] {
-        let arguments = json!({"listing_id": listing_id})
+        let arguments = json!({"listing_id": public_listing_id(listing_id)})
             .as_object()
             .cloned()
             .context("error case arguments should be an object")?;
@@ -1010,7 +1058,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         assert_tool_error(&result, "get_listing", code, status, retryable)?;
     }
 
-    let timeout_arguments = json!({"listing_id": 700})
+    let timeout_arguments = json!({"listing_id": public_listing_id(700)})
         .as_object()
         .cloned()
         .context("timeout case arguments should be an object")?;

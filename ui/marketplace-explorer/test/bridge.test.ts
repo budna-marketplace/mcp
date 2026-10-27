@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { McpAppBridge, type BridgeHandlers } from "@budna-ui/bridge";
-import { searchResult } from "./fixtures";
+import { listingId, searchResult } from "./fixtures";
 
 interface SentMessage {
   id?: number | string;
@@ -40,7 +40,7 @@ async function connect(h: ReturnType<typeof harness>): Promise<void> {
   const initialize = h.sent[0];
   expect(initialize?.method).toBe("ui/initialize");
   expect(initialize?.params).toMatchObject({
-    appInfo: { name: "Budna Marketplace Explorer", version: "0.2.0" },
+    appInfo: { name: "Budna Marketplace Explorer", version: "0.3.0" },
     protocolVersion: "2026-01-26",
   });
   h.receive({
@@ -84,11 +84,13 @@ describe("McpAppBridge", () => {
   it("forwards tool calls and validates their result", async () => {
     const h = harness();
     await connect(h);
-    const pending = h.bridge.callTool("get_listing", { listing_id: 42 });
+    const pending = h.bridge.callTool("get_listing", {
+      listing_id: listingId(42),
+    });
     const call = h.sent.at(-1);
     expect(call).toMatchObject({
       method: "tools/call",
-      params: { arguments: { listing_id: 42 }, name: "get_listing" },
+      params: { arguments: { listing_id: listingId(42) }, name: "get_listing" },
     });
     h.receive({ id: call?.id, jsonrpc: "2.0", result: searchResult() });
     await expect(pending).resolves.toMatchObject({
@@ -136,7 +138,7 @@ describe("McpAppBridge", () => {
     await connect(h);
 
     const open = h.bridge.openLink(
-      "https://budna.se/l/42?utm_source=budna_mcp",
+      `https://budna.se/l/${listingId(42)}?utm_source=budna_mcp`,
     );
     let request = h.sent.at(-1);
     expect(request?.method).toBe("ui/open-link");

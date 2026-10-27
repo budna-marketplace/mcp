@@ -2,6 +2,12 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 const IMAGE_ID = "0190cafe-0000-7000-8000-000000000001";
 
+export const listingId = (id: number): string =>
+  `listing_00000000-0000-4000-8000-${id.toString(16).padStart(12, "0")}`;
+
+export const userId = (id: number): string =>
+  `user_00000000-0000-4000-8000-${id.toString(16).padStart(12, "0")}`;
+
 export function listing(
   id: number,
   overrides: Record<string, unknown> = {},
@@ -15,14 +21,14 @@ export function listing(
     end_time: 1_900_000_000_000,
     free_shipping: false,
     has_bids: true,
-    id,
+    id: listingId(id),
     image_urls: [
-      `https://images.budna.se/t/listings/${id}/thumbs/${IMAGE_ID}_768x768.webp`,
+      `https://images.budna.se/t/listings/${listingId(id)}/thumbs/${IMAGE_ID}_768x768.webp`,
     ],
     listing_type: "auction",
-    listing_url: `https://budna.se/l/${id}`,
-    primary_image_url: `https://images.budna.se/t/listings/${id}/thumbs/${IMAGE_ID}_768x768.webp`,
-    seller_id: 900 + id,
+    listing_url: `https://budna.se/l/${listingId(id)}`,
+    primary_image_url: `https://images.budna.se/t/listings/${listingId(id)}/thumbs/${IMAGE_ID}_768x768.webp`,
+    seller_id: userId(900 + id),
     shipping_cost: { amount: "79.00", currency_code: "NOK" },
     starting_price: { amount: "1000.00", currency_code: "NOK" },
     status: "active",

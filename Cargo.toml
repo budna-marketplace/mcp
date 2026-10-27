@@ -9,7 +9,7 @@ resolver = "3"
 
 [workspace.package]
 authors = ["Marcus Cvjeticanin <mjovanc@icloud.com>"]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "MCP tools for the Budna marketplace API"
 license = "MIT"
@@ -32,9 +32,9 @@ unwrap_used = "deny"
 [workspace.dependencies]
 anyhow = "1"
 axum = "0.8"
-budna-mcp-client = { version = "0.2.0", path = "crates/budna-mcp-client" }
-budna-mcp-core = { version = "0.2.0", path = "crates/budna-mcp-core" }
-budna-mcp-server = { version = "0.2.0", path = "crates/budna-mcp-server" }
+budna-mcp-client = { version = "0.3.0", path = "crates/budna-mcp-client" }
+budna-mcp-core = { version = "0.3.0", path = "crates/budna-mcp-core" }
+budna-mcp-server = { version = "0.3.0", path = "crates/budna-mcp-server" }
 clap = { version = "4", features = ["derive", "env"] }
 http = "1"
 httpdate = "1"
