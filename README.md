@@ -14,7 +14,7 @@ Use public Budna marketplace data from any compatible MCP client. Budna MCP is r
 brew install budna-marketplace/tap/budna-mcp
 ```
 
-Homebrew installs Rust automatically and builds from source. Production is the default.
+Homebrew installs Rust automatically and builds from source.
 
 ### Cargo
 
