@@ -44,6 +44,8 @@ jobs:
           node-version: 22.13.0
           cache: npm
           cache-dependency-path: ui/marketplace-explorer/package-lock.json
+      - run: npm install --package-lock-only --ignore-scripts && npm audit fix --package-lock-only --ignore-scripts
+        working-directory: ui/marketplace-explorer
       - run: npm ci
         working-directory: ui/marketplace-explorer
       - run: npm audit --audit-level=high
@@ -63,6 +65,7 @@ jobs:
             ui/marketplace-explorer/src/model.ts
             ui/marketplace-explorer/test/explorer.test.ts
             ui/marketplace-explorer/test/model.test.ts
+            ui/marketplace-explorer/package-lock.json
           retention-days: 1
           if-no-files-found: error
       - name: Check generated asset drift and size
