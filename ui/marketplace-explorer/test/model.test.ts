@@ -59,6 +59,42 @@ describe("marketplace result normalization", () => {
     });
   });
 
+  it.each(["9".repeat(65), `0.${"0".repeat(125)}1`])(
+    "preserves long decimal amounts in displayed and comparison prices: %s",
+    (amount) => {
+      const price = { amount, currency_code: "NOK" };
+      const normalized = normalizeToolResult(
+        searchResult([
+          listing(1, { current_bid: price, shipping_cost: price }),
+          listing(2, { current_bid: price }),
+        ]),
+        { arguments: {}, name: "search_listings" },
+      );
+      if (!normalized.ok || normalized.view.kind !== "collection") {
+        throw new Error("Synthetic listings should normalize");
+      }
+      const first = normalized.view.listings[0];
+      if (!first) throw new Error("Synthetic listing should be present");
+      expect(displayedPrice(first).money.amount).toBe(amount);
+      expect(first.shippingCost?.amount).toBe(amount);
+      expect(
+        comparisonPayload(normalized.view.listings)?.listings[0]?.price.amount,
+      ).toBe(amount);
+    },
+  );
+
+  it.each(["1".repeat(129), `${"1".repeat(64)}x`])(
+    "rejects invalid amounts instead of accepting a truncated prefix: %s",
+    (amount) => {
+      expect(
+        normalizeToolResult(
+          detailResult(1, { starting_price: { amount, currency_code: "NOK" } }),
+          { arguments: { listing_id: 1 }, name: "get_listing" },
+        ),
+      ).toEqual({ ok: false, reason: "malformed" });
+    },
+  );
+
   it("recognizes seller collection results", () => {
     const normalized = normalizeToolResult(collectionResult([listing(8)]), {
       arguments: { seller_id: 908 },
@@ -131,6 +167,30 @@ describe("marketplace result normalization", () => {
     if (!normalized.ok || normalized.view.kind !== "detail") return;
     expect(normalized.view.listing.description).toBe(hostile);
     expect(normalized.view.listing.title).toBe(hostile);
+  });
+
+  it.each([8_640_000_000_000_001, Number.MAX_SAFE_INTEGER])(
+    "rejects timestamps outside the Date range: %s",
+    (endTime) => {
+      expect(
+        normalizeToolResult(detailResult(1, { end_time: endTime }), {
+          arguments: { listing_id: 1 },
+          name: "get_listing",
+        }),
+      ).toEqual({ ok: false, reason: "malformed" });
+    },
+  );
+
+  it("accepts the maximum valid Date timestamp", () => {
+    expect(
+      normalizeToolResult(
+        detailResult(1, { end_time: 8_640_000_000_000_000 }),
+        {
+          arguments: { listing_id: 1 },
+          name: "get_listing",
+        },
+      ),
+    ).toMatchObject({ ok: true });
   });
 
   it("rejects unapproved listing URLs and drops unapproved image URLs", () => {

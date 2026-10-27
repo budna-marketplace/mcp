@@ -14,11 +14,11 @@ documentation contributions excluding specifications are CC-BY-4.0.
 Copyright the respective Model Context Protocol contributors.
 https://github.com/modelcontextprotocol/ext-apps
 
-@modelcontextprotocol/sdk 1.29.0 — MIT License
+@modelcontextprotocol/sdk 1.32.2 — MIT License
 Copyright 2024 Anthropic, PBC.
 https://github.com/modelcontextprotocol/typescript-sdk
 
-zod 4.1.13 — MIT License
+zod 4.6.7 — MIT License
 Copyright Colin McDonnell.
 https://github.com/colinhacks/zod
 
@@ -29,7 +29,7 @@ typescript 5.9.3 — Apache License 2.0
 Copyright Microsoft Corporation.
 https://github.com/microsoft/TypeScript
 
-vite 6.4.3 — MIT License
+vite 6.4.5 — MIT License
 Copyright 2019-present, VoidZero Inc. and Vite contributors.
 https://github.com/vitejs/vite
 
@@ -37,7 +37,7 @@ vite-plugin-singlefile 2.3.3 — MIT License
 Copyright 2021-present, Richard S. Tallent, II.
 https://github.com/richardtallent/vite-plugin-singlefile
 
-vitest 4.1.10 — MIT License
+vitest 4.1.12 — MIT License
 Copyright 2021-present, VoidZero Inc. and Vitest contributors.
 https://github.com/vitest-dev/vitest
 

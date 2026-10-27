@@ -88,6 +88,7 @@ export class MarketplaceExplorer {
   #loading = true;
   #locale: SupportedLocale = "en";
   #pendingResult?: CallToolResult;
+  #requestGeneration = 0;
   #selected = new Map<number, Listing>();
   #status?: StatusMessage;
   #timeZone?: string;
@@ -109,6 +110,7 @@ export class MarketplaceExplorer {
   }
 
   receiveToolResult(result: CallToolResult): void {
+    this.#requestGeneration++;
     if (!this.#connected) {
       this.#pendingResult = result;
       return;
@@ -118,6 +120,7 @@ export class MarketplaceExplorer {
   }
 
   receiveCancellation(): void {
+    this.#requestGeneration++;
     this.#loading = false;
     this.#status = { kind: "warning", key: "cancelled" };
     this.render();
@@ -243,13 +246,16 @@ export class MarketplaceExplorer {
       this.render();
       return;
     }
+    const generation = ++this.#requestGeneration;
     this.#loading = true;
     this.#status = undefined;
     this.render();
     try {
       const result = await this.#bridge.callTool(source.name, source.arguments);
+      if (generation !== this.#requestGeneration) return;
       this.#applyResult(result, source, mode);
     } catch {
+      if (generation !== this.#requestGeneration) return;
       this.#loading = false;
       this.#status = { kind: "error", key: "toolError" };
       this.render();
@@ -892,7 +898,7 @@ export class MarketplaceExplorer {
     const source: ToolSource = {
       arguments: {
         ...view.source.arguments,
-        limit: Math.min(requestedLimit, remaining),
+        limit: requestedLimit,
         page: view.page + 1,
       },
       name: view.source.name,
@@ -1060,6 +1066,8 @@ export class MarketplaceExplorer {
   #goBack(): void {
     const previous = this.#history.at(-1);
     if (!previous) return;
+    this.#requestGeneration++;
+    this.#loading = false;
     this.#history = this.#history.slice(0, -1);
     this.#view = previous;
     this.#status = undefined;

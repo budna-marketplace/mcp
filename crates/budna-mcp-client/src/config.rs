@@ -95,7 +95,7 @@ fn normalize_api_base_url(raw: &str) -> Result<Url, ClientConfigError> {
 }
 
 fn is_loopback_host(url: &Url) -> bool {
-    matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "::1"))
+    matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"))
 }
 
 #[derive(Debug, Error)]
@@ -199,6 +199,28 @@ mod tests {
             ClientConfig::new("https://example.test?token=secret"),
             Err(ClientConfigError::QueryOrFragmentInBaseUrl)
         ));
+    }
+
+    #[test]
+    fn ipv6_loopback_http_is_allowed_without_allowing_remote_ipv6() {
+        for base_url in ["http://[::1]:8080", "http://[0:0:0:0:0:0:0:1]:8080"] {
+            let config = ClientConfig::new(base_url)
+                .unwrap_or_else(|error| panic!("loopback URL should parse: {error}"));
+            assert_eq!(config.base_url().as_str(), "http://[::1]:8080/api/v1/");
+            let endpoint = config.endpoint("search/listings").unwrap_or_else(|error| {
+                panic!("endpoint should join: {error}");
+            });
+            assert_eq!(
+                endpoint.as_str(),
+                "http://[::1]:8080/api/v1/search/listings"
+            );
+        }
+        for base_url in ["http://[::2]:8080", "http://[2001:db8::1]:8080"] {
+            assert!(matches!(
+                ClientConfig::new(base_url),
+                Err(ClientConfigError::InsecureRemoteHttp)
+            ));
+        }
     }
 
     #[test]
