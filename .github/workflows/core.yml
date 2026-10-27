@@ -44,7 +44,9 @@ jobs:
           node-version: 22.13.0
           cache: npm
           cache-dependency-path: ui/marketplace-explorer/package-lock.json
-      - run: npm install --package-lock-only --ignore-scripts && npm audit fix --package-lock-only --ignore-scripts
+      - run: |
+          rm package-lock.json
+          npm install --package-lock-only --ignore-scripts
         working-directory: ui/marketplace-explorer
       - run: npm ci
         working-directory: ui/marketplace-explorer
