@@ -198,7 +198,7 @@ checksum = "b4388bee8683e3d04af747c73422af53102d2bd24d9eadb6cbc100baef4b43f8"
 
 [[package]]
 name = "budna-mcp"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -220,7 +220,7 @@ dependencies = [
 
 [[package]]
 name = "budna-mcp-client"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "httpdate",
  "reqwest",
@@ -235,7 +235,7 @@ dependencies = [
 
 [[package]]
 name = "budna-mcp-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "http",
  "thiserror",
@@ -244,7 +244,7 @@ dependencies = [
 
 [[package]]
 name = "budna-mcp-server"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "budna-mcp-client",
  "budna-mcp-core",

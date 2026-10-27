@@ -116,9 +116,7 @@ jobs:
       - run: cargo install cargo-deny --version 0.19.0 --locked
       - run: cargo deny check
       - uses: dtolnay/rust-toolchain@ff7f6a3374ce205788da40198ec918bd5d67aea7
-        if: inputs.release
-      - run: cargo publish --workspace --locked --dry-run
-        if: inputs.release
+      - run: cargo +1.99.0 publish --workspace --locked --dry-run
 
   cross-platform:
     name: Check ${{ matrix.os }}
