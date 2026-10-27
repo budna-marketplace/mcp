@@ -4,6 +4,7 @@ import type {
   McpUiHostContext,
 } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import wordmarkUrl from "./assets/budna-wordmark.svg";
 import {
   supportedLocale,
   translate,
@@ -265,13 +266,15 @@ export class MarketplaceExplorer {
   #renderHeader(): HTMLElement {
     const header = node("header", "topbar");
     const identity = node("div", "identity");
-    const mark = node("span", "brand-mark", "B");
-    mark.setAttribute("aria-hidden", "true");
+    const mark = node("img", "brand-wordmark");
+    mark.src = wordmarkUrl;
+    mark.alt = "Budna";
+    mark.width = 92;
+    mark.height = 24;
     const titles = node("div", "title-group");
-    const eyebrow = node("p", "eyebrow", "Budna");
     const title = node("h1", "view-title", this.#viewTitle());
     title.id = "explorer-title";
-    titles.append(eyebrow, title);
+    titles.append(title);
     identity.append(mark, titles);
 
     const actions = node("div", "topbar-actions");
@@ -340,10 +343,7 @@ export class MarketplaceExplorer {
 
   #renderEmpty(key: TranslationKey): HTMLElement {
     const panel = node("section", "state-panel");
-    panel.append(
-      node("span", "empty-mark", "B"),
-      node("p", "state-title", this.#t(key)),
-    );
+    panel.append(node("p", "state-title", this.#t(key)));
     return panel;
   }
 

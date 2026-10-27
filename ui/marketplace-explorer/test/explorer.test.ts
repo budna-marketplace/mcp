@@ -106,6 +106,26 @@ function deferredResult() {
 }
 
 describe("MarketplaceExplorer", () => {
+  it("keeps the Budna brand and a named heading in every view", async () => {
+    const { root } = renderSearch();
+    const expectBrand = () => {
+      expect(root.querySelector<HTMLImageElement>("header img")?.alt).toBe(
+        "Budna",
+      );
+      const heading = root.querySelector("h1");
+      expect(heading?.textContent).toBeTruthy();
+      expect(root.querySelector("main")?.getAttribute("aria-labelledby")).toBe(
+        heading?.id,
+      );
+    };
+    expectBrand();
+    root.querySelector<HTMLButtonElement>(".title-button")?.click();
+    await vi.waitFor(() =>
+      expect(root.querySelector(".detail")).not.toBeNull(),
+    );
+    expectBrand();
+  });
+
   it("renders hostile marketplace text as text, never as markup", () => {
     const hostile = '<img data-hostile="true" src=x>Hej 👋';
     const { root } = renderSearch(
