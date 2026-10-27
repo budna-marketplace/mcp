@@ -80,7 +80,8 @@ fn resource_meta(public_urls: &PublicUrlSettings) -> Meta {
         json!({
             "prefersBorder": true,
             "csp": {
-                "resourceDomains": [public_urls.image_origin()]
+                // Bundled WOFF2 fonts use data URLs under the host's font-src policy.
+                "resourceDomains": [public_urls.image_origin(), "data:"]
             }
         }),
     );
@@ -158,7 +159,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("resource metadata should serialize: {error}"));
         assert_eq!(
             metadata.pointer("/ui/csp/resourceDomains"),
-            Some(&json!([DEFAULT_IMAGE_ORIGIN]))
+            Some(&json!([DEFAULT_IMAGE_ORIGIN, "data:"]))
         );
         assert_eq!(metadata.pointer("/ui/prefersBorder"), Some(&json!(true)));
         assert!(metadata.pointer("/ui/csp/connectDomains").is_none());
@@ -197,7 +198,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("resource metadata should serialize: {error}"));
         assert_eq!(
             metadata.pointer("/ui/csp/resourceDomains"),
-            Some(&json!(["https://images.example.test"]))
+            Some(&json!(["https://images.example.test", "data:"]))
         );
 
         let read = read_resource(APP_RESOURCE_URI, &public_urls)

@@ -774,7 +774,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         .context("resource metadata should serialize")?;
     assert_eq!(
         resource_metadata.pointer("/ui/csp/resourceDomains"),
-        Some(&json!([CONFIGURED_IMAGE_ORIGIN]))
+        Some(&json!([CONFIGURED_IMAGE_ORIGIN, "data:"]))
     );
     assert_eq!(
         resource_metadata.pointer("/ui/prefersBorder"),
