@@ -2,108 +2,54 @@ name: release
 
 on:
   release:
-    types: [published]
+    types: [released]
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
-  group: crates-io-release
+  group: release
   cancel-in-progress: false
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  publish:
-    name: Publish crates.io workspace
+  verify:
+    uses: ./.github/workflows/core.yml
+
+  cargo:
+    needs: verify
+    environment: cargo
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           ref: ${{ github.event.release.tag_name }}
-          fetch-depth: 0
           persist-credentials: false
-      - run: python3 scripts/check_public_surface.py
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+      - uses: dtolnay/rust-toolchain@4e529fb27e59237866a6523e61ab248308c068b4
+      - uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18
+        id: auth
+      - uses: katyo/publish-crates@02cc2f1ad653fb25c7d1ff9eb590a8a50d06186b
         with:
-          node-version: 22.13.0
-          cache: npm
-          cache-dependency-path: ui/marketplace-explorer/package-lock.json
-      - run: npm ci
-        working-directory: ui/marketplace-explorer
-      - run: npm audit --audit-level=high
-        working-directory: ui/marketplace-explorer
-      - run: npm run check
-        working-directory: ui/marketplace-explorer
-      - run: npm run build
-        working-directory: ui/marketplace-explorer
-      - name: Check generated asset drift and size
-        run: |
-          git diff --exit-code -- crates/budna-mcp-server/assets
-          test "$(wc -c < crates/budna-mcp-server/assets/marketplace-explorer-v1.html)" -le 307200
-          test -s crates/budna-mcp-server/assets/THIRD_PARTY_NOTICES.txt
-      - uses: dtolnay/rust-toolchain@4e529fb27e59237866a6523e61ab248308c068b4 # 1.88.0
+          registry-token: ${{ steps.auth.outputs.token }}
+          args: --locked
+
+  brew:
+    needs: cargo
+    environment: brew
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: mislav/bump-homebrew-formula-action@f865c8b0dbebd6e263cc06782a0e974c61cf12d2
         with:
-          components: clippy,rustfmt
-      - run: cargo fmt --all -- --check
-      - run: cargo check --workspace --all-targets --all-features --locked
-      - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-      - run: cargo test --workspace --all-features --locked
-      - run: cargo doc --workspace --all-features --no-deps --locked
+          formula-name: budna-mcp
+          homebrew-tap: budna-marketplace/homebrew-tap
+          push-to: budna-marketplace/homebrew-tap
+          tag-name: ${{ github.event.release.tag_name }}
+          create-pullrequest: false
+          create-branch: false
         env:
-          RUSTDOCFLAGS: -D warnings
-      - run: cargo install cargo-deny --version 0.19.0 --locked
-      - run: cargo deny check
-      - name: Verify package contents
-        run: |
-          for crate in budna-mcp-core budna-mcp-client budna-mcp-server budna-mcp; do
-            cmp --silent LICENSE "crates/$crate/LICENSE"
-            files="$(cargo package --package "$crate" --list --locked)"
-            grep --fixed-strings --line-regexp --quiet LICENSE <<<"$files"
-            if [[ "$crate" == "budna-mcp-server" ]]; then
-              grep --fixed-strings --line-regexp --quiet assets/marketplace-explorer-v1.html <<<"$files"
-              grep --fixed-strings --line-regexp --quiet assets/THIRD_PARTY_NOTICES.txt <<<"$files"
-            fi
-          done
-      - name: Verify release tag
-        id: release
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          version="$(cargo metadata --format-version 1 --no-deps | python3 -c 'import json, sys; print(next(package["version"] for package in json.load(sys.stdin)["packages"] if package["name"] == "budna-mcp"))')"
-          if [[ "$RELEASE_TAG" != "v${version}" ]]; then
-            echo "Release tag ${RELEASE_TAG} does not match workspace version v${version}" >&2
-            exit 1
-          fi
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-      - name: Select crates.io authentication
-        id: crates-io-auth-mode
-        env:
-          STATIC_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          if [[ -n "$STATIC_TOKEN" ]]; then
-            echo "mode=secret" >> "$GITHUB_OUTPUT"
-            echo "Using repository secret CARGO_REGISTRY_TOKEN for crates.io publishing"
-          else
-            echo "mode=trusted-publishing" >> "$GITHUB_OUTPUT"
-            echo "Using crates.io trusted publishing for crates.io publishing"
-          fi
-      - name: Authenticate with crates.io trusted publishing
-        id: crates-io-auth
-        if: steps.crates-io-auth-mode.outputs.mode == 'trusted-publishing'
-        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
-      - name: Publish in dependency order
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.crates-io-auth.outputs.token }}
-          WORKSPACE_VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          if [[ -z "${CARGO_REGISTRY_TOKEN:-}" ]]; then
-            echo "No crates.io token is available. Configure trusted publishing or set CARGO_REGISTRY_TOKEN." >&2
-            exit 1
-          fi
-          for crate in budna-mcp-core budna-mcp-client budna-mcp-server budna-mcp; do
-            bash .github/scripts/publish-crate.sh "$crate" "$WORKSPACE_VERSION"
-          done
+          GITHUB_TOKEN: ${{ github.token }}
+          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
