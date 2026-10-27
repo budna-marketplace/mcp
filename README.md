@@ -1,11 +1,22 @@
 # Budna MCP
 
-[![build](https://img.shields.io/github/actions/workflow/status/budna-marketplace/budna-mcp/core.yml?branch=main)](https://github.com/budna-marketplace/budna-mcp/actions/workflows/core.yml)
+[![build](https://img.shields.io/github/actions/workflow/status/budna-marketplace/mcp/core.yml?branch=main)](https://github.com/budna-marketplace/mcp/actions/workflows/core.yml)
 [![crates.io](https://img.shields.io/crates/v/budna-mcp.svg)](https://crates.io/crates/budna-mcp)
+[![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbudna-marketplace%2Fhomebrew-tap%2Fmain%2FFormula%2Fbudna-mcp.rb&search=version+%22%28%5B%5E%22%5D%2B%29%22&replace=v%241&label=Homebrew&logo=homebrew&logoColor=white&color=FBB040)](https://github.com/budna-marketplace/homebrew-tap)
 
 Use public Budna marketplace data from any compatible MCP client. Budna MCP is read-only: it does not require an account or API key, and it cannot change marketplace data.
 
 ## Quick start
+
+### Homebrew
+
+```bash
+brew install budna-marketplace/tap/budna-mcp
+```
+
+Homebrew installs Rust automatically and builds from source. Production is the default.
+
+### Cargo
 
 You need [Rust 1.88 or newer](https://rustup.rs/).
 
