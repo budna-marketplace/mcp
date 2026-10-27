@@ -71,7 +71,7 @@ interface ListingSignals {
 
 interface DetailResearch {
   attributes: ResearchPanel<ListingAttributes>;
-  listingId: number;
+  listingId: string;
   seller: ResearchPanel<SellerProfile>;
   signals: ResearchPanel<ListingSignals>;
 }
@@ -90,7 +90,7 @@ export class MarketplaceExplorer {
   #locale: SupportedLocale = "en";
   #pendingResult?: CallToolResult;
   #requestGeneration = 0;
-  #selected = new Map<number, Listing>();
+  #selected = new Map<string, Listing>();
   #status?: StatusMessage;
   #timeZone?: string;
   #view?: ExplorerView;
@@ -613,7 +613,7 @@ export class MarketplaceExplorer {
 
     const panels = node("div", "research-panels");
     const attributesPanel = this.#renderAttributesResearch(research.attributes);
-    const signalsPanel = this.#renderSignalsResearch(research.signals);
+    const signalsPanel = this.#renderSignalsResearch(research.signals, listing);
     const sellerPanel = this.#renderSellerResearch(research.seller);
     if (attributesPanel) panels.append(attributesPanel);
     if (signalsPanel) panels.append(signalsPanel);
@@ -652,6 +652,7 @@ export class MarketplaceExplorer {
 
   #renderSignalsResearch(
     research: ResearchPanel<ListingSignals>,
+    listing: Listing,
   ): HTMLElement | undefined {
     if (research.status === "idle") return undefined;
     const panel = this.#researchPanel(
@@ -682,11 +683,13 @@ export class MarketplaceExplorer {
         signals.bids.bidCount.toLocaleString(this.#locale),
       );
     }
-    this.#definition(
-      facts,
-      this.#t("reserveStatus"),
-      this.#t(signals.bids.reservePriceMet ? "reserveMet" : "reserveNotMet"),
-    );
+    if (listing.listingType.includes("auction")) {
+      this.#definition(
+        facts,
+        this.#t("reserveStatus"),
+        this.#t(signals.bids.reservePriceMet ? "reserveMet" : "reserveNotMet"),
+      );
+    }
     this.#definition(
       facts,
       this.#t("averageRating"),

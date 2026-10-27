@@ -18,6 +18,8 @@ import {
   collectionResult,
   detailResult,
   listing,
+  listingId,
+  userId,
   searchResult,
 } from "./fixtures";
 
@@ -35,6 +37,8 @@ describe("marketplace result normalization", () => {
 
     expect(normalized.ok).toBe(true);
     if (!normalized.ok || normalized.view.kind !== "collection") return;
+    expect(normalized.view.listings[0]?.id).toBe(listingId(1));
+    expect(normalized.view.listings[0]?.sellerId).toBe(userId(901));
     expect(normalized.view.listings[0]?.currentBid).toEqual({
       amount: "1250.50",
       currency_code: "NOK",
@@ -44,11 +48,30 @@ describe("marketplace result normalization", () => {
     );
   });
 
+  it.each([
+    { id: 1 },
+    { id: "1" },
+    { seller_id: 901 },
+    { id: userId(1) },
+    { seller_id: listingId(901) },
+    { id: listingId(1).toUpperCase() },
+    { id: listingId(1).replace("-4000-", "-7000-") },
+    { id: listingId(1).replace("-8000-", "-7000-") },
+    { listing_url: `https://budna.se/l/${listingId(2)}` },
+  ])("rejects invalid or mismatched public identifiers: %j", (overrides) => {
+    expect(
+      normalizeToolResult(searchResult([listing(1, overrides)]), {
+        arguments: {},
+        name: "search_listings",
+      }),
+    ).toEqual({ ok: false, reason: "malformed" });
+  });
+
   it("normalizes collection pagination and its source", () => {
     const normalized = normalizeToolResult(
       collectionResult([listing(7)], 2, 4),
       {
-        arguments: { listing_id: 3, page: 2 },
+        arguments: { listing_id: listingId(3), page: 2 },
         name: "get_listing_related",
       },
     );
@@ -89,7 +112,7 @@ describe("marketplace result normalization", () => {
       expect(
         normalizeToolResult(
           detailResult(1, { starting_price: { amount, currency_code: "NOK" } }),
-          { arguments: { listing_id: 1 }, name: "get_listing" },
+          { arguments: { listing_id: listingId(1) }, name: "get_listing" },
         ),
       ).toEqual({ ok: false, reason: "malformed" });
     },
@@ -97,7 +120,7 @@ describe("marketplace result normalization", () => {
 
   it("recognizes seller collection results", () => {
     const normalized = normalizeToolResult(collectionResult([listing(8)]), {
-      arguments: { seller_id: 908 },
+      arguments: { seller_id: userId(908) },
       name: "get_seller_listings",
     });
     expect(normalized).toMatchObject({
@@ -153,12 +176,35 @@ describe("marketplace result normalization", () => {
     });
   });
 
+  it.each(["fixed_price", "in_stock"])(
+    "labels the %s sale price as buy now when no separate buy-now price exists",
+    (listingType) => {
+      const normalized = normalizeToolResult(
+        searchResult([
+          listing(1, {
+            buy_now_price: null,
+            current_bid: null,
+            listing_type: listingType,
+          }),
+        ]),
+        { arguments: {}, name: "search_listings" },
+      );
+      if (!normalized.ok || normalized.view.kind !== "collection") {
+        throw new Error("Synthetic listing should normalize");
+      }
+      expect(displayedPrice(normalized.view.listings[0]!)).toEqual({
+        kind: "buy_now",
+        money: { amount: "1000.00", currency_code: "NOK" },
+      });
+    },
+  );
+
   it("normalizes detail-only fields while keeping hostile text as plain data", () => {
     const hostile = '<img src=x onerror="alert(1)">Hej 👋';
     const normalized = normalizeToolResult(
       detailResult(4, { description: hostile, title: hostile }),
       {
-        arguments: { listing_id: 4 },
+        arguments: { listing_id: listingId(4) },
         name: "get_listing",
       },
     );
@@ -174,7 +220,7 @@ describe("marketplace result normalization", () => {
     (endTime) => {
       expect(
         normalizeToolResult(detailResult(1, { end_time: endTime }), {
-          arguments: { listing_id: 1 },
+          arguments: { listing_id: listingId(1) },
           name: "get_listing",
         }),
       ).toEqual({ ok: false, reason: "malformed" });
@@ -186,7 +232,7 @@ describe("marketplace result normalization", () => {
       normalizeToolResult(
         detailResult(1, { end_time: 8_640_000_000_000_000 }),
         {
-          arguments: { listing_id: 1 },
+          arguments: { listing_id: listingId(1) },
           name: "get_listing",
         },
       ),
@@ -196,7 +242,7 @@ describe("marketplace result normalization", () => {
   it("rejects unapproved listing URLs and drops unapproved image URLs", () => {
     const badListing = searchResult([
       listing(1, {
-        listing_url: "https://example.invalid/l/1",
+        listing_url: `https://example.invalid/l/${listingId(1)}`,
       }),
     ]);
     expect(
@@ -222,13 +268,12 @@ describe("marketplace result normalization", () => {
   });
 
   it("accepts only URLs from an injected alternate HTTPS origin", () => {
-    const imageUrl =
-      "https://media.example.com/t/listings/12/thumbs/0190cafe-0000-7000-8000-000000000001_768x768.webp";
+    const imageUrl = `https://media.example.com/t/listings/${listingId(12)}/thumbs/0190cafe-0000-7000-8000-000000000001_768x768.webp`;
     const normalized = normalizeToolResult(
       searchResult([
         listing(12, {
           image_urls: [imageUrl],
-          listing_url: "https://market.example.com/l/12",
+          listing_url: `https://market.example.com/l/${listingId(12)}`,
           primary_image_url: imageUrl,
         }),
       ]),
@@ -240,7 +285,7 @@ describe("marketplace result normalization", () => {
       view: {
         listings: [
           {
-            listingUrl: "https://market.example.com/l/12",
+            listingUrl: `https://market.example.com/l/${listingId(12)}`,
             primaryImageUrl: imageUrl,
           },
         ],
@@ -248,12 +293,12 @@ describe("marketplace result normalization", () => {
     });
     expect(
       attributedListingUrl(
-        "https://market.example.com/l/12",
+        `https://market.example.com/l/${listingId(12)}`,
         ALTERNATE_PUBLIC_ORIGINS,
       ),
     ).toContain("utm_source=budna_mcp");
     expect(
-      attributedListingUrl("https://market.example.com/l/12"),
+      attributedListingUrl(`https://market.example.com/l/${listingId(12)}`),
     ).toBeUndefined();
   });
 
@@ -283,13 +328,13 @@ describe("marketplace result normalization", () => {
             {
               display_value: "Black",
               label: "Colour",
-              listing_id: 5,
+              listing_id: listingId(5),
             },
           ],
-          listing_id: 5,
+          listing_id: listingId(5),
           truncated: false,
         },
-        5,
+        listingId(5),
       ),
     ).toEqual({
       attributes: [{ displayValue: "Black", label: "Colour" }],
@@ -300,21 +345,21 @@ describe("marketplace result normalization", () => {
         {
           bid_count: 0,
           current_bid: null,
-          listing_id: 5,
+          listing_id: listingId(5),
           reserve_price_met: false,
         },
-        5,
+        listingId(5),
       ),
     ).toEqual({ bidCount: 0, currentBid: undefined, reservePriceMet: false });
     expect(
       normalizeListingRatingSummary(
         {
           average_rating: 4.5,
-          listing_id: 5,
+          listing_id: listingId(5),
           positive_percentage: 92.5,
           total_ratings: 12,
         },
-        5,
+        listingId(5),
       ),
     ).toEqual({
       averageRating: 4.5,
@@ -329,11 +374,11 @@ describe("marketplace result normalization", () => {
           identity_verified: true,
           is_company: false,
           rating: "4.9",
-          seller_id: 9,
+          seller_id: userId(9),
           sold_items_count: 3,
           total_ratings: 7,
         },
-        9,
+        userId(9),
       ),
     ).toMatchObject({
       categories: ["Cameras"],
@@ -349,11 +394,11 @@ describe("marketplace result normalization", () => {
           identity_verified: true,
           is_company: false,
           rating: "4.9",
-          seller_id: 10,
+          seller_id: userId(10),
           sold_items_count: 3,
           total_ratings: 7,
         },
-        9,
+        userId(9),
       ),
     ).toBeUndefined();
   });
@@ -375,7 +420,7 @@ describe("bounded interaction data", () => {
     if (!base) return;
     const many = Array.from({ length: 60 }, (_, index) => ({
       ...base,
-      id: index + 1,
+      id: listingId(index + 1),
     }));
     expect(dedupeAndCap([many[0] as Listing, ...many])).toHaveLength(
       MAX_VISIBLE_LISTINGS,
@@ -405,17 +450,50 @@ describe("bounded interaction data", () => {
     ).not.toHaveProperty("cost");
   });
 
+  it("omits unknown shipping facts from comparisons while preserving known false values", () => {
+    const normalized = normalizeToolResult(
+      searchResult([
+        listing(1, {
+          allow_pickup: undefined,
+          free_shipping: undefined,
+          shipping_cost: undefined,
+        }),
+        listing(2, { allow_pickup: false, shipping_cost: undefined }),
+        listing(3, { allow_pickup: undefined, free_shipping: undefined }),
+      ]),
+      { arguments: {}, name: "search_listings" },
+    );
+    if (!normalized.ok || normalized.view.kind !== "collection") {
+      throw new Error("Synthetic listings should normalize");
+    }
+    const payload = comparisonPayload(normalized.view.listings);
+    expect(payload?.listings[0]).not.toHaveProperty("shipping");
+    expect(payload?.listings[1]?.shipping).toEqual({
+      free: false,
+      pickup: false,
+    });
+    expect(payload?.listings[2]?.shipping).toEqual({
+      cost: { amount: "79.00", currency_code: "NOK" },
+    });
+  });
+
   it("adds only the approved anonymous attribution parameters", () => {
-    const value = attributedListingUrl("https://budna.se/l/42");
+    const value = attributedListingUrl(`https://budna.se/l/${listingId(42)}`);
     const url = new URL(value ?? "https://budna.se");
-    expect(url.origin + url.pathname).toBe("https://budna.se/l/42");
+    expect(url.origin + url.pathname).toBe(
+      `https://budna.se/l/${listingId(42)}`,
+    );
     expect(Object.fromEntries(url.searchParams)).toEqual({
       utm_campaign: "interactive_cards",
       utm_medium: "ai_assistant",
       utm_source: "budna_mcp",
     });
     expect(
-      attributedListingUrl("https://example.invalid/l/42"),
+      attributedListingUrl(`https://example.invalid/l/${listingId(42)}`),
+    ).toBeUndefined();
+    expect(attributedListingUrl("https://budna.se/l/42")).toBeUndefined();
+    expect(
+      attributedListingUrl(`https://budna.se/l/${userId(42)}`),
     ).toBeUndefined();
   });
 });

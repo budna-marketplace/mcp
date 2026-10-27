@@ -1,3 +1,4 @@
+use budna_mcp_client::{LISTING_ID_PATTERN, USER_ID_PATTERN};
 use budna_mcp_client::{PublicBadge, RatingSummary, SellerProfileSummary};
 use rmcp::schemars;
 use serde::Serialize;
@@ -14,8 +15,10 @@ const MAX_SELLER_BADGES: usize = 50;
 pub struct SellerProfileOutput {
     pub content_notice: String,
     pub truncated: bool,
-    pub profile_id: i64,
-    pub seller_id: i64,
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub profile_id: String,
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
     #[schemars(length(max = 256))]
     pub username: Option<String>,
     #[schemars(length(max = 256))]
@@ -135,7 +138,8 @@ impl BadgeOutput {
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct RatingSummaryOutput {
     pub truncated: bool,
-    pub listing_id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
     pub total_ratings: i64,
     pub average_rating: f64,
     pub rating_distribution: [i64; 5],
@@ -181,8 +185,8 @@ mod tests {
 
     fn profile_fixture() -> SellerProfileSummary {
         SellerProfileSummary {
-            id: 5,
-            user_id: 42,
+            id: "user_00000000-0000-4000-8000-00000000002a".to_owned(),
+            user_id: "user_00000000-0000-4000-8000-00000000002a".to_owned(),
             username: Some("seller42".to_owned()),
             display_name: "Public seller".to_owned(),
             bio: Some("Camera enthusiast".to_owned()),
@@ -290,7 +294,7 @@ mod tests {
     #[test]
     fn rating_summary_shape_is_exact() {
         let output = serde_json::to_value(RatingSummaryOutput::from(RatingSummary {
-            listing_id: 7,
+            listing_id: "listing_00000000-0000-4000-8000-000000000007".to_owned(),
             total_ratings: 12,
             average_rating: 4.5,
             rating_distribution: [0, 0, 1, 4, 7],

@@ -9,7 +9,14 @@ import type {
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarketplaceExplorer, type HostBridge } from "@budna-ui/explorer";
-import { detailResult, listing, result, searchResult } from "./fixtures";
+import {
+  detailResult,
+  listing,
+  listingId,
+  userId,
+  result,
+  searchResult,
+} from "./fixtures";
 
 class FakeBridge implements HostBridge {
   calls: Array<{ arguments_: Record<string, unknown>; name: string }> = [];
@@ -106,6 +113,18 @@ function deferredResult() {
 }
 
 describe("MarketplaceExplorer", () => {
+  it("makes no shipping claims when a search result omits shipping fields", () => {
+    const card = listing(1);
+    delete card.shipping_cost;
+    delete card.free_shipping;
+    const { root } = renderSearch(searchResult([card]));
+
+    const facts = root.querySelector(".card-facts")?.textContent;
+    expect(facts).toContain("Pickup available");
+    expect(facts).not.toContain("Shipping");
+    expect(facts).not.toContain("Free shipping");
+  });
+
   it("keeps the Budna brand and a named heading in every view", async () => {
     const { root } = renderSearch();
     const expectBrand = () => {
@@ -145,7 +164,7 @@ describe("MarketplaceExplorer", () => {
     await vi.waitFor(() =>
       expect(root.textContent).toContain("A carefully used camera."),
     );
-    expect(bridge.calls[0]?.arguments_).toEqual({ listing_id: 1 });
+    expect(bridge.calls[0]?.arguments_).toEqual({ listing_id: listingId(1) });
   });
 
   it.each(["resolves", "rejects"] as const)(
@@ -219,10 +238,10 @@ describe("MarketplaceExplorer", () => {
           {
             display_value: "Black",
             label: "Colour",
-            listing_id: 1,
+            listing_id: listingId(1),
           },
         ],
-        listing_id: 1,
+        listing_id: listingId(1),
         truncated: false,
       }),
     );
@@ -231,7 +250,7 @@ describe("MarketplaceExplorer", () => {
       result({
         bid_count: 4,
         current_bid: { amount: "1400.00", currency_code: "NOK" },
-        listing_id: 1,
+        listing_id: listingId(1),
         reserve_price_met: true,
       }),
     );
@@ -239,7 +258,7 @@ describe("MarketplaceExplorer", () => {
       "get_public_ratings_summary",
       result({
         average_rating: 4.5,
-        listing_id: 1,
+        listing_id: listingId(1),
         positive_percentage: 92.5,
         total_ratings: 12,
       }),
@@ -253,7 +272,7 @@ describe("MarketplaceExplorer", () => {
         identity_verified: true,
         is_company: false,
         rating: "4.9",
-        seller_id: 901,
+        seller_id: userId(901),
         sold_items_count: 24,
         total_ratings: 17,
       }),
@@ -272,15 +291,21 @@ describe("MarketplaceExplorer", () => {
     button("Load attributes")?.click();
     await vi.waitFor(() => expect(root.textContent).toContain("Colour"));
     expect(bridge.calls).toEqual([
-      { arguments_: { listing_id: 1 }, name: "get_listing_attributes" },
+      {
+        arguments_: { listing_id: listingId(1) },
+        name: "get_listing_attributes",
+      },
     ]);
 
     button("Load market signals")?.click();
     await vi.waitFor(() => expect(root.textContent).toContain("Reserve met"));
     expect(bridge.calls.slice(1)).toEqual([
-      { arguments_: { listing_id: 1 }, name: "get_listing_bid_summary" },
       {
-        arguments_: { listing_id: 1 },
+        arguments_: { listing_id: listingId(1) },
+        name: "get_listing_bid_summary",
+      },
+      {
+        arguments_: { listing_id: listingId(1) },
         name: "get_public_ratings_summary",
       },
     ]);
@@ -289,7 +314,7 @@ describe("MarketplaceExplorer", () => {
     button("Load seller profile")?.click();
     await vi.waitFor(() => expect(root.textContent).toContain("Items sold"));
     expect(bridge.calls.at(-1)).toEqual({
-      arguments_: { seller_id: 901 },
+      arguments_: { seller_id: userId(901) },
       name: "get_public_seller_profile",
     });
     expect(root.textContent).toContain("Identity verified");
@@ -305,15 +330,57 @@ describe("MarketplaceExplorer", () => {
     expect(report.violations).toEqual([]);
   });
 
+  it.each(["fixed_price", "in_stock"])(
+    "omits auction reserve claims from %s market signals",
+    async (listingType) => {
+      const bridge = new FakeBridge();
+      bridge.toolResults.set(
+        "get_listing_bid_summary",
+        result({
+          bid_count: 0,
+          current_bid: null,
+          listing_id: listingId(1),
+          reserve_price_met: false,
+        }),
+      );
+      bridge.toolResults.set(
+        "get_public_ratings_summary",
+        result({
+          average_rating: 0,
+          listing_id: listingId(1),
+          positive_percentage: 0,
+          total_ratings: 0,
+        }),
+      );
+      const { root } = renderSearch(
+        detailResult(1, { current_bid: null, listing_type: listingType }),
+        bridge,
+      );
+      [...root.querySelectorAll<HTMLButtonElement>("button")]
+        .find((button) => button.textContent === "Load market signals")
+        ?.click();
+
+      await vi.waitFor(() =>
+        expect(root.textContent).toContain("Average rating"),
+      );
+      expect(root.textContent).not.toContain("Reserve status");
+      expect(root.textContent).not.toContain("Reserve not met");
+    },
+  );
+
   it("keeps unsafe or mismatched research results out of the listing detail", async () => {
     const bridge = new FakeBridge();
     bridge.toolResults.set(
       "get_listing_attributes",
       result({
         attributes: [
-          { display_value: "not shown", label: "Unsafe", listing_id: 2 },
+          {
+            display_value: "not shown",
+            label: "Unsafe",
+            listing_id: listingId(2),
+          },
         ],
-        listing_id: 2,
+        listing_id: listingId(2),
       }),
     );
     const { root } = renderSearch(searchResult([listing(1)]), bridge);
@@ -349,7 +416,7 @@ describe("MarketplaceExplorer", () => {
     open?.click();
 
     await vi.waitFor(() => expect(bridge.opened).toHaveLength(1));
-    expect(bridge.opened[0]).toContain("https://budna.se/l/1?");
+    expect(bridge.opened[0]).toContain(`https://budna.se/l/${listingId(1)}?`);
     expect(bridge.opened[0]).toContain("utm_campaign=interactive_cards");
   });
 
@@ -409,7 +476,7 @@ describe("MarketplaceExplorer", () => {
 
     await vi.waitFor(() => expect(bridge.messages).toHaveLength(1));
     expect(bridge.contexts[0]).toMatchObject({
-      listings: [{ id: 1 }, { id: 2 }],
+      listings: [{ id: listingId(1) }, { id: listingId(2) }],
       type: "budna_listing_comparison",
       version: "1",
     });
@@ -529,7 +596,10 @@ describe("MarketplaceExplorer", () => {
     compare?.click();
     await vi.waitFor(() => expect(bridge.contexts).toHaveLength(1));
     expect(bridge.contexts[0]).toMatchObject({
-      listings: [{ id: 1, price: { amount: "1777.00" } }, { id: 2 }],
+      listings: [
+        { id: listingId(1), price: { amount: "1777.00" } },
+        { id: listingId(2) },
+      ],
     });
   });
 
@@ -626,14 +696,12 @@ describe("MarketplaceExplorer", () => {
         tool: { inputSchema: { type: "object" }, name: "get_listing" },
       },
     };
-    const firstImage =
-      "https://images.budna.se/t/listings/1/thumbs/0190cafe-0000-7000-8000-000000000001_768x768.webp";
-    const secondImage =
-      "https://images.budna.se/t/listings/1/thumbs/0190cafe-0000-7000-8000-000000000002_768x768.webp";
+    const firstImage = `https://images.budna.se/t/listings/${listingId(1)}/thumbs/0190cafe-0000-7000-8000-000000000001_768x768.webp`;
+    const secondImage = `https://images.budna.se/t/listings/${listingId(1)}/thumbs/0190cafe-0000-7000-8000-000000000002_768x768.webp`;
     const root = document.createElement("div");
     document.body.append(root);
     const explorer = new MarketplaceExplorer(root, bridge);
-    explorer.receiveToolInput({ listing_id: 1 });
+    explorer.receiveToolInput({ listing_id: listingId(1) });
     explorer.connected();
     explorer.receiveToolResult(
       detailResult(1, {

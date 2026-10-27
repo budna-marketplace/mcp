@@ -31,8 +31,6 @@ pub struct SearchListingsRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub featured: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub free_shipping: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_by: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_order: Option<String>,
@@ -67,7 +65,6 @@ impl Default for SearchListingsRequest {
             status: None,
             ending_soon: None,
             featured: None,
-            free_shipping: None,
             sort_by: None,
             sort_order: None,
             page: 1,
@@ -96,8 +93,8 @@ pub struct ListingSearchResult {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct SearchListingHit {
-    pub id: i64,
-    pub seller_id: i64,
+    pub id: String,
+    pub seller_id: String,
     pub title: Option<String>,
     pub category_id: Option<i32>,
     pub category_name: Option<String>,
@@ -109,8 +106,6 @@ pub struct SearchListingHit {
     pub starting_price: String,
     pub current_bid: Option<String>,
     pub buy_now_price: Option<String>,
-    pub shipping_cost: Option<String>,
-    pub free_shipping: bool,
     pub status: String,
     pub start_time: i64,
     pub end_time: i64,
@@ -149,9 +144,10 @@ pub struct FacetCount {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(try_from = "ListingWire")]
 pub struct ListingResponse {
-    pub id: i64,
-    pub seller_id: i64,
+    pub id: String,
+    pub seller_id: String,
     pub seller_name: Option<String>,
     pub seller_username: Option<String>,
     pub title: Option<String>,
@@ -184,6 +180,153 @@ pub struct ListingResponse {
     pub location: Option<ListingLocation>,
     pub allow_pickup: bool,
     pub buyer_protection_config: Option<BuyerProtectionConfig>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingWire {
+    id: String,
+    seller: ListingSellerWire,
+    title: Option<String>,
+    description: Option<String>,
+    category_id: Option<i32>,
+    condition: String,
+    listing_type: String,
+    currency: String,
+    market: String,
+    quantity: i32,
+    status: String,
+    auction: Option<ListingAuctionWire>,
+    fixed_price: Option<ListingFixedPriceWire>,
+    images: Vec<ListingImageWire>,
+    shipping: ListingShippingWire,
+    buyer_protection: Option<BuyerProtectionConfig>,
+    views_count: i32,
+    featured: bool,
+    tags: Vec<String>,
+    created_at: i64,
+    updated_at: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingSellerWire {
+    id: String,
+    name: Option<String>,
+    username: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingAuctionWire {
+    start_time: i64,
+    end_time: i64,
+    starting_price: Money,
+    buy_now_price: Option<Money>,
+    current_bid: Option<Money>,
+    bid_count: Option<i64>,
+    bid_increment: Option<Money>,
+    reserve: ListingReserveWire,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingReserveWire {
+    met: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingFixedPriceWire {
+    price: Money,
+    buy_now_price: Option<Money>,
+    start_time: i64,
+    end_time: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingImageWire {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingShippingWire {
+    custom_price: Option<Money>,
+    package_size: Option<String>,
+    package_weight_grams: Option<i32>,
+    provider_codes: Option<Vec<String>>,
+    location: Option<ListingLocation>,
+    allow_pickup: bool,
+}
+
+impl TryFrom<ListingWire> for ListingResponse {
+    type Error = &'static str;
+
+    fn try_from(wire: ListingWire) -> Result<Self, Self::Error> {
+        let (
+            starting_price,
+            buy_now_price,
+            current_bid,
+            bid_increment,
+            bid_count,
+            reserve_price_met,
+            start_time,
+            end_time,
+        ) = match (wire.listing_type.as_str(), wire.auction, wire.fixed_price) {
+            ("auction" | "auction_fixed_price", Some(auction), None) => (
+                auction.starting_price,
+                auction.buy_now_price,
+                auction.current_bid,
+                auction.bid_increment,
+                auction.bid_count,
+                auction.reserve.met,
+                auction.start_time,
+                auction.end_time,
+            ),
+            ("fixed_price" | "in_stock", None, Some(fixed)) => (
+                fixed.price,
+                fixed.buy_now_price,
+                None,
+                None,
+                None,
+                false,
+                fixed.start_time,
+                fixed.end_time,
+            ),
+            _ => return Err("listing type must match exactly one price section"),
+        };
+        Ok(Self {
+            id: wire.id,
+            seller_id: wire.seller.id,
+            seller_name: wire.seller.name,
+            seller_username: wire.seller.username,
+            title: wire.title,
+            description: wire.description,
+            category_id: wire.category_id,
+            condition: wire.condition,
+            listing_type: wire.listing_type,
+            currency: wire.currency,
+            market: wire.market,
+            starting_price,
+            bid_increment,
+            current_bid,
+            reserve_price_met,
+            buy_now_price,
+            shipping_cost: wire.shipping.custom_price,
+            quantity: wire.quantity,
+            status: wire.status,
+            start_time,
+            end_time,
+            views_count: wire.views_count,
+            bid_count,
+            featured: wire.featured,
+            tags: wire.tags,
+            image_ids: wire.images.into_iter().map(|image| image.id).collect(),
+            created_at: wire.created_at,
+            updated_at: wire.updated_at,
+            package_size: wire.shipping.package_size,
+            package_weight_grams: wire.shipping.package_weight_grams,
+            shipping_provider_codes: wire.shipping.provider_codes,
+            location: wire.shipping.location,
+            allow_pickup: wire.shipping.allow_pickup,
+            buyer_protection_config: wire.buyer_protection,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -360,8 +503,8 @@ pub struct Pagination {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct SellerProfileSummary {
-    pub id: i64,
-    pub user_id: i64,
+    pub id: String,
+    pub user_id: String,
     pub username: Option<String>,
     pub display_name: String,
     pub bio: Option<String>,
@@ -386,14 +529,14 @@ pub struct SellerProfileSummary {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct ListingAttributes {
-    pub listing_id: i64,
+    pub listing_id: String,
     pub attributes: Vec<ListingAttribute>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct ListingAttribute {
     pub id: i64,
-    pub listing_id: i64,
+    pub listing_id: String,
     pub filter_definition_id: i32,
     pub filter_name: String,
     pub label: String,
@@ -437,7 +580,7 @@ pub struct PublicBadge {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct ListingBidSummary {
-    pub listing_id: i64,
+    pub listing_id: String,
     pub bid_count: Option<i64>,
     pub current_bid: Option<Money>,
     pub reserve_price_met: bool,
@@ -447,7 +590,7 @@ pub struct ListingBidSummary {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct RatingSummary {
-    pub listing_id: i64,
+    pub listing_id: String,
     pub total_ratings: i64,
     pub average_rating: f64,
     pub rating_distribution: [i64; 5],

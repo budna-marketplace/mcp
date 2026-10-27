@@ -5,7 +5,10 @@ use std::{
     marker::PhantomData,
 };
 
-use budna_mcp_client::{CategoryListRequest, SearchListingsRequest};
+use budna_mcp_client::{
+    CategoryListRequest, LISTING_ID_PATTERN, SearchListingsRequest, USER_ID_PATTERN, is_listing_id,
+    is_user_id,
+};
 use rmcp::schemars;
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
 
@@ -158,7 +161,6 @@ pub struct SearchListingsParams {
     pub status: Option<ListingStatusParam>,
     pub ending_soon: Option<bool>,
     pub featured: Option<bool>,
-    pub free_shipping: Option<bool>,
 
     /// Sort field: relevance, price, created_at, end_time, popularity, or attr_<filter_name>.
     #[schemars(length(min = 1, max = 50))]
@@ -267,7 +269,6 @@ impl SearchListingsParams {
                 .map(str::to_owned),
             ending_soon: self.ending_soon,
             featured: self.featured,
-            free_shipping: self.free_shipping,
             sort_by,
             sort_order: self
                 .sort_order
@@ -334,23 +335,23 @@ impl GetCategoriesParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ListingIdParams {
-    /// Positive Budna listing ID.
-    #[schemars(range(min = 1))]
-    pub listing_id: i64,
+    /// Public Budna listing ID, prefixed with listing_.
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
 }
 
 impl ListingIdParams {
     pub fn validate(&self) -> Result<(), InputError> {
-        validate_positive_i64("listing_id", Some(self.listing_id))
+        validate_listing_id(&self.listing_id)
     }
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ListingIdPageParams {
-    /// Positive Budna listing ID.
-    #[schemars(range(min = 1))]
-    pub listing_id: i64,
+    /// Public Budna listing ID, prefixed with listing_.
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
 
     /// One-indexed result page. Defaults to 1.
     #[schemars(range(min = 1, max = 10000))]
@@ -362,33 +363,33 @@ pub struct ListingIdPageParams {
 }
 
 impl ListingIdPageParams {
-    pub fn validate(&self) -> Result<(i64, u32, u32), InputError> {
-        validate_positive_i64("listing_id", Some(self.listing_id))?;
+    pub fn validate(&self) -> Result<(&str, u32, u32), InputError> {
+        validate_listing_id(&self.listing_id)?;
         let (page, limit) = validate_listing_page(self.page, self.limit)?;
-        Ok((self.listing_id, page, limit))
+        Ok((&self.listing_id, page, limit))
     }
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SellerIdParams {
-    /// Positive Budna seller user ID (not the profile ID).
-    #[schemars(range(min = 1))]
-    pub seller_id: i64,
+    /// Public Budna seller user ID, prefixed with user_.
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
 }
 
 impl SellerIdParams {
     pub fn validate(&self) -> Result<(), InputError> {
-        validate_positive_i64("seller_id", Some(self.seller_id))
+        validate_seller_id(&self.seller_id)
     }
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SellerListingsParams {
-    /// Positive Budna seller user ID (not the profile ID).
-    #[schemars(range(min = 1))]
-    pub seller_id: i64,
+    /// Public Budna seller user ID, prefixed with user_.
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
 
     /// One-indexed result page. Defaults to 1.
     #[schemars(range(min = 1, max = 10000))]
@@ -400,10 +401,10 @@ pub struct SellerListingsParams {
 }
 
 impl SellerListingsParams {
-    pub fn validate(&self) -> Result<(i64, u32, u32), InputError> {
-        validate_positive_i64("seller_id", Some(self.seller_id))?;
+    pub fn validate(&self) -> Result<(&str, u32, u32), InputError> {
+        validate_seller_id(&self.seller_id)?;
         let (page, limit) = validate_listing_page(self.page, self.limit)?;
-        Ok((self.seller_id, page, limit))
+        Ok((&self.seller_id, page, limit))
     }
 }
 
@@ -582,11 +583,16 @@ fn validate_positive_i32(field: &str, value: Option<i32>) -> Result<(), InputErr
     Ok(())
 }
 
-fn validate_positive_i64(field: &str, value: Option<i64>) -> Result<(), InputError> {
-    if value.is_some_and(|value| value < 1) {
-        return Err(InputError::new(format!("{field} must be at least 1")));
-    }
-    Ok(())
+fn validate_listing_id(value: &str) -> Result<(), InputError> {
+    is_listing_id(value)
+        .then_some(())
+        .ok_or_else(|| InputError::new("listing_id must be a canonical listing_ UUIDv4 ID"))
+}
+
+fn validate_seller_id(value: &str) -> Result<(), InputError> {
+    is_user_id(value)
+        .then_some(())
+        .ok_or_else(|| InputError::new("seller_id must be a canonical user_ UUIDv4 ID"))
 }
 
 fn validate_listing_page(page: Option<u32>, limit: Option<u32>) -> Result<(u32, u32), InputError> {
@@ -803,25 +809,77 @@ mod tests {
     }
 
     #[test]
+    fn listing_and_seller_ids_require_their_public_string_contracts() {
+        let listing = "listing_00000000-0000-4000-8000-000000000007";
+        let seller = "user_00000000-0000-4000-8000-00000000002a";
+        assert!(
+            ListingIdParams {
+                listing_id: listing.to_owned()
+            }
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            SellerIdParams {
+                seller_id: seller.to_owned()
+            }
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            ListingIdParams {
+                listing_id: seller.to_owned()
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            SellerIdParams {
+                seller_id: listing.to_owned()
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<ListingIdParams>(serde_json::json!({"listing_id": 7}))
+                .is_err()
+        );
+        let schema = serde_json::to_value(schemars::schema_for!(ListingIdParams))
+            .unwrap_or_else(|error| panic!("input schema should serialize: {error}"));
+        assert_eq!(
+            schema.pointer("/properties/listing_id/type"),
+            Some(&serde_json::json!("string"))
+        );
+        assert_eq!(
+            schema.pointer("/properties/listing_id/pattern"),
+            Some(&serde_json::json!(LISTING_ID_PATTERN))
+        );
+    }
+
+    #[test]
     fn listing_pages_and_public_filter_ids_are_bounded() {
-        let related = ListingIdPageParams {
-            listing_id: 7,
+        let params = ListingIdPageParams {
+            listing_id: "listing_00000000-0000-4000-8000-000000000007".to_owned(),
             page: None,
             limit: None,
-        }
-        .validate()
-        .unwrap_or_else(|error| panic!("defaults should validate: {}", error.message()));
-        assert_eq!(related, (7, 1, 10));
+        };
+        let related = params
+            .validate()
+            .unwrap_or_else(|error| panic!("defaults should validate: {}", error.message()));
+        assert_eq!(
+            related,
+            ("listing_00000000-0000-4000-8000-000000000007", 1, 10)
+        );
 
         let invalid_related = ListingIdPageParams {
-            listing_id: 7,
+            listing_id: "listing_00000000-0000-4000-8000-000000000007".to_owned(),
             page: Some(MAX_LISTING_PAGE + 1),
             limit: None,
         };
         assert!(invalid_related.validate().is_err());
 
         let invalid_seller = SellerListingsParams {
-            seller_id: 0,
+            seller_id: "user_00000000-0000-0000-8000-000000000000".to_owned(),
             page: None,
             limit: Some(1),
         };

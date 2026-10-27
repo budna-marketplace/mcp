@@ -3,6 +3,7 @@ use budna_mcp_client::{
     ListingLocation, ListingPage, ListingResponse, ListingSearchResult, SearchFacets,
     SearchListingHit,
 };
+use budna_mcp_client::{LISTING_ID_PATTERN, USER_ID_PATTERN};
 use budna_mcp_core::PublicUrlSettings;
 use rmcp::schemars;
 use serde::Serialize;
@@ -67,10 +68,12 @@ impl ListingSearchOutput {
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ListingCardOutput {
-    pub id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub id: String,
     #[schemars(length(max = 544), regex(pattern = r"^https://"))]
     pub listing_url: String,
-    pub seller_id: i64,
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
     #[schemars(length(max = 256))]
     pub title: Option<String>,
     pub category_id: Option<i32>,
@@ -89,8 +92,6 @@ pub struct ListingCardOutput {
     pub starting_price: MoneyOutput,
     pub current_bid: Option<MoneyOutput>,
     pub buy_now_price: Option<MoneyOutput>,
-    pub shipping_cost: Option<MoneyOutput>,
-    pub free_shipping: bool,
     #[schemars(length(max = 128))]
     pub status: String,
     pub start_time: i64,
@@ -132,13 +133,17 @@ impl ListingCardOutput {
             .primary_image_id
             .filter(|image_id| is_canonical_uuid(image_id));
         let image_ids = project_image_ids(hit.image_ids, budget);
-        let primary_image_url =
-            derived_primary_image_url(public_urls, hit.id, primary_image_id.as_deref(), &image_ids);
+        let primary_image_url = derived_primary_image_url(
+            public_urls,
+            &hit.id,
+            primary_image_id.as_deref(),
+            &image_ids,
+        );
         let currency_code = hit.currency.clone();
 
         Self {
+            listing_url: listing_url(public_urls, &hit.id),
             id: hit.id,
-            listing_url: listing_url(public_urls, hit.id),
             seller_id: hit.seller_id,
             title: budget.optional_text(hit.title, MAX_NAME_BYTES),
             category_id: hit.category_id,
@@ -156,10 +161,6 @@ impl ListingCardOutput {
             buy_now_price: hit
                 .buy_now_price
                 .map(|amount| MoneyOutput::from_amount(amount, &currency_code)),
-            shipping_cost: hit
-                .shipping_cost
-                .map(|amount| MoneyOutput::from_amount(amount, &currency_code)),
-            free_shipping: hit.free_shipping,
             status: budget.text(hit.status, MAX_CODE_BYTES),
             start_time: hit.start_time,
             end_time: hit.end_time,
@@ -227,10 +228,12 @@ fn project_facet_buckets(
 pub struct ListingDetailOutput {
     pub content_notice: String,
     pub truncated: bool,
-    pub id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub id: String,
     #[schemars(length(max = 544), regex(pattern = r"^https://"))]
     pub listing_url: String,
-    pub seller_id: i64,
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
     #[schemars(length(max = 256))]
     pub seller_name: Option<String>,
     #[schemars(length(max = 256))]
@@ -299,7 +302,7 @@ impl ListingDetailOutput {
         let mut budget = ProjectionBudget::default();
         let currency_code = listing.currency.clone();
         let image_ids = project_image_ids(listing.image_ids, &mut budget);
-        let image_urls = listing_image_urls(public_urls, listing.id, &image_ids, &mut budget);
+        let image_urls = listing_image_urls(public_urls, &listing.id, &image_ids, &mut budget);
         let primary_image_url = image_urls.first().cloned();
         let seller_name = budget.optional_text(listing.seller_name, MAX_NAME_BYTES);
         let seller_username = budget.optional_text(listing.seller_username, MAX_NAME_BYTES);
@@ -325,8 +328,8 @@ impl ListingDetailOutput {
         Self {
             content_notice: UNTRUSTED_CONTENT_NOTICE.to_owned(),
             truncated,
+            listing_url: listing_url(public_urls, &listing.id),
             id: listing.id,
-            listing_url: listing_url(public_urls, listing.id),
             seller_id: listing.seller_id,
             seller_name,
             seller_username,
@@ -396,10 +399,12 @@ impl ListingCollectionOutput {
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ListingSummaryOutput {
-    pub id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub id: String,
     #[schemars(length(max = 544), regex(pattern = r"^https://"))]
     pub listing_url: String,
-    pub seller_id: i64,
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
     #[schemars(length(max = 256))]
     pub seller_name: Option<String>,
     #[schemars(length(max = 256))]
@@ -452,11 +457,11 @@ impl ListingSummaryOutput {
         let currency_code = listing.currency.clone();
         let image_ids = project_image_ids(listing.image_ids, budget);
         let primary_image_url =
-            derived_primary_image_url(public_urls, listing.id, None, &image_ids);
+            derived_primary_image_url(public_urls, &listing.id, None, &image_ids);
 
         Self {
+            listing_url: listing_url(public_urls, &listing.id),
             id: listing.id,
-            listing_url: listing_url(public_urls, listing.id),
             seller_id: listing.seller_id,
             seller_name: budget.optional_text(listing.seller_name, MAX_NAME_BYTES),
             seller_username: budget.optional_text(listing.seller_username, MAX_NAME_BYTES),
@@ -494,7 +499,8 @@ impl ListingSummaryOutput {
 pub struct ListingAttributesOutput {
     pub content_notice: String,
     pub truncated: bool,
-    pub listing_id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
     #[schemars(length(max = 100))]
     pub attributes: Vec<ListingAttributeOutput>,
 }
@@ -522,7 +528,8 @@ impl From<ListingAttributes> for ListingAttributesOutput {
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ListingAttributeOutput {
     pub id: i64,
-    pub listing_id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
     pub filter_definition_id: i32,
     #[schemars(length(max = 128))]
     pub filter_name: String,
@@ -634,7 +641,8 @@ impl PublicLocationOutput {
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct ListingBidSummaryOutput {
     pub truncated: bool,
-    pub listing_id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
     pub bid_count: Option<i64>,
     pub current_bid: Option<MoneyOutput>,
     pub reserve_price_met: bool,
@@ -678,8 +686,8 @@ fn project_image_ids(image_ids: Vec<String>, budget: &mut ProjectionBudget) -> V
     budget.atomic_strings(valid, MAX_LISTING_IMAGE_IDS, MAX_CODE_BYTES)
 }
 
-fn listing_url(public_urls: &PublicUrlSettings, listing_id: i64) -> String {
-    if listing_id > 0 {
+fn listing_url(public_urls: &PublicUrlSettings, listing_id: &str) -> String {
+    if budna_mcp_client::is_listing_id(listing_id) {
         format!("{}/l/{listing_id}", public_urls.listing_origin())
     } else {
         String::new()
@@ -688,7 +696,7 @@ fn listing_url(public_urls: &PublicUrlSettings, listing_id: i64) -> String {
 
 fn listing_image_urls(
     public_urls: &PublicUrlSettings,
-    listing_id: i64,
+    listing_id: &str,
     image_ids: &[String],
     budget: &mut ProjectionBudget,
 ) -> Vec<String> {
@@ -702,7 +710,7 @@ fn listing_image_urls(
 
 fn derived_primary_image_url(
     public_urls: &PublicUrlSettings,
-    listing_id: i64,
+    listing_id: &str,
     primary_image_id: Option<&str>,
     image_ids: &[String],
 ) -> Option<String> {
@@ -715,8 +723,8 @@ fn derived_primary_image_url(
         })
 }
 
-fn image_url(public_urls: &PublicUrlSettings, listing_id: i64, image_id: &str) -> Option<String> {
-    if listing_id <= 0 || !is_canonical_uuid(image_id) {
+fn image_url(public_urls: &PublicUrlSettings, listing_id: &str, image_id: &str) -> Option<String> {
+    if !budna_mcp_client::is_listing_id(listing_id) || !is_canonical_uuid(image_id) {
         return None;
     }
 
@@ -755,57 +763,71 @@ mod tests {
             .unwrap_or_else(|| panic!("expected an object"))
     }
 
+    fn listing_id(id: i64) -> String {
+        format!("listing_00000000-0000-4000-8000-{id:012x}")
+    }
+
+    fn user_id(id: i64) -> String {
+        format!("user_00000000-0000-4000-8000-{id:012x}")
+    }
+
     fn listing_fixture(id: i64) -> ListingResponse {
-        serde_json::from_value(json!({
-            "id": id,
-            "seller_id": 42,
-            "seller_name": "Public seller",
-            "seller_username": "seller42",
-            "title": "Camera",
-            "description": "A public listing",
-            "category_id": 12,
-            "condition": "good",
-            "listing_type": "auction",
-            "currency": "NOK",
-            "market": "norwegian",
-            "starting_price": {"amount": "100.00", "currency_code": "NOK"},
-            "bid_increment": {"amount": "10.00", "currency_code": "NOK"},
-            "current_bid": {"amount": "120.00", "currency_code": "NOK"},
-            "reserve_price_met": false,
-            "buy_now_price": null,
-            "shipping_cost": {"amount": "49.00", "currency_code": "NOK"},
-            "quantity": 1,
-            "status": "active",
-            "start_time": 1_700_000_000_000_i64,
-            "end_time": 1_800_000_000_000_i64,
-            "views_count": 20,
-            "bid_count": 2,
-            "featured": false,
-            "tags": ["camera"],
-            "image_ids": ["123e4567-e89b-12d3-a456-426614174000"],
-            "created_at": 1_700_000_000_000_i64,
-            "updated_at": 1_700_000_000_100_i64,
-            "package_size": "medium",
-            "package_weight_grams": 900,
-            "shipping_provider_codes": ["postnord"],
-            "location": {"city": "Oslo", "region": "Oslo", "country": "NO"},
-            "allow_pickup": true,
-            "buyer_protection_config": {
-                "rate_percent": "5.0",
-                "flat_fee": "10.00",
-                "mandatory_threshold": "100.00",
-                "cap": "500.00",
-                "enabled": true
-            },
-            "server_only_marker": "ignored"
-        }))
-        .unwrap_or_else(|error| panic!("listing fixture should decode: {error}"))
+        let money = |amount: &str| Money {
+            amount: amount.to_owned(),
+            currency_code: "NOK".to_owned(),
+        };
+        ListingResponse {
+            id: listing_id(id),
+            seller_id: user_id(42),
+            seller_name: Some("Public seller".to_owned()),
+            seller_username: Some("seller42".to_owned()),
+            title: Some("Camera".to_owned()),
+            description: Some("A public listing".to_owned()),
+            category_id: Some(12),
+            condition: "good".to_owned(),
+            listing_type: "auction".to_owned(),
+            currency: "NOK".to_owned(),
+            market: "norwegian".to_owned(),
+            starting_price: money("100.00"),
+            bid_increment: Some(money("10.00")),
+            current_bid: Some(money("120.00")),
+            reserve_price_met: false,
+            buy_now_price: None,
+            shipping_cost: Some(money("49.00")),
+            quantity: 1,
+            status: "active".to_owned(),
+            start_time: 1_700_000_000_000,
+            end_time: 1_800_000_000_000,
+            views_count: 20,
+            bid_count: Some(2),
+            featured: false,
+            tags: vec!["camera".to_owned()],
+            image_ids: vec!["123e4567-e89b-12d3-a456-426614174000".to_owned()],
+            created_at: 1_700_000_000_000,
+            updated_at: 1_700_000_000_100,
+            package_size: Some("medium".to_owned()),
+            package_weight_grams: Some(900),
+            shipping_provider_codes: Some(vec!["postnord".to_owned()]),
+            location: Some(ListingLocation {
+                city: "Oslo".to_owned(),
+                region: Some("Oslo".to_owned()),
+                country: "NO".to_owned(),
+            }),
+            allow_pickup: true,
+            buyer_protection_config: Some(BuyerProtectionConfig {
+                rate_percent: "5.0".to_owned(),
+                flat_fee: "10.00".to_owned(),
+                mandatory_threshold: "100.00".to_owned(),
+                cap: "500.00".to_owned(),
+                enabled: true,
+            }),
+        }
     }
 
     fn search_hit(id: i64) -> SearchListingHit {
         SearchListingHit {
-            id,
-            seller_id: 42,
+            id: listing_id(id),
+            seller_id: user_id(42),
             title: Some("Camera".to_owned()),
             category_id: Some(12),
             category_name: Some("Cameras".to_owned()),
@@ -817,8 +839,6 @@ mod tests {
             starting_price: "100.00".to_owned(),
             current_bid: Some("120.00".to_owned()),
             buy_now_price: None,
-            shipping_cost: Some("49.00".to_owned()),
-            free_shipping: false,
             status: "active".to_owned(),
             start_time: 1_700_000_000_000,
             end_time: 1_800_000_000_000,
@@ -895,7 +915,6 @@ mod tests {
                 "end_time",
                 "ending_soon",
                 "featured",
-                "free_shipping",
                 "has_bids",
                 "id",
                 "image_ids",
@@ -905,7 +924,6 @@ mod tests {
                 "primary_image_id",
                 "primary_image_url",
                 "seller_id",
-                "shipping_cost",
                 "start_time",
                 "starting_price",
                 "status",
@@ -1174,10 +1192,10 @@ mod tests {
         );
 
         let attributes = ListingAttributesOutput::from(ListingAttributes {
-            listing_id: 7,
+            listing_id: listing_id(7),
             attributes: vec![ListingAttribute {
                 id: 1,
-                listing_id: 7,
+                listing_id: listing_id(7),
                 filter_definition_id: 2,
                 filter_name: "mount".to_owned(),
                 label: "Mount".to_owned(),
@@ -1193,7 +1211,10 @@ mod tests {
             keys(&attributes),
             BTreeSet::from(["attributes", "content_notice", "listing_id", "truncated"])
         );
-        assert_eq!(attributes.pointer("/listing_id"), Some(&json!(7)));
+        assert_eq!(
+            attributes.pointer("/listing_id"),
+            Some(&json!(listing_id(7)))
+        );
         assert_eq!(attributes.pointer("/truncated"), Some(&json!(true)));
         assert_eq!(
             keys(
@@ -1224,7 +1245,7 @@ mod tests {
         assert!(!attributes.to_string().contains("not exposed"));
 
         let bid = serde_json::to_value(ListingBidSummaryOutput::from(ListingBidSummary {
-            listing_id: 7,
+            listing_id: listing_id(7),
             bid_count: Some(2),
             current_bid: Some(Money {
                 amount: "120.00".to_owned(),
@@ -1298,12 +1319,16 @@ mod tests {
         )
         .unwrap_or_else(|error| panic!("URLs should validate: {error}"));
         let output = ListingDetailOutput::from_with_public_urls(listing_fixture(7), &urls);
-        assert_eq!(output.listing_url, "https://listings.example.test/l/7");
-        assert!(
-            output
-                .primary_image_url
-                .as_deref()
-                .is_some_and(|url| url.starts_with("https://images.example.test/"))
+        assert_eq!(
+            output.listing_url,
+            format!("https://listings.example.test/l/{}", listing_id(7))
+        );
+        assert_eq!(
+            output.primary_image_url,
+            Some(format!(
+                "https://images.example.test/t/listings/{}/thumbs/123e4567-e89b-12d3-a456-426614174000_768x768.webp",
+                listing_id(7)
+            ))
         );
     }
 }

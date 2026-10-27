@@ -219,7 +219,7 @@ impl BudnaMcpServer {
             .validate()
             .map_err(|error| input_error(OPERATION, &error))?;
         let result = self
-            .execute_client(OPERATION, self.client.get_listing(params.listing_id))
+            .execute_client(OPERATION, self.client.get_listing(&params.listing_id))
             .await?;
         self.bounded_output(
             OPERATION,
@@ -252,7 +252,7 @@ impl BudnaMcpServer {
         let result = self
             .execute_client(
                 OPERATION,
-                self.client.get_listing_attributes(params.listing_id),
+                self.client.get_listing_attributes(&params.listing_id),
             )
             .await?;
         self.bounded_output(OPERATION, ListingAttributesOutput::from(result))
@@ -443,7 +443,7 @@ impl BudnaMcpServer {
         let result = self
             .execute_client(
                 OPERATION,
-                self.client.get_public_seller_profile(params.seller_id),
+                self.client.get_public_seller_profile(&params.seller_id),
             )
             .await?;
         self.bounded_output(OPERATION, SellerProfileOutput::from(result))
@@ -474,7 +474,7 @@ impl BudnaMcpServer {
         let result = self
             .execute_client(
                 OPERATION,
-                self.client.get_listing_bid_summary(params.listing_id),
+                self.client.get_listing_bid_summary(&params.listing_id),
             )
             .await?;
         self.bounded_output(OPERATION, ListingBidSummaryOutput::from(result))
@@ -505,7 +505,7 @@ impl BudnaMcpServer {
         let result = self
             .execute_client(
                 OPERATION,
-                self.client.get_public_rating_summary(params.listing_id),
+                self.client.get_public_rating_summary(&params.listing_id),
             )
             .await?;
         self.bounded_output(OPERATION, RatingSummaryOutput::from(result))
@@ -754,7 +754,7 @@ mod tests {
     fn input_failures_are_marked_as_tool_errors() {
         let result = input_error(
             "get_listing",
-            &InputError::new("listing_id must be at least 1"),
+            &InputError::new("listing_id must be a canonical listing_ UUIDv4 ID"),
         );
 
         assert_eq!(result.is_error, Some(true));

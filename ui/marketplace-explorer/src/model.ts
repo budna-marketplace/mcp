@@ -63,8 +63,8 @@ export interface SellerProfile {
 }
 
 export interface Listing {
-  id: number;
-  sellerId: number;
+  id: string;
+  sellerId: string;
   sellerName?: string;
   sellerUsername?: string;
   title?: string;
@@ -80,8 +80,8 @@ export interface Listing {
   currentBid?: Money;
   buyNowPrice?: Money;
   shippingCost?: Money;
-  freeShipping: boolean;
-  allowPickup: boolean;
+  freeShipping?: boolean;
+  allowPickup?: boolean;
   endTime: number;
   bidCount?: number;
   hasBids: boolean;
@@ -200,8 +200,8 @@ function normalizeListing(
   origins: Readonly<PublicOrigins>,
 ): Listing | undefined {
   if (!root) return undefined;
-  const id = positiveInteger(root.id);
-  const sellerId = positiveInteger(root.seller_id);
+  const id = publicId(root.id, "listing");
+  const sellerId = publicId(root.seller_id, "user");
   if (!id || !sellerId) return undefined;
 
   const listingUrl = cleanListingUrl(root.listing_url, id, origins);
@@ -233,7 +233,8 @@ function normalizeListing(
 
   const bidCount = nonNegativeInteger(root.bid_count);
   return {
-    allowPickup: root.allow_pickup === true,
+    allowPickup:
+      typeof root.allow_pickup === "boolean" ? root.allow_pickup : undefined,
     bidCount,
     buyerProtection: normalizeBuyerProtection(root.buyer_protection_config),
     buyNowPrice: normalizeMoney(root.buy_now_price),
@@ -242,7 +243,8 @@ function normalizeListing(
     currentBid: normalizeMoney(root.current_bid),
     description: detail ? boundedString(root.description, 20_000) : undefined,
     endTime,
-    freeShipping: root.free_shipping === true,
+    freeShipping:
+      typeof root.free_shipping === "boolean" ? root.free_shipping : undefined,
     hasBids: root.has_bids === true || (bidCount !== undefined && bidCount > 0),
     id,
     imageUrls: imageUrls.slice(0, 8),
@@ -261,7 +263,7 @@ function normalizeListing(
 }
 
 export function dedupeAndCap(listings: readonly Listing[]): Listing[] {
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   const result: Listing[] = [];
   for (const listing of listings) {
     if (seen.has(listing.id)) continue;
@@ -287,7 +289,14 @@ export function displayedPrice(listing: Listing): {
     return { kind: "current_bid", money: listing.currentBid };
   if (listing.buyNowPrice)
     return { kind: "buy_now", money: listing.buyNowPrice };
-  return { kind: "starting_price", money: listing.startingPrice };
+  return {
+    kind:
+      listing.listingType === "fixed_price" ||
+      listing.listingType === "in_stock"
+        ? "buy_now"
+        : "starting_price",
+    money: listing.startingPrice,
+  };
 }
 
 export function attributedListingUrl(
@@ -304,14 +313,14 @@ export function attributedListingUrl(
 }
 
 export interface ComparisonListing {
-  id: number;
+  id: string;
   title: string;
   listing_url: string;
   price: Money;
   condition: string;
-  shipping: {
-    free: boolean;
-    pickup: boolean;
+  shipping?: {
+    free?: boolean;
+    pickup?: boolean;
     cost?: Money;
   };
   status: string;
@@ -340,11 +349,21 @@ export function comparisonPayload(
       id: listing.id,
       listing_url: listing.listingUrl,
       price: displayedPrice(listing).money,
-      shipping: {
-        free: listing.freeShipping,
-        pickup: listing.allowPickup,
-        ...(listing.shippingCost ? { cost: listing.shippingCost } : {}),
-      },
+      ...(listing.freeShipping !== undefined ||
+      listing.allowPickup !== undefined ||
+      listing.shippingCost
+        ? {
+            shipping: {
+              ...(listing.freeShipping !== undefined
+                ? { free: listing.freeShipping }
+                : {}),
+              ...(listing.allowPickup !== undefined
+                ? { pickup: listing.allowPickup }
+                : {}),
+              ...(listing.shippingCost ? { cost: listing.shippingCost } : {}),
+            },
+          }
+        : {}),
       status: listing.status.slice(0, 100),
       title: (listing.title ?? "Untitled listing").slice(0, 160),
     })),
@@ -355,16 +374,17 @@ export function comparisonPayload(
 
 export function normalizeListingAttributes(
   value: unknown,
-  listingId: number,
+  listingId: string,
 ): ListingAttributes | undefined {
   const root = asObject(value);
-  if (!root || positiveInteger(root.listing_id) !== listingId) return undefined;
+  if (!root || publicId(root.listing_id, "listing") !== listingId)
+    return undefined;
   if (!Array.isArray(root.attributes)) return undefined;
 
   const attributes: ListingAttribute[] = [];
   for (const value of root.attributes.slice(0, 100)) {
     const attribute = asObject(value);
-    if (positiveInteger(attribute?.listing_id) !== listingId) continue;
+    if (publicId(attribute?.listing_id, "listing") !== listingId) continue;
     const label = boundedString(attribute?.label, 256);
     const displayValue = boundedString(attribute?.display_value, 512);
     if (!label || !displayValue) continue;
@@ -376,12 +396,12 @@ export function normalizeListingAttributes(
 
 export function normalizeListingBidSummary(
   value: unknown,
-  listingId: number,
+  listingId: string,
 ): ListingBidSummary | undefined {
   const root = asObject(value);
   if (
     !root ||
-    positiveInteger(root.listing_id) !== listingId ||
+    publicId(root.listing_id, "listing") !== listingId ||
     typeof root.reserve_price_met !== "boolean"
   ) {
     return undefined;
@@ -409,10 +429,11 @@ export function normalizeListingBidSummary(
 
 export function normalizeListingRatingSummary(
   value: unknown,
-  listingId: number,
+  listingId: string,
 ): ListingRatingSummary | undefined {
   const root = asObject(value);
-  if (!root || positiveInteger(root.listing_id) !== listingId) return undefined;
+  if (!root || publicId(root.listing_id, "listing") !== listingId)
+    return undefined;
   const averageRating = finiteNumberInRange(root.average_rating, 0, 5);
   const positivePercentage = finiteNumberInRange(
     root.positive_percentage,
@@ -432,10 +453,10 @@ export function normalizeListingRatingSummary(
 
 export function normalizeSellerProfile(
   value: unknown,
-  sellerId: number,
+  sellerId: string,
 ): SellerProfile | undefined {
   const root = asObject(value);
-  if (!root || positiveInteger(root.seller_id) !== sellerId) return undefined;
+  if (!root || publicId(root.seller_id, "user") !== sellerId) return undefined;
   const displayName = boundedString(root.display_name, 256);
   const rating = boundedString(root.rating, 128);
   const totalRatings = nonNegativeInteger(root.total_ratings);
@@ -508,7 +529,7 @@ function normalizeBuyerProtection(value: unknown): BuyerProtection | undefined {
 
 function cleanListingUrl(
   value: unknown,
-  listingId: number,
+  listingId: string,
   origins: Readonly<PublicOrigins>,
 ): string | undefined {
   const cleaned = cleanListingUrlWithoutKnownId(value, origins);
@@ -531,7 +552,8 @@ function cleanListingUrlWithoutKnownId(
       url.password !== "" ||
       url.search !== "" ||
       url.hash !== "" ||
-      !/^\/l\/[1-9]\d*$/u.test(url.pathname)
+      !url.pathname.startsWith("/l/") ||
+      !publicId(url.pathname.slice(3), "listing")
     ) {
       return undefined;
     }
@@ -543,7 +565,7 @@ function cleanListingUrlWithoutKnownId(
 
 function cleanImageUrl(
   value: unknown,
-  listingId: number,
+  listingId: string,
   origins: Readonly<PublicOrigins>,
 ): string | undefined {
   if (typeof value !== "string" || value.length > 2_048) return undefined;
@@ -579,6 +601,19 @@ function boundedString(
   const trimmed = value.trim();
   if (trimmed.length === 0) return undefined;
   return trimmed.slice(0, maximumLength);
+}
+
+function publicId(
+  value: unknown,
+  prefix: "listing" | "user",
+): string | undefined {
+  return typeof value === "string" &&
+    value.startsWith(`${prefix}_`) &&
+    /^(?:listing|user)_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+      value,
+    )
+    ? value
+    : undefined;
 }
 
 function positiveInteger(value: unknown): number | undefined {
