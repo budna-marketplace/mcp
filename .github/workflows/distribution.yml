@@ -1,0 +1,139 @@
+name: distribution
+
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  binaries:
+    name: Package ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+            dist-sha256: 7b3cbe25511de01d74c0f5fcb7909edabd379bea9cfa284d93af5a3cdfa3247c
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            dist-sha256: 6a49bfb61bd86770d79c27f3d2b40c6b2e71cde940d3d31a6ccaaffc124d7a29
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            dist-sha256: 4b3f0a5f0ebbdb798f6db649d01b32ba1518376b6f7a0502b7d92b75cc2c8293
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            dist-sha256: 9c554ab21a58ad46eb9b6710f89633ccb26bc2577cf4b0c2d18a5b826a31913e
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            dist-sha256: 9a36d70795e14326a5ec4bf17aee085df00ab85a322739291ea5d4b1b5f693cd
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@4e529fb27e59237866a6523e61ab248308c068b4
+      - uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8
+        with:
+          repo: axodotdev/cargo-dist
+          tag: v0.33.0
+          asset-name: dist
+          platform: ${{ matrix.target }}
+          digest: ${{ matrix.dist-sha256 }}
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.13"
+      - run: echo "RUSTFLAGS=--remap-path-prefix=$HOME=/build/home --remap-path-prefix=$CARGO_HOME=/build/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build/source" >> "$GITHUB_ENV"
+      - name: Build archive
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          dist build --artifacts=local --target "$TARGET" --output-format=json --no-local-paths > local-manifest.json
+          cp local-manifest.json "target/distrib/$TARGET-dist-manifest.json"
+          dist build --artifacts=global --target "$TARGET" --no-local-paths
+      - name: Exercise npm installation
+        run: |
+          cp -R target/distrib/budna-mcp-npm-package target/npm-smoke
+          npm pkg set --prefix target/npm-smoke 'artifactDownloadUrls[0]=http://127.0.0.1:18080'
+          python -m http.server 18080 --bind 127.0.0.1 --directory target/distrib &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          curl --silent --show-error --fail --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:18080/ > /dev/null
+          npm install --prefix target/npm-installed --install-links ./target/npm-smoke --no-audit --no-fund
+          version="$(node -p 'require("./target/npm-smoke/package.json").version')"
+          test "$(npm exec --prefix target/npm-installed --no -- budna-mcp --version)" = "budna-mcp $version"
+          npm audit --prefix target/npm-installed --omit=dev --audit-level=high
+      - name: Exercise MCP through npm
+        env:
+          BUDNA_MCP_TEST_NPM_PACKAGE: ${{ github.workspace }}/target/npm-installed/node_modules/@budna-marketplace/mcp
+        run: cargo test --package budna-mcp --test stdio_protocol --locked
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: distribution-${{ matrix.target }}
+          path: |
+            target/distrib/budna-mcp-${{ matrix.target }}.*
+            target/distrib/${{ matrix.target }}-dist-manifest.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  npm-package:
+    name: Package npm
+    if: always()
+    needs: binaries
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - env:
+          BUILD_RESULT: ${{ needs.binaries.result }}
+        run: test "$BUILD_RESULT" = success
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@4e529fb27e59237866a6523e61ab248308c068b4
+      - uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8
+        with:
+          repo: axodotdev/cargo-dist
+          tag: v0.33.0
+          asset-name: dist
+          platform: x86_64-unknown-linux-gnu
+          digest: 4b3f0a5f0ebbdb798f6db649d01b32ba1518376b6f7a0502b7d92b75cc2c8293
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: distribution-*
+          path: target/distrib
+          merge-multiple: true
+      - run: |
+          dist build --artifacts=global --output-format=json --no-local-paths > dist-manifest.json
+          cp dist-manifest.json target/distrib/global-dist-manifest.json
+          cp target/distrib/budna-mcp-npm-package.tar.gz target/distrib/budna-mcp.tgz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: distribution
+          path: |
+            target/distrib/*.tar.xz
+            target/distrib/*.zip
+            target/distrib/*.sha256
+            target/distrib/sha256.sum
+            target/distrib/budna-mcp-npm-package.tar.gz
+            target/distrib/budna-mcp.tgz
+            target/distrib/*-dist-manifest.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7

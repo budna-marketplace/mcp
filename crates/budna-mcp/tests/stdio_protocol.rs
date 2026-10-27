@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
     process::Stdio,
     time::Duration,
 };
@@ -616,7 +617,15 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
     mount_public_tool_mocks(&api).await;
     mount_error_mocks(&api).await;
 
-    let command = tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp")).configure(|cmd| {
+    let command = match std::env::var_os("BUDNA_MCP_TEST_NPM_PACKAGE") {
+        Some(package) => {
+            let mut command = tokio::process::Command::new("node");
+            command.arg(PathBuf::from(package).join("run-budna-mcp.js"));
+            command
+        }
+        None => tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp")),
+    };
+    let command = command.configure(|cmd| {
         cmd.arg("--api-url")
             .arg(api.uri())
             .arg("--request-timeout-secs")

@@ -2,11 +2,27 @@
 
 [![build](https://img.shields.io/github/actions/workflow/status/budna-marketplace/mcp/core.yml?branch=main)](https://github.com/budna-marketplace/mcp/actions/workflows/core.yml)
 [![crates.io](https://img.shields.io/crates/v/budna-mcp.svg)](https://crates.io/crates/budna-mcp)
+[![npm](https://img.shields.io/npm/v/@budna-marketplace/mcp.svg)](https://www.npmjs.com/package/@budna-marketplace/mcp)
 [![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbudna-marketplace%2Fhomebrew-tap%2Fmain%2FFormula%2Fbudna-mcp.rb&search=version+%22%28%5B%5E%22%5D%2B%29%22&replace=v%241&label=Homebrew&logo=homebrew&logoColor=white&color=FBB040)](https://github.com/budna-marketplace/homebrew-tap)
 
 Use public Budna marketplace data from any compatible MCP client. Budna MCP is read-only: it does not require an account or API key, and it cannot change marketplace data.
 
 ## Quick start
+
+### npm / npx
+
+Requires [Node.js](https://nodejs.org/).
+
+```bash
+npm install --global @budna-marketplace/mcp
+```
+
+For clients that launch the server through npx:
+
+```text
+command: npx
+arguments: --yes @budna-marketplace/mcp
+```
 
 ### Homebrew
 
@@ -112,7 +128,7 @@ Equivalent environment variables are supported when your client can provide them
 
 ## Interactive cards
 
-The Marketplace Explorer is embedded in the binary; no Node.js runtime is needed to use it. Clients that support the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview) can render listing cards, details, related/seller listings, and comparison selection. Other clients receive the same text and structured JSON fallback. See the [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix) for client coverage.
+The Marketplace Explorer is embedded in the binary. Clients that support the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview) can render listing cards, details, related/seller listings, and comparison selection. Other clients receive the same text and structured JSON fallback. See the [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix) for client coverage.
 
 See [the Marketplace Explorer guide](docs/mcp-apps.md) for local HTTP testing, temporary-tunnel safety, privacy and attribution behavior, UI development, and release checks.
 
