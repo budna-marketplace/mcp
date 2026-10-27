@@ -37,7 +37,7 @@ jobs:
           args: --locked
 
   brew:
-    needs: cargo
+    needs: verify
     environment: brew
     runs-on: ubuntu-latest
     timeout-minutes: 10
