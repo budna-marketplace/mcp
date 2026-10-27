@@ -46,7 +46,7 @@ jobs:
           cache-dependency-path: ui/marketplace-explorer/package-lock.json
       - run: |
           rm package-lock.json
-          npm install --package-lock-only --ignore-scripts
+          npx --yes --package=npm@11.6.2 npm install --package-lock-only --ignore-scripts
         working-directory: ui/marketplace-explorer
       - run: npm ci
         working-directory: ui/marketplace-explorer
@@ -59,6 +59,7 @@ jobs:
       - run: npm run build
         working-directory: ui/marketplace-explorer
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: audited-marketplace-explorer
           path: |
