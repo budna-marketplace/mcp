@@ -474,9 +474,14 @@ export function normalizeSellerProfile(
 
 function normalizeMoney(value: unknown): Money | undefined {
   const root = asObject(value);
-  const amount = boundedString(root?.amount, 64);
+  const amount = root?.amount;
   const currencyCode = boundedString(root?.currency_code, 8);
-  if (!amount || !currencyCode || !/^-?\d+(?:\.\d+)?$/u.test(amount))
+  if (
+    typeof amount !== "string" ||
+    amount.length > 128 ||
+    !currencyCode ||
+    !/^-?\d+(?:\.\d+)?$/u.test(amount)
+  )
     return undefined;
   if (!/^[A-Z]{3}$/u.test(currencyCode)) return undefined;
   return { amount, currency_code: currencyCode };
