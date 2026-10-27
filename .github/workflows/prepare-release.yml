@@ -1,0 +1,49 @@
+name: prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/core.yml
+    with:
+      ref: ${{ inputs.tag }}
+      release: true
+
+  distribution:
+    needs: verify
+    uses: ./.github/workflows/distribution.yml
+    with:
+      ref: ${{ inputs.tag }}
+
+  draft:
+    needs: distribution
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: distribution
+          path: distribution
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          draft: true
+          files: distribution/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

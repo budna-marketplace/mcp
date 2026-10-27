@@ -8,6 +8,13 @@ on:
     - cron: "17 3 * * 1"
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
+      release:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,16 +34,18 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
           persist-credentials: false
       - run: python3 scripts/check_public_surface.py
       - name: Verify release tag
-        if: github.event_name == 'release'
+        if: inputs.release
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.ref }}
         run: |
           version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
           test "$RELEASE_TAG" = "v$version"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
           git merge-base --is-ancestor HEAD origin/main
 
   marketplace-explorer:
@@ -47,6 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -75,6 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@4e529fb27e59237866a6523e61ab248308c068b4 # 1.88.0
         with:
@@ -105,9 +116,9 @@ jobs:
       - run: cargo install cargo-deny --version 0.19.0 --locked
       - run: cargo deny check
       - uses: dtolnay/rust-toolchain@ff7f6a3374ce205788da40198ec918bd5d67aea7
-        if: github.event_name == 'release'
+        if: inputs.release
       - run: cargo publish --workspace --locked --dry-run
-        if: github.event_name == 'release'
+        if: inputs.release
 
   cross-platform:
     name: Check ${{ matrix.os }}
@@ -121,6 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@4e529fb27e59237866a6523e61ab248308c068b4 # 1.88.0
       - run: cargo check --workspace --all-targets --all-features --locked

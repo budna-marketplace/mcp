@@ -14,6 +14,9 @@ concurrency:
 jobs:
   verify:
     uses: ./.github/workflows/core.yml
+    with:
+      ref: ${{ github.event.release.tag_name }}
+      release: true
 
   cargo:
     needs: verify
@@ -54,3 +57,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+
+  npm:
+    needs: verify
+    environment: npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+      - name: Download release package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern budna-mcp.tgz
+          gh release verify-asset "$RELEASE_TAG" budna-mcp.tgz --repo "$GITHUB_REPOSITORY"
+      - name: Exercise release package
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          npm install --prefix "$RUNNER_TEMP/npm-smoke" --no-audit --no-fund ./budna-mcp.tgz
+          test "$(npm exec --prefix "$RUNNER_TEMP/npm-smoke" --no -- budna-mcp --version)" = "budna-mcp ${RELEASE_TAG#v}"
+      - uses: JS-DevTools/npm-publish@0fd2f4369c5d6bcfcde6091a7c527d810b9b5c3f
+        with:
+          package: budna-mcp.tgz
+          access: public
+          provenance: true
+          strategy: upgrade
