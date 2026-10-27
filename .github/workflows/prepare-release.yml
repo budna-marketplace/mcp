@@ -23,13 +23,12 @@ jobs:
       release: true
 
   distribution:
-    needs: verify
     uses: ./.github/workflows/distribution.yml
     with:
       ref: ${{ inputs.tag }}
 
   draft:
-    needs: distribution
+    needs: [verify, distribution]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
