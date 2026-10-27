@@ -210,7 +210,10 @@ mod tests {
             let endpoint = config.endpoint("search/listings").unwrap_or_else(|error| {
                 panic!("endpoint should join: {error}");
             });
-            assert_eq!(endpoint.as_str(), "http://[::1]:8080/api/v1/search/listings");
+            assert_eq!(
+                endpoint.as_str(),
+                "http://[::1]:8080/api/v1/search/listings"
+            );
         }
         for base_url in ["http://[::2]:8080", "http://[2001:db8::1]:8080"] {
             assert!(matches!(
