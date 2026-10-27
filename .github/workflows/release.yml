@@ -47,6 +47,7 @@ jobs:
           formula-name: budna-mcp
           homebrew-tap: budna-marketplace/homebrew-tap
           push-to: budna-marketplace/homebrew-tap
+          download-url: https://github.com/budna-marketplace/mcp.git
           tag-name: ${{ github.event.release.tag_name }}
           create-pullrequest: false
           create-branch: false
