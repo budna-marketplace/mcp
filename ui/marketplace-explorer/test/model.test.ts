@@ -147,10 +147,13 @@ describe("marketplace result normalization", () => {
 
   it("accepts the maximum valid Date timestamp", () => {
     expect(
-      normalizeToolResult(detailResult(1, { end_time: 8_640_000_000_000_000 }), {
-        arguments: { listing_id: 1 },
-        name: "get_listing",
-      }),
+      normalizeToolResult(
+        detailResult(1, { end_time: 8_640_000_000_000_000 }),
+        {
+          arguments: { listing_id: 1 },
+          name: "get_listing",
+        },
+      ),
     ).toMatchObject({ ok: true });
   });
 

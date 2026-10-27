@@ -44,33 +44,14 @@ jobs:
           node-version: 22.13.0
           cache: npm
           cache-dependency-path: ui/marketplace-explorer/package-lock.json
-      - run: |
-          rm package-lock.json
-          npx --yes --package=npm@11.6.2 npm install --package-lock-only --ignore-scripts
-        working-directory: ui/marketplace-explorer
       - run: npm ci
         working-directory: ui/marketplace-explorer
       - run: npm audit --audit-level=high
-        working-directory: ui/marketplace-explorer
-      - run: npm run format
         working-directory: ui/marketplace-explorer
       - run: npm run check
         working-directory: ui/marketplace-explorer
       - run: npm run build
         working-directory: ui/marketplace-explorer
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: audited-marketplace-explorer
-          path: |
-            crates/budna-mcp-server/assets/marketplace-explorer-v1.html
-            ui/marketplace-explorer/src/explorer.ts
-            ui/marketplace-explorer/src/model.ts
-            ui/marketplace-explorer/test/explorer.test.ts
-            ui/marketplace-explorer/test/model.test.ts
-            ui/marketplace-explorer/package-lock.json
-          retention-days: 1
-          if-no-files-found: error
       - name: Check generated asset drift and size
         run: |
           git diff --exit-code -- crates/budna-mcp-server/assets
