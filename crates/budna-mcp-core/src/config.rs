@@ -8,7 +8,7 @@ use crate::AccountSettings;
 
 pub const DEFAULT_API_URL: &str = "https://api.budna.se/api/v1";
 pub const DEFAULT_IMAGE_ORIGIN: &str = "https://images.budna.se";
-pub const DEFAULT_LISTING_ORIGIN: &str = "https://budna.se";
+pub const DEFAULT_LISTING_ORIGIN: &str = "https://connect.budna.se";
 pub const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
 pub const MAX_REQUEST_TIMEOUT_SECS: u64 = 300;
 pub const DEFAULT_HTTP_PORT: u16 = 3001;

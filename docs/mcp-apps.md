@@ -180,7 +180,9 @@ the declared MCP App content security policy to the configured
 requests use `no-referrer`.
 
 When a user explicitly opens a listing, the view asks the host to open the
-clean public listing URL with these fixed parameters:
+clean public listing URL at `/listing/{listing_id}` on the configured
+`BUDNA_PUBLIC_LISTING_ORIGIN` (which defaults to `https://connect.budna.se`),
+with these fixed parameters:
 
 ```text
 utm_source=budna_mcp

@@ -987,7 +987,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
     assert_eq!(
         search.pointer("/hits/0/listing_url"),
         Some(&json!(format!(
-            "{CONFIGURED_LISTING_ORIGIN}/l/{}",
+            "{CONFIGURED_LISTING_ORIGIN}/listing/{}",
             public_listing_id(7)
         )))
     );

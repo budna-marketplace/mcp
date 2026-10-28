@@ -688,7 +688,7 @@ fn project_image_ids(image_ids: Vec<String>, budget: &mut ProjectionBudget) -> V
 
 fn listing_url(public_urls: &PublicUrlSettings, listing_id: &str) -> String {
     if budna_mcp_client::is_listing_id(listing_id) {
-        format!("{}/l/{listing_id}", public_urls.listing_origin())
+        format!("{}/listing/{listing_id}", public_urls.listing_origin())
     } else {
         String::new()
     }
@@ -1312,7 +1312,7 @@ mod tests {
     }
 
     #[test]
-    fn implicit_production_url_conversions_are_not_needed() {
+    fn listing_links_use_configured_origin_and_canonical_detail_path() {
         let urls = PublicUrlSettings::new(
             Some("https://listings.example.test".to_owned()),
             Some("https://images.example.test".to_owned()),
@@ -1321,7 +1321,7 @@ mod tests {
         let output = ListingDetailOutput::from_with_public_urls(listing_fixture(7), &urls);
         assert_eq!(
             output.listing_url,
-            format!("https://listings.example.test/l/{}", listing_id(7))
+            format!("https://listings.example.test/listing/{}", listing_id(7))
         );
         assert_eq!(
             output.primary_image_url,

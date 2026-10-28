@@ -323,7 +323,7 @@ async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> 
     assert_eq!(
         search.pointer("/hits/0/listing_url"),
         Some(&json!(
-            "https://budna.se/l/listing_00000000-0000-4000-8000-000000000007"
+            "https://connect.budna.se/listing/listing_00000000-0000-4000-8000-000000000007"
         ))
     );
 

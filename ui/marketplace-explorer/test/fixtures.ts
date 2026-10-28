@@ -26,7 +26,7 @@ export function listing(
       `https://images.budna.se/t/listings/${listingId(id)}/thumbs/${IMAGE_ID}_768x768.webp`,
     ],
     listing_type: "auction",
-    listing_url: `https://budna.se/l/${listingId(id)}`,
+    listing_url: `https://connect.budna.se/listing/${listingId(id)}`,
     primary_image_url: `https://images.budna.se/t/listings/${listingId(id)}/thumbs/${IMAGE_ID}_768x768.webp`,
     seller_id: userId(900 + id),
     shipping_cost: { amount: "79.00", currency_code: "NOK" },

@@ -138,7 +138,7 @@ describe("McpAppBridge", () => {
     await connect(h);
 
     const open = h.bridge.openLink(
-      `https://budna.se/l/${listingId(42)}?utm_source=budna_mcp`,
+      `https://connect.budna.se/listing/${listingId(42)}?utm_source=budna_mcp`,
     );
     let request = h.sent.at(-1);
     expect(request?.method).toBe("ui/open-link");
