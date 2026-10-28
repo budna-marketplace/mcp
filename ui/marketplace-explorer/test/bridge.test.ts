@@ -40,7 +40,7 @@ async function connect(h: ReturnType<typeof harness>): Promise<void> {
   const initialize = h.sent[0];
   expect(initialize?.method).toBe("ui/initialize");
   expect(initialize?.params).toMatchObject({
-    appInfo: { name: "Budna Marketplace Explorer", version: "0.3.2" },
+    appInfo: { name: "Budna Marketplace Explorer", version: "0.3.3" },
     protocolVersion: "2026-01-26",
   });
   h.receive({
