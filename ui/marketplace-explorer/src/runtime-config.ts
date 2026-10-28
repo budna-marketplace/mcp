@@ -6,7 +6,7 @@ export interface PublicOrigins {
 export const PRODUCTION_PUBLIC_ORIGINS: Readonly<PublicOrigins> = Object.freeze(
   {
     imageOrigin: "https://images.budna.se",
-    listingOrigin: "https://budna.se",
+    listingOrigin: "https://connect.budna.se",
   },
 );
 

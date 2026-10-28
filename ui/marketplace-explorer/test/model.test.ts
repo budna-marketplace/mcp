@@ -57,7 +57,9 @@ describe("marketplace result normalization", () => {
     { id: listingId(1).toUpperCase() },
     { id: listingId(1).replace("-4000-", "-7000-") },
     { id: listingId(1).replace("-8000-", "-7000-") },
-    { listing_url: `https://budna.se/l/${listingId(2)}` },
+    { listing_url: `https://connect.budna.se/listing/${listingId(2)}` },
+    { listing_url: `https://connect.budna.se/l/${listingId(1)}` },
+    { listing_url: `https://budna.se/listing/${listingId(1)}` },
   ])("rejects invalid or mismatched public identifiers: %j", (overrides) => {
     expect(
       normalizeToolResult(searchResult([listing(1, overrides)]), {
@@ -242,7 +244,7 @@ describe("marketplace result normalization", () => {
   it("rejects unapproved listing URLs and drops unapproved image URLs", () => {
     const badListing = searchResult([
       listing(1, {
-        listing_url: `https://example.invalid/l/${listingId(1)}`,
+        listing_url: `https://example.invalid/listing/${listingId(1)}`,
       }),
     ]);
     expect(
@@ -273,7 +275,7 @@ describe("marketplace result normalization", () => {
       searchResult([
         listing(12, {
           image_urls: [imageUrl],
-          listing_url: `https://market.example.com/l/${listingId(12)}`,
+          listing_url: `https://market.example.com/listing/${listingId(12)}`,
           primary_image_url: imageUrl,
         }),
       ]),
@@ -285,7 +287,7 @@ describe("marketplace result normalization", () => {
       view: {
         listings: [
           {
-            listingUrl: `https://market.example.com/l/${listingId(12)}`,
+            listingUrl: `https://market.example.com/listing/${listingId(12)}`,
             primaryImageUrl: imageUrl,
           },
         ],
@@ -293,12 +295,14 @@ describe("marketplace result normalization", () => {
     });
     expect(
       attributedListingUrl(
-        `https://market.example.com/l/${listingId(12)}`,
+        `https://market.example.com/listing/${listingId(12)}`,
         ALTERNATE_PUBLIC_ORIGINS,
       ),
     ).toContain("utm_source=budna_mcp");
     expect(
-      attributedListingUrl(`https://market.example.com/l/${listingId(12)}`),
+      attributedListingUrl(
+        `https://market.example.com/listing/${listingId(12)}`,
+      ),
     ).toBeUndefined();
   });
 
@@ -478,10 +482,12 @@ describe("bounded interaction data", () => {
   });
 
   it("adds only the approved anonymous attribution parameters", () => {
-    const value = attributedListingUrl(`https://budna.se/l/${listingId(42)}`);
-    const url = new URL(value ?? "https://budna.se");
+    const value = attributedListingUrl(
+      `https://connect.budna.se/listing/${listingId(42)}`,
+    );
+    const url = new URL(value ?? "https://connect.budna.se");
     expect(url.origin + url.pathname).toBe(
-      `https://budna.se/l/${listingId(42)}`,
+      `https://connect.budna.se/listing/${listingId(42)}`,
     );
     expect(Object.fromEntries(url.searchParams)).toEqual({
       utm_campaign: "interactive_cards",
@@ -489,11 +495,13 @@ describe("bounded interaction data", () => {
       utm_source: "budna_mcp",
     });
     expect(
-      attributedListingUrl(`https://example.invalid/l/${listingId(42)}`),
+      attributedListingUrl(`https://example.invalid/listing/${listingId(42)}`),
     ).toBeUndefined();
-    expect(attributedListingUrl("https://budna.se/l/42")).toBeUndefined();
     expect(
-      attributedListingUrl(`https://budna.se/l/${userId(42)}`),
+      attributedListingUrl("https://connect.budna.se/listing/42"),
+    ).toBeUndefined();
+    expect(
+      attributedListingUrl(`https://connect.budna.se/listing/${userId(42)}`),
     ).toBeUndefined();
   });
 });

@@ -22,6 +22,25 @@ const MAX_LISTING_PAGE: u32 = 10_000;
 const MAX_CUSTOM_FILTERS: usize = 20;
 const MAX_TOOL_ARGUMENT_BYTES: usize = 64 * 1024;
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EmptyAccountParams {}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountListingsParams {
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountListingsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
 struct BoundedSizeSink {
     remaining: usize,
 }

@@ -629,7 +629,8 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         ),
     };
     let command = command.configure(|cmd| {
-        cmd.arg("--api-url")
+        cmd.args(["--profile", "public-explore", "--transport", "stdio"])
+            .arg("--api-url")
             .arg(api.uri())
             .arg("--request-timeout-secs")
             .arg("2")
@@ -986,7 +987,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
     assert_eq!(
         search.pointer("/hits/0/listing_url"),
         Some(&json!(format!(
-            "{CONFIGURED_LISTING_ORIGIN}/l/{}",
+            "{CONFIGURED_LISTING_ORIGIN}/listing/{}",
             public_listing_id(7)
         )))
     );

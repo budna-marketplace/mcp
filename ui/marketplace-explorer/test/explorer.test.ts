@@ -416,7 +416,9 @@ describe("MarketplaceExplorer", () => {
     open?.click();
 
     await vi.waitFor(() => expect(bridge.opened).toHaveLength(1));
-    expect(bridge.opened[0]).toContain(`https://budna.se/l/${listingId(1)}?`);
+    expect(bridge.opened[0]).toContain(
+      `https://connect.budna.se/listing/${listingId(1)}?`,
+    );
     expect(bridge.opened[0]).toContain("utm_campaign=interactive_cards");
   });
 

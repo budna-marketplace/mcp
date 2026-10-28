@@ -3,7 +3,7 @@ name = "budna-mcp-client"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "HTTP client and wire contracts for the public Budna marketplace API"
+description = "HTTP client and wire contracts for Budna marketplace and account capability profiles"
 license.workspace = true
 readme.workspace = true
 repository.workspace = true
@@ -21,6 +21,7 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 url.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

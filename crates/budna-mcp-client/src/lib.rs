@@ -1,11 +1,13 @@
-//! Bounded HTTP client and validated response contracts for Budna's public marketplace API.
+//! Bounded HTTP clients and validated response contracts for Budna capability profiles.
 //!
-//! The client performs only public `GET` requests, rejects redirects and oversized responses,
+//! The public client performs only public `GET` requests, rejects redirects and oversized responses,
 //! applies bounded retries to transient failures, and fails closed when public visibility or
 //! response invariants cannot be established.
+//! A separate account client exchanges scoped credentials and reads account projections.
 
 #![cfg_attr(test, recursion_limit = "256")]
 
+mod account;
 mod config;
 mod error;
 mod models;
@@ -20,6 +22,14 @@ use reqwest::{
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
+pub use account::{
+    ACCOUNT_READ_SCOPE, AccountApiClient, AccountBuyerProtection, AccountListingAttribute,
+    AccountListingAttributeValue, AccountListingAuction, AccountListingDetail,
+    AccountListingFixedPrice, AccountListingImage, AccountListingLive, AccountListingLiveRound,
+    AccountListingLiveStream, AccountListingPage, AccountListingReserve, AccountListingRound,
+    AccountListingShipping, AccountListingShowcase, AccountListingSummary, AccountSummary,
+    DelegatedAccess, LISTINGS_READ_SCOPE,
+};
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
 pub use models::{
@@ -1407,6 +1417,10 @@ fn sanitize_problem_code(value: String) -> Option<String> {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ClientBuildError {
+    #[error(
+        "account configuration must use the API issuer, an HTTPS account resource and a dedicated service credential"
+    )]
+    AccountConfiguration,
     #[error("failed to build the Budna HTTP client: {0}")]
     HttpClient(#[source] reqwest::Error),
 }

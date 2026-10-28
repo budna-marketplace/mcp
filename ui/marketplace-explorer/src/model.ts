@@ -535,7 +535,7 @@ function cleanListingUrl(
   const cleaned = cleanListingUrlWithoutKnownId(value, origins);
   if (!cleaned) return undefined;
   const url = new URL(cleaned);
-  return url.pathname === `/l/${listingId}` ? cleaned : undefined;
+  return url.pathname === `/listing/${listingId}` ? cleaned : undefined;
 }
 
 function cleanListingUrlWithoutKnownId(
@@ -552,8 +552,8 @@ function cleanListingUrlWithoutKnownId(
       url.password !== "" ||
       url.search !== "" ||
       url.hash !== "" ||
-      !url.pathname.startsWith("/l/") ||
-      !publicId(url.pathname.slice(3), "listing")
+      !url.pathname.startsWith("/listing/") ||
+      !publicId(url.pathname.slice("/listing/".length), "listing")
     ) {
       return undefined;
     }

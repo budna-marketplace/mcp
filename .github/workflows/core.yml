@@ -92,10 +92,21 @@ jobs:
       - run: npm run build
         working-directory: ui/marketplace-explorer
       - name: Check generated asset drift and size
+        id: assets
         run: |
           git diff --exit-code -- crates/budna-mcp-server/assets
           test "$(wc -c < crates/budna-mcp-server/assets/marketplace-explorer-v1.html)" -le 307200
           test -s crates/budna-mcp-server/assets/THIRD_PARTY_NOTICES.txt
+      - name: Retain regenerated Marketplace Explorer for review
+        if: failure() && steps.assets.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: generated-marketplace-explorer
+          path: |
+            crates/budna-mcp-server/assets/marketplace-explorer-v1.html
+            crates/budna-mcp-server/assets/THIRD_PARTY_NOTICES.txt
+          if-no-files-found: error
+          retention-days: 14
 
   quality:
     name: Rust quality (MSRV)

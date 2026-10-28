@@ -13,6 +13,7 @@ categories.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+axum.workspace = true
 budna-mcp-client.workspace = true
 budna-mcp-core.workspace = true
 rmcp.workspace = true
@@ -21,6 +22,9 @@ serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
+tower-http.workspace = true
+http.workspace = true
 
 [dev-dependencies]
 wiremock.workspace = true

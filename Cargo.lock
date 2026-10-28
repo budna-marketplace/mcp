@@ -212,7 +212,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-util",
- "tower-http",
  "tracing",
  "tracing-subscriber",
  "wiremock",
@@ -231,6 +230,7 @@ dependencies = [
  "tracing",
  "url",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -246,13 +246,17 @@ dependencies = [
 name = "budna-mcp-server"
 version = "0.3.3"
 dependencies = [
+ "axum",
  "budna-mcp-client",
  "budna-mcp-core",
+ "http",
  "rmcp",
  "schemars",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-util",
+ "tower-http",
  "tracing",
  "wiremock",
 ]
