@@ -12,7 +12,7 @@ pub struct AccountSummary {
 #[derive(Clone, Debug, Deserialize)]
 pub struct AccountListingSummary {
     pub id: String,
-    pub title: String,
+    pub title: Option<String>,
     pub status: String,
     pub listing_type: String,
     pub updated_at: i64,

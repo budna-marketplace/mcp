@@ -11,5 +11,5 @@ mod params;
 mod tools;
 
 pub use account::AccountMcpServer;
-pub use http_transport::{account_http_router, public_http_router};
+pub use http_transport::{account_http_router, public_http_router, stateless_public_http_router};
 pub use tools::BudnaMcpServer;

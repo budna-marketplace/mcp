@@ -23,8 +23,12 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 pub use account::{
-    ACCOUNT_READ_SCOPE, AccountApiClient, AccountListingPage, AccountListingSummary,
-    AccountSummary, DelegatedAccess, LISTINGS_READ_SCOPE,
+    ACCOUNT_READ_SCOPE, AccountApiClient, AccountBuyerProtection, AccountListingAttribute,
+    AccountListingAttributeValue, AccountListingAuction, AccountListingDetail,
+    AccountListingFixedPrice, AccountListingImage, AccountListingLive, AccountListingLiveRound,
+    AccountListingLiveStream, AccountListingPage, AccountListingReserve, AccountListingRound,
+    AccountListingShipping, AccountListingShowcase, AccountListingSummary, AccountSummary,
+    DelegatedAccess, LISTINGS_READ_SCOPE,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};

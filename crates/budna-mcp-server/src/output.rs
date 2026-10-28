@@ -1,10 +1,12 @@
 mod account;
+mod account_detail;
 mod common;
 mod listings;
 mod profiles;
 mod taxonomy;
 
 pub(crate) use account::{AccountListingsOutput, AccountOutput};
+pub(crate) use account_detail::AccountListingDetailOutput;
 pub(crate) use listings::{
     ListingAttributesOutput, ListingBidSummaryOutput, ListingCollectionOutput, ListingDetailOutput,
     ListingSearchOutput,

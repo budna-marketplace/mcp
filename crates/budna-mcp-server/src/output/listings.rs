@@ -629,7 +629,7 @@ pub struct PublicLocationOutput {
 }
 
 impl PublicLocationOutput {
-    fn project(location: ListingLocation, budget: &mut ProjectionBudget) -> Self {
+    pub(super) fn project(location: ListingLocation, budget: &mut ProjectionBudget) -> Self {
         Self {
             city: budget.text(location.city, MAX_NAME_BYTES),
             region: budget.optional_text(location.region, MAX_NAME_BYTES),

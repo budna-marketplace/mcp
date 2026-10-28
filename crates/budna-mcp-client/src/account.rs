@@ -1,4 +1,5 @@
 mod config;
+mod listing;
 mod models;
 
 use models::ExchangeResponse;
@@ -16,6 +17,7 @@ use reqwest::{
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
 use zeroize::Zeroizing;
 
+pub use listing::*;
 pub use models::{AccountListingPage, AccountListingSummary, AccountSummary};
 
 use crate::{ClientConfig, ClientError, is_listing_id, is_user_id, models::ApiEnvelope};
@@ -182,11 +184,14 @@ impl AccountApiClient {
                     .max(0)
             || result.items.iter().any(|listing| {
                 !is_listing_id(&listing.id)
-                    || listing.title.len() > 4096
+                    || listing
+                        .title
+                        .as_ref()
+                        .is_some_and(|title| title.len() > 4096)
                     || listing.updated_at < 0
                     || !matches!(
                         listing.status.as_str(),
-                        "active" | "sold" | "expired" | "cancelled"
+                        "draft" | "active" | "sold" | "expired" | "cancelled"
                     )
                     || !matches!(
                         listing.listing_type.as_str(),
@@ -194,6 +199,34 @@ impl AccountApiClient {
                     )
             })
         {
+            return Err(invalid_response(OPERATION));
+        }
+        Ok(result)
+    }
+
+    pub async fn listing(
+        &self,
+        access: &DelegatedAccess,
+        listing_id: &str,
+    ) -> Result<AccountListingDetail, ClientError> {
+        const OPERATION: &str = "get_my_listing";
+        self.require_scope(access, LISTINGS_READ_SCOPE, OPERATION)?;
+        if !is_listing_id(listing_id) {
+            return Err(ClientError::InvalidInput {
+                operation: OPERATION,
+                code: "INVALID_INPUT",
+                message: "listing_id must be a canonical Budna listing ID",
+            });
+        }
+        let result: AccountListingDetail = self
+            .get(
+                OPERATION,
+                &format!("mcp/listings/{listing_id}"),
+                access,
+                &[],
+            )
+            .await?;
+        if result.id != listing_id || !result.is_valid() {
             return Err(invalid_response(OPERATION));
         }
         Ok(result)
@@ -480,7 +513,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn account_reads_reject_drafts_invalid_pagination_and_oversized_responses() {
+    async fn account_reads_accept_untitled_drafts_and_reject_invalid_pages_and_oversized_responses()
+    {
         let api = MockServer::start().await;
         exchange(&api, "incoming", "downstream", USER_A, LISTINGS_READ_SCOPE).await;
         let client = client(&api);
@@ -488,16 +522,26 @@ mod tests {
             .exchange("incoming")
             .await
             .unwrap_or_else(|error| panic!("exchange: {error}"));
-        let mock = Mock::given(method("GET")).and(path("/api/v1/mcp/listings"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{
-                "items":[{"id":"listing_00000000-0000-4000-8000-000000000007","title":"synthetic","status":"draft","listing_type":"auction","updated_at":1700000000000_i64}],
-                "pagination":{"page":1,"limit":20,"total":1,"total_pages":1}
-            }}))).mount_as_scoped(&api).await;
-        assert!(matches!(
-            client.listings(&access, 1, 20).await,
-            Err(ClientError::InvalidResponse { .. })
-        ));
-        drop(mock);
+        for title in [None, Some(serde_json::Value::Null), Some(json!(""))] {
+            let mut summary = json!({"id":"listing_00000000-0000-4000-8000-000000000007","status":"draft","listing_type":"auction","updated_at":1700000000000_i64});
+            if let Some(title) = &title {
+                summary["title"] = title.clone();
+            }
+            let mock = Mock::given(method("GET")).and(path("/api/v1/mcp/listings"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{
+                    "items":[summary],"pagination":{"page":1,"limit":20,"total":1,"total_pages":1}
+                }}))).mount_as_scoped(&api).await;
+            let page = client
+                .listings(&access, 1, 20)
+                .await
+                .unwrap_or_else(|error| panic!("owned draft: {error}"));
+            assert_eq!(page.items[0].status, "draft");
+            assert_eq!(
+                page.items[0].title.as_deref(),
+                title.as_ref().and_then(serde_json::Value::as_str)
+            );
+            drop(mock);
+        }
         assert!(matches!(
             client.listings(&access, 0, 20).await,
             Err(ClientError::InvalidInput { .. })
@@ -515,5 +559,166 @@ mod tests {
             client.listings(&access, 1, 20).await,
             Err(ClientError::ResponseTooLarge { .. })
         ));
+    }
+
+    #[tokio::test]
+    async fn owned_detail_is_scoped_to_one_fixed_id_and_rejects_mismatched_or_invalid_records() {
+        let api = MockServer::start().await;
+        exchange(&api, "incoming", "downstream", USER_A, LISTINGS_READ_SCOPE).await;
+        exchange(
+            &api,
+            "account-only",
+            "account-only-api",
+            USER_A,
+            ACCOUNT_READ_SCOPE,
+        )
+        .await;
+        exchange(
+            &api,
+            "other-owner",
+            "other-owner-api",
+            USER_B,
+            LISTINGS_READ_SCOPE,
+        )
+        .await;
+        let client = client(&api);
+        let access = client
+            .exchange("incoming")
+            .await
+            .unwrap_or_else(|error| panic!("exchange: {error}"));
+        let denied = client
+            .exchange("account-only")
+            .await
+            .unwrap_or_else(|error| panic!("exchange: {error}"));
+        let foreign = client
+            .exchange("other-owner")
+            .await
+            .unwrap_or_else(|error| panic!("foreign exchange: {error}"));
+        let id = "listing_00000000-0000-4000-8000-000000000007";
+        assert!(matches!(
+            client.listing(&denied, id).await,
+            Err(ClientError::Api { status: 403, .. })
+        ));
+        assert!(matches!(
+            client.listing(&access, "invalid-listing-id").await,
+            Err(ClientError::InvalidInput { .. })
+        ));
+        Mock::given(method("GET"))
+            .and(path(format!("/api/v1/mcp/listings/{id}")))
+            .and(header("authorization", "Bearer other-owner-api"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&api)
+            .await;
+        assert!(matches!(
+            client.listing(&foreign, id).await,
+            Err(ClientError::Api { status: 404, .. })
+        ));
+        let mut record = listing::synthetic_listing();
+        let mock = Mock::given(method("GET"))
+            .and(path(format!("/api/v1/mcp/listings/{id}")))
+            .and(header("authorization", "Bearer downstream"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":record})),
+            )
+            .mount_as_scoped(&api)
+            .await;
+        let detail = client
+            .listing(&access, id)
+            .await
+            .unwrap_or_else(|error| panic!("owned detail: {error}"));
+        assert_eq!(detail.status, "draft");
+        assert!(detail.title.is_none());
+        assert_eq!(
+            detail
+                .auction
+                .as_ref()
+                .and_then(|auction| auction.reserve.price.as_ref())
+                .map(|price| price.amount.as_str()),
+            Some("123.4500")
+        );
+        assert!(!format!("{detail:?}").contains("ignored-account-detail-sentinel"));
+        drop(mock);
+        for title in [None, Some(serde_json::Value::Null), Some(json!(""))] {
+            record = listing::synthetic_listing();
+            record
+                .as_object_mut()
+                .unwrap_or_else(|| panic!("fixture object"))
+                .remove("title");
+            record
+                .as_object_mut()
+                .unwrap_or_else(|| panic!("fixture object"))
+                .remove("description");
+            if let Some(title) = &title {
+                record["title"] = title.clone();
+                record["description"] = title.clone();
+            }
+            let mock = Mock::given(method("GET"))
+                .and(path(format!("/api/v1/mcp/listings/{id}")))
+                .respond_with(
+                    ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":record})),
+                )
+                .mount_as_scoped(&api)
+                .await;
+            let detail = client
+                .listing(&access, id)
+                .await
+                .unwrap_or_else(|error| panic!("unfinished own listing: {error}"));
+            assert_eq!(
+                detail.title.as_deref(),
+                title.as_ref().and_then(serde_json::Value::as_str)
+            );
+            assert_eq!(
+                detail.description.as_deref(),
+                title.as_ref().and_then(serde_json::Value::as_str)
+            );
+            drop(mock);
+        }
+        for (pointer, value) in [
+            ("/id", json!("listing_00000000-0000-4000-8000-000000000008")),
+            ("/status", json!("unknown")),
+            ("/auction/reserve/price/currency_code", json!("NOK")),
+            ("/auction/starting_price/amount", json!("1e2")),
+        ] {
+            record = listing::synthetic_listing();
+            *record
+                .pointer_mut(pointer)
+                .unwrap_or_else(|| panic!("fixture pointer {pointer}")) = value;
+            let mock = Mock::given(method("GET"))
+                .and(path(format!("/api/v1/mcp/listings/{id}")))
+                .respond_with(
+                    ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":record})),
+                )
+                .mount_as_scoped(&api)
+                .await;
+            assert!(matches!(
+                client.listing(&access, id).await,
+                Err(ClientError::InvalidResponse { .. })
+            ));
+            drop(mock);
+        }
+        for status in [403, 404] {
+            let mock = Mock::given(method("GET"))
+                .and(path(format!("/api/v1/mcp/listings/{id}")))
+                .respond_with(ResponseTemplate::new(status))
+                .mount_as_scoped(&api)
+                .await;
+            assert!(
+                matches!(client.listing(&access, id).await, Err(ClientError::Api { status: actual, .. }) if actual == status)
+            );
+            drop(mock);
+        }
+        for request in api.received_requests().await.unwrap_or_default() {
+            assert!(request.headers.get("cookie").is_none());
+            if request.method == "GET" {
+                assert_eq!(request.url.path(), format!("/api/v1/mcp/listings/{id}"));
+                assert!(matches!(
+                    request
+                        .headers
+                        .get("authorization")
+                        .and_then(|value| value.to_str().ok()),
+                    Some("Bearer downstream" | "Bearer other-owner-api")
+                ));
+            }
+        }
     }
 }

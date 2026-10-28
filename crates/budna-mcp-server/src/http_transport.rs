@@ -47,6 +47,25 @@ pub fn public_http_router(
     settings: &HttpServerSettings,
     cancellation: CancellationToken,
 ) -> Result<Router, http::header::InvalidHeaderValue> {
+    build_public_http_router(server, settings, cancellation, true)
+}
+
+/// Builds the public Explore router without sessions for replicated HTTP hosts.
+/// Public tools need no account credentials and retain the same HTTP controls.
+pub fn stateless_public_http_router(
+    server: BudnaMcpServer,
+    settings: &HttpServerSettings,
+    cancellation: CancellationToken,
+) -> Result<Router, http::header::InvalidHeaderValue> {
+    build_public_http_router(server, settings, cancellation, false)
+}
+
+fn build_public_http_router(
+    server: BudnaMcpServer,
+    settings: &HttpServerSettings,
+    cancellation: CancellationToken,
+    stateful: bool,
+) -> Result<Router, http::header::InvalidHeaderValue> {
     let mut session_manager = LocalSessionManager::default();
     session_manager.session_config.keep_alive = Some(HTTP_SESSION_IDLE_TIMEOUT);
 
@@ -54,7 +73,8 @@ pub fn public_http_router(
         move || Ok::<_, io::Error>(server.clone()),
         Arc::new(session_manager),
         StreamableHttpServerConfig::default()
-            .with_stateful_mode(true)
+            .with_stateful_mode(stateful)
+            .with_json_response(!stateful)
             .with_allowed_hosts(settings.allowed_hosts().iter().cloned())
             .with_allowed_origins(settings.allowed_origins().iter().cloned())
             .with_cancellation_token(cancellation.child_token()),

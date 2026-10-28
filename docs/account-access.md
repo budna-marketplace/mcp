@@ -9,8 +9,10 @@ and can revoke its access. This direction does not make future actions
 available in the current profile.
 
 Account Read is a separate authenticated Streamable HTTP resource at
-`/account/mcp`. Public Explore remains the default profile and its public
-client never carries account credentials. Account Read is unavailable over
+`/account/mcp`. Public Explore remains the default profile: its tools need no
+Budna account, sign-in or API key, and its public client never carries account
+credentials. Connecting an account is optional and only unlocks account tools.
+Account Read is unavailable over
 stdio; the embedded Marketplace Explorer remains public.
 
 Applications hosting the resource can use `budna_mcp_server::account_http_router`.
@@ -18,6 +20,11 @@ It includes authentication, discovery, request limits, Host/Origin checks and
 CORS. The host owns TLS, listener binding and graceful shutdown through the
 supplied cancellation token. The standalone application's listener stays on
 loopback.
+
+Hosts offering both profiles can merge the account router with
+`budna_mcp_server::stateless_public_http_router`, which serves anonymous tools
+at `/mcp` without sessions or replica affinity. Both builders retain request-body,
+Host, Origin and CORS controls; account authentication stays on `/account/mcp`.
 
 ## Deployment configuration
 
@@ -46,18 +53,45 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | Tool | Scope | Output |
 | --- | --- | --- |
 | `get_my_account` | `account:read` | Account ID, personal/company kind and optional public account label |
-| `list_my_listings` | `listings:read` | Bounded non-draft listing summaries with ID, title, status, type and update time |
+| `list_my_listings` | `listings:read` | Bounded own listing summaries, including drafts, with ID, nullable title, status, type and update time |
+| `get_my_listing` | `listings:read` | Owner-visible details for one own listing, including drafts and the owner's reserve price |
 
-The listing tool accepts only `page` (1–10000) and `limit` (1–50). The account
+The listing collection accepts only `page` (1–10000) and `limit` (1–50). Detail
+accepts only a canonical `listing_id`. The account
 is always derived from the verified grant; no account, seller or company ID
-can be supplied as authority. The first contract supports personal and company
-owner accounts. Member delegation requires a separate reviewed capability.
-These scopes do not authorize drafts, private prices, precise locations,
-contact details, third-party identities, security settings or mutations.
+can be supplied as authority. Reads cover listings whose recorded seller is
+the logged-in personal or company principal account. They do not switch company
+workspaces or use member permissions; member delegation needs a separate
+reviewed capability.
+The same listing permission covers own drafts and owner-visible prices. A
+missing or foreign listing is unavailable; public visibility never substitutes
+for ownership. Drafts retain null titles and descriptions when unfinished.
+
+Detail includes title, description, category, condition, type, currency, market,
+status, quantity, image IDs and optional ThumbHashes, shipping options and a
+coarse location reference with city/region/country, attributes and their display labels, tags, timestamps,
+views and placement flags. Auction details include prices, owner reserve,
+round outcome, bid count, increment and next minimum bid. Fixed-price and live
+round terms retain their exact amounts and timing. Safe showcase and live
+session metadata provides context without playback credentials. Attributes with
+complex values expose their app display text and a `json_display_only` marker
+rather than arbitrary JSON; unsupported complex shapes have a null display value.
+Buyer protection fee amounts carry the listing's currency.
+
+The projection omits precise addresses, contacts, other people's identities,
+internal row IDs, moderation or risk notes, staff metadata, tag claim codes,
+credentials and raw response data. Free-form listing content can contain
+information the owner entered; granting access lets the chosen AI host receive
+that content, including unpublished drafts and reserve prices. These scopes do
+not authorize security settings or mutations.
 
 All account and marketplace text is untrusted data. Output schemas and explicit
 projection structs are enforced independently of backend response fields.
-Additional response fields are ignored. Timestamps are Unix milliseconds.
+Additional response fields are ignored. Timestamps are Unix milliseconds. Money is
+`{"amount":"<exact decimal>","currency_code":"<ISO code>"}`. Detail bounds images
+and tags to 50 each, attributes to 100, title text to 4096 bytes and description
+text to 40000 bytes, with a shared encoded-text budget. `truncated` reports when
+these output limits shorten a detail response.
 
 ## Credential boundary
 
@@ -76,7 +110,7 @@ separate bearer API token, expiry, scope, subject, grant ID, client ID and
 resource. Tokens are never returned as tool output or embedded in resources.
 
 Only that short-lived delegated API token is used for `GET mcp/account` and
-`GET mcp/listings` beneath the API base. The API must independently enforce
+`GET mcp/listings` and `GET mcp/listings/{listing_id}` beneath the API base. The API must independently enforce
 grant revocation, expiry, scope, account standing and ownership, and must reject
 these credentials on all other capabilities. The MCP token is never forwarded
 to a marketplace resource endpoint. The connector stores no refresh tokens or

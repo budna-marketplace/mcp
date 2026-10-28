@@ -123,7 +123,9 @@ async fn authenticate(
                                 .and_then(|value| value.as_str())
                             {
                                 Some("get_my_account") => Some(ACCOUNT_READ_SCOPE),
-                                Some("list_my_listings") => Some(LISTINGS_READ_SCOPE),
+                                Some("list_my_listings" | "get_my_listing") => {
+                                    Some(LISTINGS_READ_SCOPE)
+                                }
                                 _ => None,
                             }
                         } else {

@@ -31,7 +31,7 @@ pub struct AccountListingOutput {
     #[schemars(length(max = 64))]
     pub id: String,
     #[schemars(length(max = 512))]
-    pub title: String,
+    pub title: Option<String>,
     #[schemars(length(max = 16))]
     pub status: String,
     #[schemars(length(max = 32))]
@@ -56,7 +56,7 @@ impl From<AccountListingPage> for AccountListingsOutput {
                 .into_iter()
                 .map(|item| AccountListingOutput {
                     id: item.id,
-                    title: budget.text(item.title, 512),
+                    title: budget.optional_text(item.title, 512),
                     status: item.status,
                     listing_type: item.listing_type,
                     updated_at: item.updated_at,
