@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.budna-marketplace/mcp",
+  "title": "Budna MCP",
+  "description": "Explore public Budna marketplace listings, categories, seller profiles, ratings, and bid summaries.",
+  "repository": {
+    "url": "https://github.com/budna-marketplace/mcp",
+    "source": "github"
+  },
+  "version": "0.3.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@budna-marketplace/mcp",
+      "version": "0.3.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

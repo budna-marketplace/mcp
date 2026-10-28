@@ -623,7 +623,10 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
             command.arg(PathBuf::from(package).join("run-budna-mcp.js"));
             command
         }
-        None => tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp")),
+        None => tokio::process::Command::new(
+            std::env::var_os("BUDNA_MCP_TEST_BINARY")
+                .unwrap_or_else(|| env!("CARGO_BIN_EXE_budna-mcp").into()),
+        ),
     };
     let command = command.configure(|cmd| {
         cmd.arg("--api-url")

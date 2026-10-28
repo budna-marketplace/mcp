@@ -38,6 +38,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - run: python3 scripts/check_public_surface.py
+      - name: Check MCP Registry metadata
+        run: |
+          python3 - <<'PY'
+          import json
+          import tomllib
+          from pathlib import Path
+
+          workspace = tomllib.loads(Path("Cargo.toml").read_text())["workspace"]
+          server = json.loads(Path("server.json").read_text())
+          assert server["name"] == "io.github.budna-marketplace/mcp"
+          assert len(server["description"]) <= 100
+          assert server["repository"]["url"] == workspace["package"]["repository"]
+          assert server["version"] == workspace["package"]["version"]
+          assert server["packages"] == [{
+              "registryType": "npm",
+              "identifier": "@budna-marketplace/mcp",
+              "version": server["version"],
+              "transport": {"type": "stdio"},
+          }]
+          PY
       - name: Verify release tag
         if: inputs.release
         env:

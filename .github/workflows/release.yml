@@ -90,3 +90,27 @@ jobs:
           access: public
           provenance: true
           strategy: upgrade
+
+  registry:
+    needs: npm
+    environment: registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8
+        with:
+          repo: modelcontextprotocol/registry
+          tag: v1.8.6
+          asset-name: mcp-publisher
+          platform: linux_amd64
+          digest: 1fbe93fc0783c2394d8012c8d6e50a59e98cb2cc2d216264cc69f405d0e21340
+      - run: mcp-publisher validate
+      - run: mcp-publisher login github-oidc
+      - run: mcp-publisher publish
