@@ -7,12 +7,12 @@
     "url": "https://github.com/budna-marketplace/mcp",
     "source": "github"
   },
-  "version": "0.3.3",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@budna-marketplace/mcp",
-      "version": "0.3.3",
+      "version": "0.4.0",
       "transport": {
         "type": "stdio"
       }
