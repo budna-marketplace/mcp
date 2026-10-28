@@ -3,11 +3,31 @@
 [![build](https://img.shields.io/github/actions/workflow/status/budna-marketplace/mcp/core.yml?branch=main)](https://github.com/budna-marketplace/mcp/actions/workflows/core.yml)
 [![crates.io](https://img.shields.io/crates/v/budna-mcp.svg)](https://crates.io/crates/budna-mcp)
 [![npm](https://img.shields.io/npm/v/@budna-marketplace/mcp.svg)](https://www.npmjs.com/package/@budna-marketplace/mcp)
+[![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0.1%2Fservers%2Fio.github.budna-marketplace%252Fmcp%2Fversions%2Flatest&query=%24.server.version&label=MCP+Registry&prefix=v&color=blue)](https://registry.modelcontextprotocol.io/?q=io.github.budna-marketplace%2Fmcp)
 [![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbudna-marketplace%2Fhomebrew-tap%2Fmain%2FFormula%2Fbudna-mcp.rb&search=version+%22%28%5B%5E%22%5D%2B%29%22&replace=v%241&label=Homebrew&logo=homebrew&logoColor=white&color=FBB040)](https://github.com/budna-marketplace/homebrew-tap)
 
 Use public Budna marketplace data from any compatible MCP client. Budna MCP is read-only: it does not require an account or API key, and it cannot change marketplace data.
 
 ## Quick start
+
+### Shell (macOS / Linux)
+
+Install a prebuilt binary without Node.js or Rust:
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/budna-marketplace/mcp/releases/latest/download/budna-mcp-installer.sh | sh
+```
+
+### PowerShell (Windows)
+
+Run in PowerShell 5.1 or newer:
+
+```powershell
+irm https://github.com/budna-marketplace/mcp/releases/latest/download/budna-mcp-installer.ps1 | iex
+```
+
+Restart your terminal if the installer adds its directory to PATH, then check
+`budna-mcp --version`.
 
 ### npm / npx
 

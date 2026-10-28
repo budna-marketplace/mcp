@@ -15,7 +15,8 @@ draft unless publication is already authorized by the user.
    new version. Never move or reuse a release tag.
 2. Update the workspace version and local dependency versions in `Cargo.toml`,
    workspace entries in `Cargo.lock`, UI `package.json` and `package-lock.json`,
-   `appInfo.version` in `ui/marketplace-explorer/src/bridge.ts`, and both the
+   `appInfo.version` in `ui/marketplace-explorer/src/bridge.ts` and its handshake
+   expectation in `ui/marketplace-explorer/test/bridge.test.ts`, and both the
    server and npm package versions in `server.json`.
 3. Follow `ui/marketplace-explorer/AGENTS.md` to rebuild the embedded HTML.
    Run root verification and the packaging checks in `.github/workflows/core.yml`.
