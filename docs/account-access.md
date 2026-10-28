@@ -1,5 +1,13 @@
 # Account Read profile
 
+Budna MCP is intended to grow into a full integration with the Budna API,
+including the actions available in the app. Account access begins with the
+read-only tools below. Future actions require their own permissions and
+appropriate safeguards, including confirmation for sensitive operations.
+Customers control which capabilities they grant to a connected application
+and can revoke its access. This direction does not make future actions
+available in the current profile.
+
 Account Read is a separate authenticated Streamable HTTP resource at
 `/account/mcp`. Public Explore remains the default profile and its public
 client never carries account credentials. Account Read is unavailable over
