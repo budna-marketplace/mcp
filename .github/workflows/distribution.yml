@@ -66,6 +66,39 @@ jobs:
           dist build --artifacts=local --target "$TARGET" --output-format=json --no-local-paths > local-manifest.json
           cp local-manifest.json "target/distrib/$TARGET-dist-manifest.json"
           dist build --artifacts=global --target "$TARGET" --no-local-paths
+      - name: Exercise native installer
+        id: native-installer
+        shell: python
+        run: |
+          from functools import partial
+          from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import threading
+
+          windows = os.name == "nt"
+          installer = Path("target/distrib/budna-mcp-installer." + ("ps1" if windows else "sh"))
+          install_dir = Path("target/install-smoke").resolve()
+          binary = install_dir / ("budna-mcp.exe" if windows else "budna-mcp")
+          server = ThreadingHTTPServer(("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory="target/distrib"))
+          threading.Thread(target=server.serve_forever, daemon=True).start()
+          try:
+              env = dict(os.environ, BUDNA_MCP_DOWNLOAD_URL=f"http://127.0.0.1:{server.server_port}", BUDNA_MCP_UNMANAGED_INSTALL=str(install_dir))
+              command = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"] if windows else ["sh"]
+              subprocess.run([*command, str(installer)], env=env, check=True)
+              version = json.loads(Path("target/distrib/budna-mcp-npm-package/package.json").read_text())["version"]
+              assert subprocess.check_output([str(binary), "--version"], text=True).strip() == f"budna-mcp {version}"
+              with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                  output.write(f"binary={binary.as_posix()}\n")
+          finally:
+              server.shutdown()
+              server.server_close()
+      - name: Exercise MCP through native installer
+        env:
+          BUDNA_MCP_TEST_BINARY: ${{ steps.native-installer.outputs.binary }}
+        run: cargo test --package budna-mcp --test stdio_protocol --locked
       - name: Exercise npm installation
         run: |
           cp -R target/distrib/budna-mcp-npm-package target/npm-smoke
@@ -107,6 +140,9 @@ jobs:
           ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@4e529fb27e59237866a6523e61ab248308c068b4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: "24"
       - uses: jaxxstorm/action-install-gh-release@25e24d2d23ae098373794ef1d6faecb48ee52da8
         with:
           repo: axodotdev/cargo-dist
@@ -122,7 +158,33 @@ jobs:
       - run: |
           dist build --artifacts=global --output-format=json --no-local-paths > dist-manifest.json
           cp dist-manifest.json target/distrib/global-dist-manifest.json
-          cp target/distrib/budna-mcp-npm-package.tar.gz target/distrib/budna-mcp.tgz
+          npm pkg set --prefix target/distrib/budna-mcp-npm-package "mcpName=$(node -p 'require("./server.json").name')"
+          packed="$(npm pack ./target/distrib/budna-mcp-npm-package --pack-destination target/distrib --ignore-scripts --json | jq -r '.[0].filename')"
+          mv "target/distrib/$packed" target/distrib/budna-mcp.tgz
+      - name: Check canonical npm package
+        run: |
+          python3 - <<'PY'
+          import json
+          import tarfile
+          from pathlib import Path
+
+          server = json.loads(Path("server.json").read_text())
+          with tarfile.open("target/distrib/budna-mcp.tgz") as archive:
+              package = json.load(archive.extractfile("package/package.json"))
+              assert package["mcpName"] == server["name"]
+              assert package["name"] == server["packages"][0]["identifier"]
+              assert package["version"] == server["version"]
+              assert package["bin"] == {"budna-mcp": "run-budna-mcp.js"}
+              assert {"package/LICENSE", "package/THIRD_PARTY_NOTICES.txt", "package/npm-shrinkwrap.json", "package/run-budna-mcp.js"} <= set(archive.getnames())
+          PY
+      - name: Checksum installers and canonical npm package
+        working-directory: target/distrib
+        run: |
+          for artifact in budna-mcp-installer.sh budna-mcp-installer.ps1 budna-mcp.tgz; do
+            sha256sum "$artifact" > "$artifact.sha256"
+            cat "$artifact.sha256" >> sha256.sum
+          done
+          sha256sum --check sha256.sum
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: distribution
@@ -131,6 +193,8 @@ jobs:
             target/distrib/*.zip
             target/distrib/*.sha256
             target/distrib/sha256.sum
+            target/distrib/budna-mcp-installer.sh
+            target/distrib/budna-mcp-installer.ps1
             target/distrib/budna-mcp-npm-package.tar.gz
             target/distrib/budna-mcp.tgz
             target/distrib/*-dist-manifest.json
