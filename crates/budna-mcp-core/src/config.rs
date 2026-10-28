@@ -4,6 +4,8 @@ use http::uri::Authority;
 use thiserror::Error;
 use url::Url;
 
+use crate::AccountSettings;
+
 pub const DEFAULT_API_URL: &str = "https://api.budna.se/api/v1";
 pub const DEFAULT_IMAGE_ORIGIN: &str = "https://images.budna.se";
 pub const DEFAULT_LISTING_ORIGIN: &str = "https://budna.se";
@@ -135,6 +137,7 @@ pub struct Settings {
     request_timeout: Duration,
     http_server: HttpServerSettings,
     public_urls: PublicUrlSettings,
+    account: Option<AccountSettings>,
 }
 
 impl Settings {
@@ -159,6 +162,7 @@ impl Settings {
             request_timeout,
             http_server: HttpServerSettings::default(),
             public_urls: PublicUrlSettings::default(),
+            account: None,
         })
     }
 
@@ -170,6 +174,18 @@ impl Settings {
     pub fn with_public_urls(mut self, public_urls: PublicUrlSettings) -> Self {
         self.public_urls = public_urls;
         self
+    }
+
+    pub fn with_account(mut self, account: AccountSettings) -> Result<Self, ConfigError> {
+        if self.transport != Transport::StreamableHttp {
+            return Err(ConfigError::AccountRequiresHttp);
+        }
+        self.account = Some(account);
+        Ok(self)
+    }
+
+    pub fn account(&self) -> Option<&AccountSettings> {
+        self.account.as_ref()
     }
 
     pub fn api_url(&self) -> &str {
@@ -302,6 +318,11 @@ fn normalize_allowed_origins(values: Vec<String>) -> Result<Vec<String>, ConfigE
 #[derive(Debug, Error, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ConfigError {
+    #[error("account access requires an explicit issuer origin and HTTPS /account/mcp resource")]
+    InvalidAccountSettings,
+
+    #[error("the account profile requires Streamable HTTP")]
+    AccountRequiresHttp,
     #[error("Budna API base URL cannot be empty")]
     EmptyApiUrl,
 
@@ -339,6 +360,7 @@ mod tests {
                 request_timeout: TIMEOUT,
                 http_server: HttpServerSettings::default(),
                 public_urls: PublicUrlSettings::default(),
+                account: None,
             })
         );
     }
@@ -359,6 +381,7 @@ mod tests {
                 request_timeout: TIMEOUT,
                 http_server: HttpServerSettings::default(),
                 public_urls: PublicUrlSettings::default(),
+                account: None,
             })
         );
     }

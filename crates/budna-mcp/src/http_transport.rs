@@ -12,11 +12,11 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Response},
 };
-use budna_mcp_core::HttpServerSettings;
+use budna_mcp_core::{ACCOUNT_MCP_PATH, HttpServerSettings};
 use budna_mcp_server::BudnaMcpServer;
 use http::{
     HeaderMap, HeaderName, HeaderValue, Method,
-    header::{ACCEPT, CONTENT_TYPE, HOST, ORIGIN},
+    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, HOST, ORIGIN, WWW_AUTHENTICATE},
     uri::Authority,
 };
 use rmcp::transport::streamable_http_server::{
@@ -57,13 +57,22 @@ pub async fn serve(server: BudnaMcpServer, settings: HttpServerSettings) -> Resu
             .with_cancellation_token(cancellation.child_token()),
     );
 
-    let cors = cors_layer(&settings)?;
+    let router = Router::new().nest_service(MCP_PATH, service);
+    serve_router(router, settings, cancellation, MCP_PATH).await
+}
+
+pub(crate) async fn serve_router(
+    router: Router,
+    settings: HttpServerSettings,
+    cancellation: CancellationToken,
+    path: &'static str,
+) -> Result<()> {
+    let cors = cors_layer(&settings, path == ACCOUNT_MCP_PATH)?;
     let access_policy = HttpAccessPolicy {
         allowed_hosts: Arc::from(settings.allowed_hosts().to_vec()),
         allowed_origins: Arc::from(settings.allowed_origins().to_vec()),
     };
-    let router = Router::new()
-        .nest_service(MCP_PATH, service)
+    let router = router
         .layer(RequestBodyLimitLayer::new(HTTP_REQUEST_BODY_LIMIT_BYTES))
         .layer(cors)
         .layer(middleware::from_fn_with_state(
@@ -82,13 +91,13 @@ pub async fn serve(server: BudnaMcpServer, settings: HttpServerSettings) -> Resu
     if settings.port() == 0 {
         tracing::warn!(
             bind_address = %local_address,
-            path = MCP_PATH,
+            path,
             "Budna MCP assigned an ephemeral Streamable HTTP port"
         );
     } else {
         tracing::info!(
             bind_address = %local_address,
-            path = MCP_PATH,
+            path,
             "Budna MCP Streamable HTTP server started"
         );
     }
@@ -113,7 +122,7 @@ pub async fn serve(server: BudnaMcpServer, settings: HttpServerSettings) -> Resu
     result.context("Budna MCP Streamable HTTP server failed")
 }
 
-fn cors_layer(settings: &HttpServerSettings) -> Result<CorsLayer> {
+fn cors_layer(settings: &HttpServerSettings, account: bool) -> Result<CorsLayer> {
     let allowed_origins = settings
         .allowed_origins()
         .iter()
@@ -123,17 +132,23 @@ fn cors_layer(settings: &HttpServerSettings) -> Result<CorsLayer> {
         })
         .collect::<Result<Vec<_>>>()?;
 
+    let mut allowed_headers = vec![
+        ACCEPT,
+        CONTENT_TYPE,
+        LAST_EVENT_ID,
+        MCP_SESSION_ID,
+        MCP_PROTOCOL_VERSION,
+    ];
+    let mut exposed_headers = vec![MCP_SESSION_ID, MCP_PROTOCOL_VERSION];
+    if account {
+        allowed_headers.push(AUTHORIZATION);
+        exposed_headers.push(WWW_AUTHENTICATE);
+    }
     Ok(CorsLayer::new()
         .allow_origin(AllowOrigin::list(allowed_origins))
         .allow_methods([Method::GET, Method::POST, Method::DELETE])
-        .allow_headers([
-            ACCEPT,
-            CONTENT_TYPE,
-            LAST_EVENT_ID,
-            MCP_SESSION_ID,
-            MCP_PROTOCOL_VERSION,
-        ])
-        .expose_headers([MCP_SESSION_ID, MCP_PROTOCOL_VERSION]))
+        .allow_headers(allowed_headers)
+        .expose_headers(exposed_headers))
 }
 
 async fn validate_http_access(

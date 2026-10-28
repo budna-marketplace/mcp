@@ -138,6 +138,7 @@ async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> 
 
     let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp"));
     child
+        .args(["--profile", "public-explore"])
         .arg("--api-url")
         .arg(api.uri())
         .arg("--request-timeout-secs")

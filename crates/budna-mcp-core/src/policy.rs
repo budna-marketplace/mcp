@@ -2,6 +2,7 @@
 #[non_exhaustive]
 pub enum ToolCapability {
     PublicExplore,
+    AccountRead,
 }
 
 /// The concrete capability profile exposed by a server instance.
@@ -13,6 +14,7 @@ pub enum ToolCapability {
 #[non_exhaustive]
 pub enum ToolPolicy {
     PublicExplore,
+    AccountRead,
 }
 
 impl ToolPolicy {
@@ -24,6 +26,7 @@ impl ToolPolicy {
         matches!(
             (self, capability),
             (Self::PublicExplore, ToolCapability::PublicExplore)
+                | (Self::AccountRead, ToolCapability::AccountRead)
         )
     }
 }

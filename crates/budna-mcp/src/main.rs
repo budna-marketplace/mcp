@@ -1,10 +1,11 @@
+mod account_http_transport;
 mod cli;
 mod http_transport;
 
 use anyhow::{Context, Result};
-use budna_mcp_client::{ClientConfig, PublicApiClient};
+use budna_mcp_client::{AccountApiClient, ClientConfig, PublicApiClient};
 use budna_mcp_core::Transport;
-use budna_mcp_server::BudnaMcpServer;
+use budna_mcp_server::{AccountMcpServer, BudnaMcpServer};
 use clap::Parser;
 use rmcp::{ServiceExt, transport::stdio};
 use tracing_subscriber::{EnvFilter, filter::LevelFilter};
@@ -25,6 +26,21 @@ async fn main() -> Result<()> {
     let settings = Cli::parse().into_settings()?;
     let client_config =
         ClientConfig::new(settings.api_url())?.with_request_timeout(settings.request_timeout())?;
+    if let Some(account) = settings.account() {
+        let secret = std::env::var("BUDNA_MCP_SERVICE_SECRET").map_err(|_| {
+            anyhow::anyhow!("the account profile requires BUDNA_MCP_SERVICE_SECRET")
+        })?;
+        let client =
+            AccountApiClient::new(client_config, account.issuer(), account.resource(), secret)?;
+        let server = AccountMcpServer::new(client.clone(), settings.request_timeout());
+        return account_http_transport::serve(
+            server,
+            client,
+            settings.http_server().clone(),
+            account,
+        )
+        .await;
+    }
     let client = PublicApiClient::new(client_config)?;
     let server = BudnaMcpServer::new(client)
         .with_public_urls(settings.public_urls().clone())

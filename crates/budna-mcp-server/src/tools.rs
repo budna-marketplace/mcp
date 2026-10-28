@@ -546,7 +546,7 @@ impl ServerHandler for BudnaMcpServer {
     }
 }
 
-fn input_error(operation: &'static str, error: &InputError) -> CallToolResult {
+pub(crate) fn input_error(operation: &'static str, error: &InputError) -> CallToolResult {
     tool_error(
         operation,
         "INVALID_INPUT",
@@ -556,7 +556,7 @@ fn input_error(operation: &'static str, error: &InputError) -> CallToolResult {
     )
 }
 
-fn client_error(error: ClientError) -> CallToolResult {
+pub(crate) fn client_error(error: ClientError) -> CallToolResult {
     tracing::warn!(
         operation = error.operation(),
         error.kind = error.kind(),
@@ -584,7 +584,7 @@ fn operation_timeout_error(operation: &'static str) -> CallToolResult {
     )
 }
 
-fn tool_error(
+pub(crate) fn tool_error(
     operation: &'static str,
     code: &str,
     message: &str,

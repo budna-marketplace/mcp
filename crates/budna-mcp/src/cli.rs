@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use budna_mcp_core::{
-    ConfigError, DEFAULT_HTTP_PORT, DEFAULT_REQUEST_TIMEOUT_SECS, HttpServerSettings,
-    MAX_REQUEST_TIMEOUT_SECS, PublicUrlSettings, Settings, Transport,
+    AccountSettings, ConfigError, DEFAULT_HTTP_PORT, DEFAULT_REQUEST_TIMEOUT_SECS,
+    HttpServerSettings, MAX_REQUEST_TIMEOUT_SECS, PublicUrlSettings, Settings, Transport,
 };
 use clap::{Parser, ValueEnum};
 
@@ -13,6 +13,15 @@ use clap::{Parser, ValueEnum};
     about = "Budna marketplace tools for AI agents."
 )]
 pub struct Cli {
+    #[arg(long, value_enum, default_value_t = CliProfile::PublicExplore, env = "BUDNA_MCP_PROFILE")]
+    profile: CliProfile,
+
+    #[arg(long, env = "BUDNA_MCP_ACCOUNT_ISSUER")]
+    account_issuer: Option<String>,
+
+    #[arg(long, env = "BUDNA_MCP_ACCOUNT_RESOURCE")]
+    account_resource: Option<String>,
+
     #[arg(long, env = "BUDNA_API_URL")]
     api_url: Option<String>,
 
@@ -61,6 +70,9 @@ pub struct Cli {
 impl Cli {
     pub fn into_settings(self) -> Result<Settings, ConfigError> {
         let Self {
+            profile,
+            account_issuer,
+            account_resource,
             api_url,
             public_listing_origin,
             image_origin,
@@ -75,17 +87,35 @@ impl Cli {
             HttpServerSettings::new(http_port, http_allowed_host, http_allowed_origin)?;
         let public_urls = PublicUrlSettings::new(public_listing_origin, image_origin)?;
 
-        Settings::new(
+        let settings = Settings::new(
             api_url,
             transport.into(),
             Duration::from_secs(request_timeout_secs),
-        )
-        .map(|settings| {
-            settings
-                .with_http_server(http_server)
-                .with_public_urls(public_urls)
-        })
+        )?;
+        let settings = settings
+            .with_http_server(http_server)
+            .with_public_urls(public_urls);
+        match profile {
+            CliProfile::PublicExplore if account_issuer.is_some() || account_resource.is_some() => {
+                Err(ConfigError::InvalidAccountSettings)
+            }
+            CliProfile::PublicExplore => Ok(settings),
+            CliProfile::AccountRead => settings.with_account(AccountSettings::new(
+                account_issuer
+                    .as_deref()
+                    .ok_or(ConfigError::InvalidAccountSettings)?,
+                account_resource
+                    .as_deref()
+                    .ok_or(ConfigError::InvalidAccountSettings)?,
+            )?),
+        }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum CliProfile {
+    PublicExplore,
+    AccountRead,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -138,6 +168,45 @@ mod tests {
         assert_eq!(settings.request_timeout(), Duration::from_secs(30));
         assert_eq!(settings.http_server(), &HttpServerSettings::default());
         assert_eq!(settings.public_urls(), &PublicUrlSettings::default());
+    }
+
+    #[test]
+    fn account_profile_requires_explicit_http_identity() {
+        for args in [
+            vec!["budna-mcp", "--profile", "account-read"],
+            vec!["budna-mcp", "--account-issuer", "https://api.example.test"],
+            vec![
+                "budna-mcp",
+                "--profile",
+                "account-read",
+                "--account-issuer",
+                "https://api.example.test",
+                "--account-resource",
+                "https://mcp.example.test/account/mcp",
+            ],
+        ] {
+            assert!(
+                Cli::try_parse_from(args)
+                    .unwrap_or_else(|error| panic!("CLI syntax: {error}"))
+                    .into_settings()
+                    .is_err()
+            );
+        }
+        let settings = Cli::try_parse_from([
+            "budna-mcp",
+            "--profile",
+            "account-read",
+            "--transport",
+            "streamable-http",
+            "--account-issuer",
+            "https://api.example.test",
+            "--account-resource",
+            "https://mcp.example.test/account/mcp",
+        ])
+        .unwrap_or_else(|error| panic!("CLI syntax: {error}"))
+        .into_settings()
+        .unwrap_or_else(|error| panic!("account settings: {error}"));
+        assert!(settings.account().is_some());
     }
 
     #[test]
