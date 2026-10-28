@@ -1,0 +1,4 @@
+interface:
+  display_name: "Budna MCP Release"
+  short_description: "Prepare and verify Cargo, Brew, and npm releases"
+  default_prompt: "Use $budna-mcp-release to prepare and verify a Budna MCP release through the existing workflows."
