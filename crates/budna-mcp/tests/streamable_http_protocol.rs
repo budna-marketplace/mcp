@@ -69,7 +69,7 @@ fn assert_success_contract(
 }
 
 #[tokio::test]
-async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> Result<()> {
+async fn packaged_binary_serves_stateless_loopback_streamable_http_securely() -> Result<()> {
     let api = MockServer::start().await;
     Mock::given(method("GET"))
         .and(matches_header("x-budna-contract", "external-ids-v1"))
@@ -173,8 +173,9 @@ async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> 
     let raw_client = reqwest::Client::new();
 
     assert_allowed_cors_preflight(&raw_client, &endpoint).await?;
-    assert_mcp_response_headers_are_exposed(&raw_client, &endpoint).await?;
+    assert_session_methods_are_rejected(&raw_client, &endpoint).await?;
     assert_exact_configured_origin_is_accepted(&raw_client, &endpoint).await?;
+    assert_concurrent_duplicate_ids_are_independent(&raw_client, &endpoint).await?;
     assert_same_host_different_port_origin_is_rejected(&raw_client, &endpoint).await?;
     assert_disallowed_host_is_rejected(&raw_client, &endpoint).await?;
     assert_disallowed_origin_is_rejected(&raw_client, &endpoint).await?;
@@ -189,8 +190,19 @@ async fn packaged_binary_serves_stateful_loopback_streamable_http_securely() -> 
         .peer_info()
         .context("MCP initialization should return server information")?;
     assert_eq!(server_info.server_info.name, "budna-mcp");
-    assert!(server_info.capabilities.tools.is_some());
-    assert!(server_info.capabilities.resources.is_some());
+    let tools_capability = server_info
+        .capabilities
+        .tools
+        .as_ref()
+        .context("server should advertise tools")?;
+    assert_ne!(tools_capability.list_changed, Some(true));
+    let resources_capability = server_info
+        .capabilities
+        .resources
+        .as_ref()
+        .context("server should advertise resources")?;
+    assert_ne!(resources_capability.subscribe, Some(true));
+    assert_ne!(resources_capability.list_changed, Some(true));
     assert!(
         server_info
             .capabilities
@@ -448,31 +460,90 @@ async fn assert_allowed_cors_preflight(client: &reqwest::Client, endpoint: &str)
     Ok(())
 }
 
-async fn assert_mcp_response_headers_are_exposed(
+async fn assert_session_methods_are_rejected(
     client: &reqwest::Client,
     endpoint: &str,
 ) -> Result<()> {
-    let response = client
-        .get(endpoint)
-        .header(header::ORIGIN, ALLOWED_ORIGIN)
-        .header(header::ACCEPT, "text/event-stream")
-        .send()
-        .await
-        .context("failed to send regular CORS request")?;
+    for method in [reqwest::Method::GET, reqwest::Method::DELETE] {
+        let response = client
+            .request(method, endpoint)
+            .header(header::ORIGIN, ALLOWED_ORIGIN)
+            .header(header::ACCEPT, "text/event-stream")
+            .send()
+            .await
+            .context("failed to send unsupported session request")?;
 
-    let exposed_headers = response
-        .headers()
-        .get(header::ACCESS_CONTROL_EXPOSE_HEADERS)
-        .and_then(|value| value.to_str().ok())
-        .context("CORS response should expose MCP response headers")?
-        .to_ascii_lowercase();
-    for required in ["mcp-session-id", "mcp-protocol-version"] {
-        assert!(
-            exposed_headers.contains(required),
-            "CORS response should expose {required}: {exposed_headers}"
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::ALLOW)
+                .and_then(|value| value.to_str().ok()),
+            Some("POST")
         );
+        assert!(response.headers().get("mcp-session-id").is_none());
+
+        let exposed_headers = response
+            .headers()
+            .get(header::ACCESS_CONTROL_EXPOSE_HEADERS)
+            .and_then(|value| value.to_str().ok())
+            .context("CORS response should expose MCP response headers")?
+            .to_ascii_lowercase();
+        for required in ["mcp-session-id", "mcp-protocol-version"] {
+            assert!(
+                exposed_headers.contains(required),
+                "CORS response should expose {required}: {exposed_headers}"
+            );
+        }
     }
 
+    Ok(())
+}
+
+async fn assert_stateless_json_response(response: reqwest::Response) -> Result<serde_json::Value> {
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+    assert!(response.headers().get("mcp-session-id").is_none());
+    response
+        .json()
+        .await
+        .context("stateless response should contain JSON")
+}
+
+async fn assert_concurrent_duplicate_ids_are_independent(
+    client: &reqwest::Client,
+    endpoint: &str,
+) -> Result<()> {
+    let request = |method| {
+        client
+            .post(endpoint)
+            .header(header::ACCEPT, "application/json, text/event-stream")
+            .header("mcp-protocol-version", "2025-11-25")
+            .timeout(PROTOCOL_TIMEOUT)
+            .json(&json!({"jsonrpc": "2.0", "id": 7, "method": method}))
+            .send()
+    };
+    let (tools, resources) = tokio::try_join!(request("tools/list"), request("resources/list"))
+        .context("concurrent requests with the same JSON-RPC ID should both complete")?;
+
+    for (response, result_key) in [(tools, "tools"), (resources, "resources")] {
+        let message = assert_stateless_json_response(response).await?;
+        assert_eq!(message.get("jsonrpc"), Some(&json!("2.0")));
+        assert_eq!(message.get("id"), Some(&json!(7)));
+        assert!(message.get("error").is_none());
+        assert!(
+            message["result"][result_key]
+                .as_array()
+                .is_some_and(|items| !items.is_empty()),
+            "each response should contain its own {result_key} result"
+        );
+    }
     Ok(())
 }
 
@@ -490,13 +561,19 @@ async fn assert_exact_configured_origin_is_accepted(
         .await
         .context("failed to send request with an exact configured Origin")?;
 
-    assert!(response.status().is_success());
     assert_eq!(
         response
             .headers()
             .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
             .and_then(|value| value.to_str().ok()),
         Some(EXACT_CONFIGURED_ORIGIN)
+    );
+    let message = assert_stateless_json_response(response).await?;
+    assert_eq!(message.get("jsonrpc"), Some(&json!("2.0")));
+    assert_eq!(message.get("id"), Some(&json!(1)));
+    assert_eq!(
+        message.pointer("/result/serverInfo/name"),
+        Some(&json!("budna-mcp"))
     );
     Ok(())
 }

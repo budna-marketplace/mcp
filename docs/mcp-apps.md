@@ -102,6 +102,10 @@ It listens only on `127.0.0.1` and exposes the MCP endpoint at:
 http://127.0.0.1:3001/mcp
 ```
 
+The transport is stateless and uses JSON responses for MCP requests. The server
+does not issue MCP session IDs or support resumable SSE streams; `GET` and
+`DELETE` on `/mcp` return HTTP 405. Clients must support stateless Streamable HTTP.
+
 The default Host allowlist contains `localhost` and `127.0.0.1`. The default
 browser Origin allowlist contains the standard local addresses used by the
 official MCP Apps basic host on port 8080. Additional values must be explicit:

@@ -15,7 +15,7 @@ use http::{
     header::{AUTHORIZATION, CACHE_CONTROL, COOKIE, WWW_AUTHENTICATE},
 };
 use rmcp::transport::streamable_http_server::{
-    StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+    StreamableHttpServerConfig, StreamableHttpService, session::never::NeverSessionManager,
 };
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
@@ -40,7 +40,7 @@ pub fn account_http_router(
 ) -> Result<Router, http::header::InvalidHeaderValue> {
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
-        Arc::new(LocalSessionManager::default()),
+        Arc::new(NeverSessionManager::default()),
         StreamableHttpServerConfig::default()
             .with_stateful_mode(false)
             .with_json_response(true)

@@ -1,4 +1,4 @@
-use std::{io, sync::Arc, time::Duration};
+use std::{io, sync::Arc};
 
 use axum::{
     Router,
@@ -13,7 +13,7 @@ use http::{
     uri::Authority,
 };
 use rmcp::transport::streamable_http_server::{
-    StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+    StreamableHttpServerConfig, StreamableHttpService, session::never::NeverSessionManager,
 };
 use tokio_util::sync::CancellationToken;
 use tower_http::{
@@ -27,9 +27,11 @@ mod account;
 
 pub use account::account_http_router;
 
+/// Explicit alias for the stateless public Explore router.
+pub use public_http_router as stateless_public_http_router;
+
 const MCP_PATH: &str = "/mcp";
 const HTTP_REQUEST_BODY_LIMIT_BYTES: usize = 64 * 1024;
-const HTTP_SESSION_IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 const LAST_EVENT_ID: HeaderName = HeaderName::from_static("last-event-id");
 const MCP_SESSION_ID: HeaderName = HeaderName::from_static("mcp-session-id");
 const MCP_PROTOCOL_VERSION: HeaderName = HeaderName::from_static("mcp-protocol-version");
@@ -40,41 +42,20 @@ struct HttpAccessPolicy {
     allowed_origins: Arc<[String]>,
 }
 
-/// Builds the public Explore router with its body, Host, Origin and CORS controls.
+/// Builds the stateless public Explore router with body, Host, Origin and CORS controls.
+/// Requests receive JSON responses without MCP sessions or resumable SSE streams.
 /// The caller owns the listener and cancels `cancellation` during shutdown.
 pub fn public_http_router(
     server: BudnaMcpServer,
     settings: &HttpServerSettings,
     cancellation: CancellationToken,
 ) -> Result<Router, http::header::InvalidHeaderValue> {
-    build_public_http_router(server, settings, cancellation, true)
-}
-
-/// Builds the public Explore router without sessions for replicated HTTP hosts.
-/// Public tools need no account credentials and retain the same HTTP controls.
-pub fn stateless_public_http_router(
-    server: BudnaMcpServer,
-    settings: &HttpServerSettings,
-    cancellation: CancellationToken,
-) -> Result<Router, http::header::InvalidHeaderValue> {
-    build_public_http_router(server, settings, cancellation, false)
-}
-
-fn build_public_http_router(
-    server: BudnaMcpServer,
-    settings: &HttpServerSettings,
-    cancellation: CancellationToken,
-    stateful: bool,
-) -> Result<Router, http::header::InvalidHeaderValue> {
-    let mut session_manager = LocalSessionManager::default();
-    session_manager.session_config.keep_alive = Some(HTTP_SESSION_IDLE_TIMEOUT);
-
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
-        Arc::new(session_manager),
+        Arc::new(NeverSessionManager::default()),
         StreamableHttpServerConfig::default()
-            .with_stateful_mode(stateful)
-            .with_json_response(!stateful)
+            .with_stateful_mode(false)
+            .with_json_response(true)
             .with_allowed_hosts(settings.allowed_hosts().iter().cloned())
             .with_allowed_origins(settings.allowed_origins().iter().cloned())
             .with_cancellation_token(cancellation.child_token()),

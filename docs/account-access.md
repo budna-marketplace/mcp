@@ -22,9 +22,11 @@ supplied cancellation token. The standalone application's listener stays on
 loopback.
 
 Hosts offering both profiles can merge the account router with
-`budna_mcp_server::stateless_public_http_router`, which serves anonymous tools
-at `/mcp` without sessions or replica affinity. Both builders retain request-body,
-Host, Origin and CORS controls; account authentication stays on `/account/mcp`.
+`budna_mcp_server::public_http_router`, which serves anonymous tools at `/mcp`
+using stateless JSON responses without sessions or replica affinity.
+`stateless_public_http_router` remains an equivalent alias. Both profiles retain
+request-body, Host, Origin and CORS controls; account authentication stays on
+`/account/mcp`.
 
 ## Deployment configuration
 
