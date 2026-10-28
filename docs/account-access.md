@@ -13,6 +13,12 @@ Account Read is a separate authenticated Streamable HTTP resource at
 client never carries account credentials. Account Read is unavailable over
 stdio; the embedded Marketplace Explorer remains public.
 
+Applications hosting the resource can use `budna_mcp_server::account_http_router`.
+It includes authentication, discovery, request limits, Host/Origin checks and
+CORS. The host owns TLS, listener binding and graceful shutdown through the
+supplied cancellation token. The standalone application's listener stays on
+loopback.
+
 ## Deployment configuration
 
 Set `BUDNA_MCP_PROFILE=account-read` and
