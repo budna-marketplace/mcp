@@ -6,7 +6,7 @@
 [![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0.1%2Fservers%2Fio.github.budna-marketplace%252Fmcp%2Fversions%2Flatest&query=%24.server.version&label=MCP+Registry&prefix=v&color=blue)](https://registry.modelcontextprotocol.io/?q=io.github.budna-marketplace%2Fmcp)
 [![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbudna-marketplace%2Fhomebrew-tap%2Fmain%2FFormula%2Fbudna-mcp.rb&search=version+%22%28%5B%5E%22%5D%2B%29%22&replace=v%241&label=Homebrew&logo=homebrew&logoColor=white&color=FBB040)](https://github.com/budna-marketplace/homebrew-tap)
 
-Use public Budna marketplace data from any compatible MCP client. Budna MCP is read-only: it does not require an account or API key, and it cannot change marketplace data.
+Use public Budna marketplace data from any compatible MCP client. Budna MCP is read-only: its public tools need no account or API key, and it cannot change marketplace data. You can optionally connect your Budna account to read your own account and listings.
 
 ## Quick start
 
@@ -121,7 +121,7 @@ Budna MCP exposes 11 public, read-only tools:
 - Inspect listings, attributes, related listings, seller listings, public seller profiles, bid summaries, and rating summaries.
 - In compatible MCP Apps clients, browse interactive cards and explicitly ask the AI to compare two to four selected listings.
 
-It cannot sign in, bid, make offers, buy, message, record views, or mutate marketplace data.
+The public tools cannot sign in, bid, make offers, buy, message, record views, or mutate marketplace data. You can optionally connect your Budna account through the hosted account resource to read your own account and listings; see [Account access](docs/account-access.md).
 
 ## Use a non-production environment
 
