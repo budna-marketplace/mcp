@@ -115,29 +115,43 @@ For JSON-config clients:
 
 ## What you can do
 
-### Explore the marketplace (no account)
+Budna MCP is read-only today. Public tools work with no account in the local `budna-mcp` binary and at `https://api.budna.se/mcp`. Account tools are available only on the hosted account resource, after you connect your Budna account and grant the permission they need.
 
-The local `budna-mcp` binary and the hosted endpoint `https://api.budna.se/mcp` expose 11 public, read-only tools:
-
-- Discover listings, categories, filters, and filter options.
-- Inspect listings, attributes, related listings, seller listings, public seller profiles, bid summaries, and rating summaries.
-- In compatible MCP Apps clients, browse interactive cards and explicitly ask the AI to compare two to four selected listings.
-
-### Read your own account (optional)
-
-After you connect your Budna account, the hosted account resource adds three read-only tools:
-
-| Tool | Permission | What it reads |
+| Tool | Access | What it does |
 | --- | --- | --- |
-| `get_my_account` | Account | Your account ID, account type and display name |
-| `list_my_listings` | Listings | Your listings, including drafts, with title, status, type and update time |
-| `get_my_listing` | Listings | Owner-visible details of one of your listings, including drafts and your reserve price |
+| `search_listings` | Public | Search and filter public marketplace listings |
+| `get_listing` | Public | Get one public listing |
+| `get_listing_attributes` | Public | Get a listing's structured public attributes |
+| `get_listing_related` | Public | Find public listings related to a listing |
+| `get_seller_listings` | Public | List a seller's public listings |
+| `get_categories` | Public | Browse the category tree |
+| `get_category_filters` | Public | Get the filters available in a category |
+| `get_filter_options` | Public | Get the options for one filter |
+| `get_public_seller_profile` | Public | Get a seller's public profile |
+| `get_listing_bid_summary` | Public | Get a listing's bid count and current price, without bidder identities |
+| `get_public_ratings_summary` | Public | Get a listing's aggregate public rating signals |
+| `get_my_account` | Account permission | Read your account ID, account type and display name |
+| `list_my_listings` | Listings permission | List your own listings, including drafts, with title, status, type and update time |
+| `get_my_listing` | Listings permission | Read owner-visible details of one of your listings, including drafts and your reserve price |
 
-Budna MCP cannot bid, make offers, buy, message, record views, change account settings, or otherwise change marketplace data. The local binary never signs in; account access exists only on the hosted resource and only after you approve it.
+In compatible MCP Apps clients you can also browse interactive listing cards and explicitly ask the AI to compare two to four selected listings.
+
+Budna MCP cannot currently bid, make offers, buy, message, record views, change account settings, or otherwise change marketplace data.
+
+### Permissions you control
+
+- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`) and **Listings** (`listings:read`).
+- Under Account → Security → Connected apps you can remove a permission or disconnect an app at any time. Removing a permission takes effect immediately, including for access the app already holds; restoring it requires approving the app again.
+- A connection lasts at most seven days before you approve it again.
+- Disconnecting stops future access, but cannot recall information already shared with the AI service.
+
+### Where Budna MCP is going
+
+Budna MCP is growing toward everything you can do in the Budna app and on the web, such as bidding, making offers, buying, selling and managing your listings, and messaging. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. None of these actions are available yet.
 
 ## Connect your Budna account
 
-Add `https://api.budna.se/account/mcp` to your AI client as a remote (Streamable HTTP) MCP server. The client opens your browser to sign in to Budna at `https://connect.budna.se` and shows which permissions it requests; you choose which to grant. Review, reduce or disconnect each app at any time under Account → Security → Connected apps. Disconnecting stops future access but cannot recall information already shared with the AI service.
+Add `https://api.budna.se/account/mcp` to your AI client as a remote (Streamable HTTP) MCP server. The client opens your browser to sign in to Budna at `https://connect.budna.se` and shows which permissions it requests; you choose which to grant. See [Permissions you control](#permissions-you-control) for reducing or removing access later.
 
 | Client | Setup |
 | --- | --- |
