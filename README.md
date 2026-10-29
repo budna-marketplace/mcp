@@ -6,7 +6,7 @@
 [![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0.1%2Fservers%2Fio.github.budna-marketplace%252Fmcp%2Fversions%2Flatest&query=%24.server.version&label=MCP+Registry&prefix=v&color=blue)](https://registry.modelcontextprotocol.io/?q=io.github.budna-marketplace%2Fmcp)
 [![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbudna-marketplace%2Fhomebrew-tap%2Fmain%2FFormula%2Fbudna-mcp.rb&search=version+%22%28%5B%5E%22%5D%2B%29%22&replace=v%241&label=Homebrew&logo=homebrew&logoColor=white&color=FBB040)](https://github.com/budna-marketplace/homebrew-tap)
 
-Use public Budna marketplace data from any compatible MCP client. Budna MCP is read-only: it does not require an account or API key, and it cannot change marketplace data.
+Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account and listings, with the permissions you choose. Budna MCP is read-only: it cannot change marketplace data.
 
 ## Quick start
 
@@ -115,13 +115,56 @@ For JSON-config clients:
 
 ## What you can do
 
-Budna MCP exposes 11 public, read-only tools:
+Budna MCP is read-only today. Public tools work with no account in the local `budna-mcp` binary and at `https://api.budna.se/mcp`. Account tools are available only on the hosted account resource, after you connect your Budna account and grant the permission they need.
 
-- Discover listings, categories, filters, and filter options.
-- Inspect listings, attributes, related listings, seller listings, public seller profiles, bid summaries, and rating summaries.
-- In compatible MCP Apps clients, browse interactive cards and explicitly ask the AI to compare two to four selected listings.
+| Tool | Access | What it does |
+| --- | --- | --- |
+| `search_listings` | Public | Search and filter public marketplace listings |
+| `get_listing` | Public | Get one public listing |
+| `get_listing_attributes` | Public | Get a listing's structured public attributes |
+| `get_listing_related` | Public | Find public listings related to a listing |
+| `get_seller_listings` | Public | List a seller's public listings |
+| `get_categories` | Public | Browse the category tree |
+| `get_category_filters` | Public | Get the filters available in a category |
+| `get_filter_options` | Public | Get the options for one filter |
+| `get_public_seller_profile` | Public | Get a seller's public profile |
+| `get_listing_bid_summary` | Public | Get a listing's bid count and current price, without bidder identities |
+| `get_public_ratings_summary` | Public | Get a listing's aggregate public rating signals |
+| `get_my_account` | Account permission | Read your account ID, account type and display name |
+| `list_my_listings` | Listings permission | List your own listings, including drafts, with title, status, type and update time |
+| `get_my_listing` | Listings permission | Read owner-visible details of one of your listings, including drafts and your reserve price |
 
-It cannot sign in, bid, make offers, buy, message, record views, or mutate marketplace data.
+In compatible MCP Apps clients you can also browse interactive listing cards and explicitly ask the AI to compare two to four selected listings.
+
+Budna MCP cannot currently bid, make offers, buy, message, record views, change account settings, or otherwise change marketplace data.
+
+### Permissions you control
+
+- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`) and **Listings** (`listings:read`).
+- Under Account → Security → Connected apps you can remove a permission or disconnect an app at any time. Removing a permission takes effect immediately, including for access the app already holds; restoring it requires approving the app again.
+- A connection lasts at most seven days before you approve it again.
+- Disconnecting stops future access, but cannot recall information already shared with the AI service.
+
+### Where Budna MCP is going
+
+Budna MCP is growing toward everything you can do in the Budna app and on the web, such as bidding, making offers, buying, selling and managing your listings, and messaging. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. None of these actions are available yet.
+
+## Connect your Budna account
+
+Add `https://api.budna.se/account/mcp` to your AI client as a remote (Streamable HTTP) MCP server. The client opens your browser to sign in to Budna at `https://connect.budna.se` and shows which permissions it requests; you choose which to grant. See [Permissions you control](#permissions-you-control) for reducing or removing access later.
+
+| Client | Setup |
+| --- | --- |
+| Claude Code | `claude mcp add --transport http budna https://api.budna.se/account/mcp`, then `/mcp` to authenticate |
+| Codex | `codex mcp add budna-account --url https://api.budna.se/account/mcp`, then `codex mcp login budna-account` |
+| ChatGPT | Add a custom connector with the URL, OAuth client ID `budna-chatgpt` and no client secret |
+| Claude (web and desktop) | Add a custom connector with the URL and OAuth client ID `budna-claude` |
+| Visual Studio Code | Add the URL as an HTTP MCP server |
+| goose | Add the URL as a remote extension |
+| Gemini CLI | Add the URL with `oauth.clientId` set to `budna-gemini-cli` |
+| Cursor | Add the URL with OAuth client ID `budna-cursor` |
+
+Other clients are not accepted yet. See [Account access](docs/account-access.md) for the full permission model and the data each tool returns.
 
 ## Use a non-production environment
 
