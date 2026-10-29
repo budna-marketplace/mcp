@@ -6,7 +6,7 @@
 [![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0.1%2Fservers%2Fio.github.budna-marketplace%252Fmcp%2Fversions%2Flatest&query=%24.server.version&label=MCP+Registry&prefix=v&color=blue)](https://registry.modelcontextprotocol.io/?q=io.github.budna-marketplace%2Fmcp)
 [![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbudna-marketplace%2Fhomebrew-tap%2Fmain%2FFormula%2Fbudna-mcp.rb&search=version+%22%28%5B%5E%22%5D%2B%29%22&replace=v%241&label=Homebrew&logo=homebrew&logoColor=white&color=FBB040)](https://github.com/budna-marketplace/homebrew-tap)
 
-Use public Budna marketplace data from any compatible MCP client. Budna MCP is read-only: its public tools need no account or API key, and it cannot change marketplace data. You can optionally connect your Budna account to read your own account and listings.
+Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account and listings, with the permissions you choose. Budna MCP is read-only: it cannot change marketplace data.
 
 ## Quick start
 
@@ -115,13 +115,42 @@ For JSON-config clients:
 
 ## What you can do
 
-Budna MCP exposes 11 public, read-only tools:
+### Explore the marketplace (no account)
+
+The local `budna-mcp` binary and the hosted endpoint `https://api.budna.se/mcp` expose 11 public, read-only tools:
 
 - Discover listings, categories, filters, and filter options.
 - Inspect listings, attributes, related listings, seller listings, public seller profiles, bid summaries, and rating summaries.
 - In compatible MCP Apps clients, browse interactive cards and explicitly ask the AI to compare two to four selected listings.
 
-The public tools cannot sign in, bid, make offers, buy, message, record views, or mutate marketplace data. You can optionally connect your Budna account through the hosted account resource to read your own account and listings; see [Account access](docs/account-access.md).
+### Read your own account (optional)
+
+After you connect your Budna account, the hosted account resource adds three read-only tools:
+
+| Tool | Permission | What it reads |
+| --- | --- | --- |
+| `get_my_account` | Account | Your account ID, account type and display name |
+| `list_my_listings` | Listings | Your listings, including drafts, with title, status, type and update time |
+| `get_my_listing` | Listings | Owner-visible details of one of your listings, including drafts and your reserve price |
+
+Budna MCP cannot bid, make offers, buy, message, record views, change account settings, or otherwise change marketplace data. The local binary never signs in; account access exists only on the hosted resource and only after you approve it.
+
+## Connect your Budna account
+
+Add `https://api.budna.se/account/mcp` to your AI client as a remote (Streamable HTTP) MCP server. The client opens your browser to sign in to Budna at `https://connect.budna.se` and shows which permissions it requests; you choose which to grant. Review, reduce or disconnect each app at any time under Account → Security → Connected apps. Disconnecting stops future access but cannot recall information already shared with the AI service.
+
+| Client | Setup |
+| --- | --- |
+| Claude Code | `claude mcp add --transport http budna https://api.budna.se/account/mcp`, then `/mcp` to authenticate |
+| Codex | `codex mcp add budna-account --url https://api.budna.se/account/mcp`, then `codex mcp login budna-account` |
+| ChatGPT | Add a custom connector with the URL, OAuth client ID `budna-chatgpt` and no client secret |
+| Claude (web and desktop) | Add a custom connector with the URL and OAuth client ID `budna-claude` |
+| Visual Studio Code | Add the URL as an HTTP MCP server |
+| goose | Add the URL as a remote extension |
+| Gemini CLI | Add the URL with `oauth.clientId` set to `budna-gemini-cli` |
+| Cursor | Add the URL with OAuth client ID `budna-cursor` |
+
+Other clients are not accepted yet. See [Account access](docs/account-access.md) for the full permission model and the data each tool returns.
 
 ## Use a non-production environment
 
