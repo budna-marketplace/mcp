@@ -28,6 +28,32 @@ using stateless JSON responses without sessions or replica affinity.
 request-body, Host, Origin and CORS controls; account authentication stays on
 `/account/mcp`.
 
+## Connecting a client
+
+Budna hosts the account resource at `https://api.budna.se/account/mcp`. Add it
+to an MCP client as a remote Streamable HTTP server. The client discovers
+Budna's authorization server, opens the browser to sign you in at
+`https://connect.budna.se` and shows the permissions it requests; you choose
+which to grant. You can reduce or remove an app's access at any time under
+Account → Security → Connected apps.
+
+Budna accepts these public clients, none of which needs a client secret:
+
+| Client | Setup |
+| --- | --- |
+| Claude Code | `claude mcp add --transport http budna https://api.budna.se/account/mcp`, then authenticate with `/mcp` |
+| Claude (custom connector) | Add the URL with OAuth client ID `budna-claude` |
+| Codex | `codex mcp add budna --url https://api.budna.se/account/mcp`, then `codex mcp login budna` |
+| ChatGPT (custom connector) | Add the URL with OAuth client ID `budna-chatgpt` and no client secret |
+| Visual Studio Code | Add the URL as an HTTP MCP server |
+| goose | Add the URL as a remote extension |
+| Gemini CLI | Add the URL with `oauth.clientId` set to `budna-gemini-cli` |
+| Cursor | Add the URL with OAuth client ID `budna-cursor` |
+
+Claude Code, Codex, Visual Studio Code and goose identify themselves with their
+published client metadata, which Budna recognizes without extra configuration.
+Other clients are rejected: Budna offers no dynamic client registration.
+
 ## Deployment configuration
 
 Set `BUDNA_MCP_PROFILE=account-read` and
