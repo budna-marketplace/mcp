@@ -86,6 +86,7 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | Tool | Scope | Output |
 | --- | --- | --- |
 | `get_my_account` | `account:read` | Account ID, personal/company kind and optional public account label |
+| `get_my_profile` | `profile:read` | Own profile and status: username, display name, bio, city, rating, level and badges, verification, standing with outstanding debt, active subscription and onboarding steps; never birth date, addresses or payment preferences |
 | `list_my_listings` | `listings:read` | Bounded own listing summaries, including drafts, with ID, nullable title, status, type and update time |
 | `get_my_listing` | `listings:read` | Owner-visible details for one own listing, including drafts and the owner's reserve price |
 | `list_my_bids` | `bids:read` | Own bids with listing ID and title, amount, placement time and status; optionally only currently winning bids |
@@ -94,6 +95,25 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | `list_my_watchlist_listings` | `watchlist:read` | Listing IDs and titles in one own watchlist |
 | `list_my_saved_searches` | `watchlist:read` | Saved searches with name, search criteria and filters, alert frequency, active flag and match counts |
 | `list_my_orders` | `orders:read` | Purchases or sales with listing, amount, quantity, order/payment/fulfillment status, carrier, tracking number, return status, deadlines and seller payout |
+| `get_my_order` | `orders:read` | One own purchase or sale with tracking events, return, refund and dispute status and invoice numbers and totals, without documents |
+| `list_my_auto_bids` | `bids:read` | Own automatic bids with listing, maximum, increment, current bid and status |
+| `list_my_second_chance_offers` | `offers:read` | Second-chance offers received, with listing, price, your bid, status and window |
+| `get_my_money_summary` | `payments:read` | Per-currency totals of incoming proceeds (pending, on the way, paid out, on hold, in balance) and outgoing payments (paid, refunded) |
+| `list_my_payment_activity` | `payments:read` | Newest-first payment activity with direction, kind, status, amount and related order or listing; continue with `cursor` |
+| `list_my_payouts` | `payments:read` | Recent payouts with amount, status and timestamps |
+| `list_my_debts` | `payments:read` | Debts to Budna with amount, status, reason and related order |
+| `list_my_conversations` | `messages:read` | Conversations with the other participant's public username, related listing or order, latest message preview and counts |
+| `get_my_conversation` | `messages:read` | Messages in one own conversation: sender (`me` or `other_party`), text, type, related offer, image count, time and read state |
+| `get_my_seller_insights` | `selling:read` | Engagement for `range` 7d, 30d (default) or 90d: status, live and period counts, a daily series, up to 10 top listings and the priority-credit balance |
+| `list_my_boosts` | `selling:read` | Bought boosts with the boosted listing or collection, title, type, status, price, start and expiry |
+| `get_my_listing_promotion` | `selling:read` | One own listing's current, queued and recent boosts, search priority with quoted price, and video processing status without links |
+| `get_my_shipping_settings` | `selling:read` | Default carriers and the combined-shipping choice; never addresses |
+| `list_my_showcases` | `selling:read` | Own collections including drafts: title, kind, status, dates, public item count and boost flag |
+| `list_my_live_sessions` | `selling:read` | Own live streams: status, title, times, peak viewers, reminders, items, items sold and revenue |
+| `list_my_following` | `following:read` | Accounts the user follows, by public username and follow time |
+| `list_my_followers` | `following:read` | Accounts following the user, by public username and follow time |
+| `list_my_companies` | `company:read` | Company memberships with role and permissions, plus pending invitations addressed to the user |
+| `get_my_company` | `company:read` | One own company: details, members by public username and role for managers, invoicing status for the company account |
 | `list_my_notifications` | `notifications:read` | Notifications with type, priority, read state, time and related listing, order, offer or saved search |
 | `list_my_ratings` | `ratings:read` | Ratings received or given with listing, 1–5 star value, comment and time |
 
@@ -125,9 +145,10 @@ documented selectors: `winning_only` for bids, `role` (`sent`/`received`) and
 (`buyer`/`seller`) for orders, `unread_only` for notifications and
 `direction` (`received`/`given`) for ratings. They read only records where the
 connected account is the bidder, buyer, seller, watcher, searcher, recipient,
-rater or ratee. They omit the other party's identity, addresses, contact
-details, offer and order messages, notification text and senders, payment
-instruments and internal staff or risk data. Status values are backend codes
+rater or ratee. Orders, offers and ratings name the other party only by the
+public username the app shows; bidders on a listing are never identified. They
+omit addresses, contact details, offer and order messages, notification text
+and senders, payment instruments and internal staff or risk data. Status values are backend codes
 in lowercase snake case and may gain new values. Seller-entered carrier names
 and tracking numbers, saved-search text, watchlist names and rating comments
 are untrusted content. Each activity response reports `truncated` when output

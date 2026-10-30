@@ -1,6 +1,9 @@
 use budna_mcp_client::{
-    AccountBid, AccountNotification, AccountOffer, AccountOrder, AccountPage, AccountRating,
-    AccountSavedSearch, AccountWatchedListing, AccountWatchlist,
+    AccountAutoBid, AccountBid, AccountCompanies, AccountCompany, AccountCompanyDetail,
+    AccountConversation, AccountConversationMessages, AccountDebt, AccountFollow,
+    AccountMoneySummary, AccountNotification, AccountOffer, AccountOrder, AccountOrderDetail,
+    AccountPage, AccountPaymentActivity, AccountPayouts, AccountProfile, AccountRating,
+    AccountSavedSearch, AccountSecondChanceOffer, AccountWatchedListing, AccountWatchlist,
 };
 use rmcp::schemars;
 use serde::Serialize;
@@ -23,7 +26,7 @@ pub struct AccountPageOutput<T> {
     pub untrusted_content_notice: &'static str,
 }
 
-fn project<T, O>(
+pub(super) fn project<T, O>(
     page: AccountPage<T>,
     mut item: impl FnMut(T, &mut ProjectionBudget) -> O,
 ) -> AccountPageOutput<O> {
@@ -74,6 +77,8 @@ pub struct AccountOfferOutput {
     pub listing_title: Option<String>,
     #[schemars(length(max = 16))]
     pub role: String,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
     pub amount: MoneyOutput,
     pub quantity: i32,
     pub counter_amount: Option<MoneyOutput>,
@@ -94,6 +99,8 @@ impl From<AccountPage<AccountOffer>> for AccountPageOutput<AccountOfferOutput> {
             listing_id: offer.listing_id,
             listing_title: budget.optional_text(offer.listing_title, MAX_DISPLAY_TEXT_BYTES),
             role: offer.role,
+            counterparty_username: budget
+                .optional_text(offer.counterparty_username, MAX_NAME_BYTES),
             amount: offer.amount.into(),
             quantity: offer.quantity,
             counter_amount: offer.counter_amount.map(Into::into),
@@ -240,6 +247,8 @@ pub struct AccountOrderOutput {
     pub id: i64,
     #[schemars(length(max = 16))]
     pub role: String,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
     #[schemars(length(max = 64))]
     pub listing_id: String,
     #[schemars(length(max = 512))]
@@ -275,33 +284,238 @@ pub struct AccountOrderTrackingOutput {
     pub tracking_number: Option<String>,
 }
 
+fn project_order(order: AccountOrder, budget: &mut ProjectionBudget) -> AccountOrderOutput {
+    AccountOrderOutput {
+        id: order.id,
+        role: order.role,
+        counterparty_username: budget.optional_text(order.counterparty_username, MAX_NAME_BYTES),
+        listing_id: order.listing_id,
+        listing_title: budget.optional_text(order.listing_title, MAX_DISPLAY_TEXT_BYTES),
+        amount: order.amount.into(),
+        quantity: order.quantity,
+        status: order.status,
+        payment_status: order.payment_status,
+        fulfillment_mode: order.fulfillment_mode,
+        fulfillment_state: order.fulfillment_state,
+        is_auction_order: order.is_auction_order,
+        tracking: AccountOrderTrackingOutput {
+            available: order.tracking.available,
+            carrier: budget.optional_text(order.tracking.carrier, 64),
+            tracking_number: budget.optional_text(order.tracking.tracking_number, MAX_CODE_BYTES),
+        },
+        withdrawal_status: order.withdrawal_status,
+        payout: order.payout.map(Into::into),
+        payment_due_at: order.payment_due_at,
+        paid_at: order.paid_at,
+        ship_by: order.ship_by,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+    }
+}
+
 impl From<AccountPage<AccountOrder>> for AccountPageOutput<AccountOrderOutput> {
     fn from(page: AccountPage<AccountOrder>) -> Self {
-        project(page, |order, budget| AccountOrderOutput {
-            id: order.id,
-            role: order.role,
-            listing_id: order.listing_id,
-            listing_title: budget.optional_text(order.listing_title, MAX_DISPLAY_TEXT_BYTES),
-            amount: order.amount.into(),
-            quantity: order.quantity,
-            status: order.status,
-            payment_status: order.payment_status,
-            fulfillment_mode: order.fulfillment_mode,
-            fulfillment_state: order.fulfillment_state,
-            is_auction_order: order.is_auction_order,
-            tracking: AccountOrderTrackingOutput {
-                available: order.tracking.available,
-                carrier: budget.optional_text(order.tracking.carrier, 64),
-                tracking_number: budget
-                    .optional_text(order.tracking.tracking_number, MAX_CODE_BYTES),
-            },
-            withdrawal_status: order.withdrawal_status,
-            payout: order.payout.map(Into::into),
-            payment_due_at: order.payment_due_at,
-            paid_at: order.paid_at,
-            ship_by: order.ship_by,
-            created_at: order.created_at,
-            updated_at: order.updated_at,
+        project(page, project_order)
+    }
+}
+
+const MAX_TRACKING_EVENTS: usize = 100;
+const MAX_INVOICES: usize = 50;
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountOrderDetailOutput {
+    pub order: AccountOrderOutput,
+    #[schemars(length(max = 100))]
+    pub tracking_events: Vec<AccountTrackingEventOutput>,
+    pub order_return: Option<AccountOrderReturnOutput>,
+    pub refund: Option<AccountRefundOutput>,
+    pub dispute: Option<AccountDisputeOutput>,
+    #[schemars(length(max = 50))]
+    pub invoices: Vec<AccountInvoiceOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountTrackingEventOutput {
+    #[schemars(length(max = 128))]
+    pub status: String,
+    #[schemars(length(max = 512))]
+    pub description: Option<String>,
+    #[schemars(length(max = 256))]
+    pub location: Option<String>,
+    pub occurred_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountOrderReturnOutput {
+    #[schemars(length(max = 64))]
+    pub status: Option<String>,
+    #[schemars(length(max = 64))]
+    pub kind: Option<String>,
+    pub requested_at: Option<i64>,
+    pub deadline: Option<i64>,
+    #[schemars(length(max = 64))]
+    pub carrier: Option<String>,
+    #[schemars(length(max = 128))]
+    pub tracking_number: Option<String>,
+    pub received_at: Option<i64>,
+    pub delivered_at: Option<i64>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountRefundOutput {
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub amount: MoneyOutput,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountDisputeOutput {
+    #[schemars(length(max = 64))]
+    pub status: String,
+    #[schemars(length(max = 64))]
+    pub reason: Option<String>,
+    pub opened_at: i64,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountInvoiceOutput {
+    #[schemars(length(max = 64))]
+    pub kind: String,
+    #[schemars(length(max = 128))]
+    pub number: String,
+    pub issued_at: i64,
+    pub total: MoneyOutput,
+}
+
+impl From<AccountOrderDetail> for AccountOrderDetailOutput {
+    fn from(detail: AccountOrderDetail) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let order = project_order(detail.order, &mut budget);
+        let tracking_events = budget
+            .objects(detail.tracking_events, MAX_TRACKING_EVENTS)
+            .into_iter()
+            .map(|event| AccountTrackingEventOutput {
+                status: budget.text(event.status, MAX_CODE_BYTES),
+                description: budget.optional_text(event.description, MAX_DISPLAY_TEXT_BYTES),
+                location: budget.optional_text(event.location, MAX_NAME_BYTES),
+                occurred_at: event.occurred_at,
+            })
+            .collect();
+        let order_return = detail
+            .order_return
+            .map(|order_return| AccountOrderReturnOutput {
+                status: order_return.status,
+                kind: order_return.kind,
+                requested_at: order_return.requested_at,
+                deadline: order_return.deadline,
+                carrier: budget.optional_text(order_return.carrier, 64),
+                tracking_number: budget.optional_text(order_return.tracking_number, MAX_CODE_BYTES),
+                received_at: order_return.received_at,
+                delivered_at: order_return.delivered_at,
+            });
+        let invoices = budget
+            .objects(detail.invoices, MAX_INVOICES)
+            .into_iter()
+            .map(|invoice| AccountInvoiceOutput {
+                kind: invoice.kind,
+                number: budget.text(invoice.number, MAX_CODE_BYTES),
+                issued_at: invoice.issued_at,
+                total: invoice.total.into(),
+            })
+            .collect();
+        Self {
+            order,
+            tracking_events,
+            order_return,
+            refund: detail.refund.map(|refund| AccountRefundOutput {
+                status: refund.status,
+                amount: refund.amount.into(),
+                created_at: refund.created_at,
+                updated_at: refund.updated_at,
+            }),
+            dispute: detail.dispute.map(|dispute| AccountDisputeOutput {
+                status: dispute.status,
+                reason: dispute.reason,
+                opened_at: dispute.opened_at,
+                resolved_at: dispute.resolved_at,
+            }),
+            invoices,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountAutoBidOutput {
+    #[schemars(length(max = 64))]
+    pub listing_id: String,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub max_amount: MoneyOutput,
+    pub increment: Option<MoneyOutput>,
+    pub current_bid: Option<MoneyOutput>,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub expires_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+impl From<AccountPage<AccountAutoBid>> for AccountPageOutput<AccountAutoBidOutput> {
+    fn from(page: AccountPage<AccountAutoBid>) -> Self {
+        project(page, |auto_bid, budget| AccountAutoBidOutput {
+            listing_id: auto_bid.listing_id,
+            listing_title: budget.optional_text(auto_bid.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            max_amount: auto_bid.max_amount.into(),
+            increment: auto_bid.increment.map(Into::into),
+            current_bid: auto_bid.current_bid.map(Into::into),
+            status: auto_bid.status,
+            expires_at: auto_bid.expires_at,
+            created_at: auto_bid.created_at,
+            updated_at: auto_bid.updated_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountSecondChanceOfferOutput {
+    pub offer_id: i64,
+    #[schemars(length(max = 64))]
+    pub listing_id: String,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub price: MoneyOutput,
+    pub your_bid: MoneyOutput,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    #[schemars(length(max = 64))]
+    pub offer_status: String,
+    pub window_ends_at: Option<i64>,
+    pub order_id: Option<i64>,
+    pub created_at: i64,
+}
+
+impl From<AccountPage<AccountSecondChanceOffer>>
+    for AccountPageOutput<AccountSecondChanceOfferOutput>
+{
+    fn from(page: AccountPage<AccountSecondChanceOffer>) -> Self {
+        project(page, |offer, budget| AccountSecondChanceOfferOutput {
+            offer_id: offer.offer_id,
+            listing_id: offer.listing_id,
+            listing_title: budget.optional_text(offer.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            price: offer.price.into(),
+            your_bid: offer.your_bid.into(),
+            status: offer.status,
+            offer_status: offer.offer_status,
+            window_ends_at: offer.window_ends_at,
+            order_id: offer.order_id,
+            created_at: offer.created_at,
         })
     }
 }
@@ -347,6 +561,8 @@ pub struct AccountRatingOutput {
     pub listing_id: String,
     #[schemars(length(max = 512))]
     pub listing_title: Option<String>,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
     #[schemars(range(min = 1, max = 5))]
     pub value: i32,
     #[schemars(length(max = 4096))]
@@ -359,10 +575,615 @@ impl From<AccountPage<AccountRating>> for AccountPageOutput<AccountRatingOutput>
         project(page, |rating, budget| AccountRatingOutput {
             listing_id: rating.listing_id,
             listing_title: budget.optional_text(rating.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            counterparty_username: budget
+                .optional_text(rating.counterparty_username, MAX_NAME_BYTES),
             value: rating.value,
             comment: budget.optional_text(rating.comment, MAX_LONG_TEXT_BYTES),
             created_at: rating.created_at,
         })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountMoneySummaryOutput {
+    #[schemars(length(max = 10))]
+    pub currencies: Vec<AccountCurrencyTotalsOutput>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCurrencyTotalsOutput {
+    #[schemars(length(min = 3, max = 3))]
+    pub currency: String,
+    pub incoming_pending: MoneyOutput,
+    pub incoming_on_the_way: MoneyOutput,
+    pub incoming_paid_out: MoneyOutput,
+    pub incoming_on_hold: MoneyOutput,
+    pub incoming_in_balance: MoneyOutput,
+    pub outgoing_paid: MoneyOutput,
+    pub outgoing_refunded: MoneyOutput,
+}
+
+impl From<AccountMoneySummary> for AccountMoneySummaryOutput {
+    fn from(summary: AccountMoneySummary) -> Self {
+        Self {
+            currencies: summary
+                .currencies
+                .into_iter()
+                .map(|totals| AccountCurrencyTotalsOutput {
+                    currency: totals.currency,
+                    incoming_pending: totals.incoming_pending.into(),
+                    incoming_on_the_way: totals.incoming_on_the_way.into(),
+                    incoming_paid_out: totals.incoming_paid_out.into(),
+                    incoming_on_hold: totals.incoming_on_hold.into(),
+                    incoming_in_balance: totals.incoming_in_balance.into(),
+                    outgoing_paid: totals.outgoing_paid.into(),
+                    outgoing_refunded: totals.outgoing_refunded.into(),
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPaymentActivityOutput {
+    #[schemars(length(max = 50))]
+    pub items: Vec<AccountPaymentActivityEntryOutput>,
+    #[schemars(length(max = 128))]
+    pub next_cursor: Option<String>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPaymentActivityEntryOutput {
+    #[schemars(length(max = 128))]
+    pub id: String,
+    #[schemars(length(max = 64))]
+    pub direction: String,
+    #[schemars(length(max = 64))]
+    pub kind: String,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub amount: MoneyOutput,
+    #[schemars(length(max = 512))]
+    pub title: Option<String>,
+    pub order_id: Option<i64>,
+    #[schemars(length(max = 64))]
+    pub listing_id: Option<String>,
+    pub release_eligible_at: Option<i64>,
+    pub created_at: i64,
+}
+
+impl From<AccountPaymentActivity> for AccountPaymentActivityOutput {
+    fn from(activity: AccountPaymentActivity) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let items = budget
+            .objects(activity.items, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|entry| AccountPaymentActivityEntryOutput {
+                id: entry.id,
+                direction: entry.direction,
+                kind: entry.kind,
+                status: entry.status,
+                amount: entry.amount.into(),
+                title: budget.optional_text(entry.title, MAX_DISPLAY_TEXT_BYTES),
+                order_id: entry.order_id,
+                listing_id: entry.listing_id,
+                release_eligible_at: entry.release_eligible_at,
+                created_at: entry.created_at,
+            })
+            .collect();
+        Self {
+            items,
+            next_cursor: activity.next_cursor,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPayoutsOutput {
+    #[schemars(length(max = 50))]
+    pub items: Vec<AccountPayoutOutput>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPayoutOutput {
+    #[schemars(length(max = 128))]
+    pub id: String,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub amount: MoneyOutput,
+    pub requested_at: i64,
+    pub settled_at: Option<i64>,
+    pub paid_out_at: Option<i64>,
+    pub failed_at: Option<i64>,
+}
+
+impl From<AccountPayouts> for AccountPayoutsOutput {
+    fn from(payouts: AccountPayouts) -> Self {
+        Self {
+            items: payouts
+                .items
+                .into_iter()
+                .map(|payout| AccountPayoutOutput {
+                    id: payout.id,
+                    status: payout.status,
+                    amount: payout.amount.into(),
+                    requested_at: payout.requested_at,
+                    settled_at: payout.settled_at,
+                    paid_out_at: payout.paid_out_at,
+                    failed_at: payout.failed_at,
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountDebtOutput {
+    pub id: i64,
+    pub amount: MoneyOutput,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    #[schemars(length(max = 64))]
+    pub reason: String,
+    pub order_id: i64,
+    pub created_at: i64,
+    pub resolved_at: Option<i64>,
+    pub waived_at: Option<i64>,
+}
+
+impl From<AccountPage<AccountDebt>> for AccountPageOutput<AccountDebtOutput> {
+    fn from(page: AccountPage<AccountDebt>) -> Self {
+        project(page, |debt, _budget| AccountDebtOutput {
+            id: debt.id,
+            amount: debt.amount.into(),
+            status: debt.status,
+            reason: debt.reason,
+            order_id: debt.order_id,
+            created_at: debt.created_at,
+            resolved_at: debt.resolved_at,
+            waived_at: debt.waived_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountConversationOutput {
+    pub id: i64,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
+    #[schemars(length(max = 64))]
+    pub listing_id: Option<String>,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    #[schemars(length(max = 512))]
+    pub last_message_preview: Option<String>,
+    pub unread_count: i64,
+    pub total_messages: i64,
+    pub is_archived: bool,
+    pub last_activity_at: i64,
+}
+
+impl From<AccountPage<AccountConversation>> for AccountPageOutput<AccountConversationOutput> {
+    fn from(page: AccountPage<AccountConversation>) -> Self {
+        project(page, |conversation, budget| AccountConversationOutput {
+            id: conversation.id,
+            counterparty_username: budget
+                .optional_text(conversation.counterparty_username, MAX_NAME_BYTES),
+            listing_id: conversation.listing_id,
+            listing_title: budget.optional_text(conversation.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            order_id: conversation.order_id,
+            last_message_preview: budget
+                .optional_text(conversation.last_message_preview, MAX_DISPLAY_TEXT_BYTES),
+            unread_count: conversation.unread_count,
+            total_messages: conversation.total_messages,
+            is_archived: conversation.is_archived,
+            last_activity_at: conversation.last_activity_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountConversationMessagesOutput {
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
+    #[schemars(length(max = 64))]
+    pub listing_id: Option<String>,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    #[schemars(length(max = 50))]
+    pub items: Vec<AccountMessageOutput>,
+    pub pagination: PaginationOutput,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountMessageOutput {
+    pub id: i64,
+    #[schemars(length(max = 16))]
+    pub from: String,
+    #[schemars(length(max = 4096))]
+    pub content: String,
+    #[schemars(length(max = 64))]
+    pub message_type: String,
+    pub offer_id: Option<i64>,
+    pub image_count: u32,
+    pub sent_at: i64,
+    pub read: bool,
+}
+
+impl From<AccountConversationMessages> for AccountConversationMessagesOutput {
+    fn from(thread: AccountConversationMessages) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let counterparty_username =
+            budget.optional_text(thread.counterparty_username, MAX_NAME_BYTES);
+        let listing_title = budget.optional_text(thread.listing_title, MAX_DISPLAY_TEXT_BYTES);
+        let items = budget
+            .objects(thread.items, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|message| AccountMessageOutput {
+                id: message.id,
+                from: message.from,
+                content: budget.text(message.content, MAX_LONG_TEXT_BYTES),
+                message_type: budget.text(message.message_type, 64),
+                offer_id: message.offer_id,
+                image_count: message.image_count,
+                sent_at: message.sent_at,
+                read: message.read,
+            })
+            .collect();
+        Self {
+            counterparty_username,
+            listing_id: thread.listing_id,
+            listing_title,
+            order_id: thread.order_id,
+            items,
+            pagination: thread.pagination.into(),
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountProfileOutput {
+    #[schemars(length(max = 256))]
+    pub username: Option<String>,
+    #[schemars(length(max = 256))]
+    pub display_name: String,
+    #[schemars(length(max = 4096))]
+    pub bio: Option<String>,
+    #[schemars(length(max = 64))]
+    pub language: String,
+    #[schemars(length(min = 3, max = 3))]
+    pub currency: String,
+    pub location: Option<AccountLocationOutput>,
+    #[schemars(length(max = 128))]
+    pub rating: String,
+    pub total_ratings: i32,
+    pub is_company: bool,
+    pub member_since: i64,
+    pub level: Option<i32>,
+    #[schemars(length(max = 256))]
+    pub level_name: Option<String>,
+    pub experience_points: Option<i32>,
+    #[schemars(length(max = 50))]
+    pub badges: Vec<AccountBadgeOutput>,
+    pub verification: AccountVerificationOutput,
+    pub standing: AccountStandingOutput,
+    pub subscription: Option<AccountSubscriptionOutput>,
+    #[schemars(length(max = 50))]
+    pub onboarding_steps: Vec<AccountOnboardingStepOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountLocationOutput {
+    #[schemars(length(max = 256))]
+    pub city: String,
+    #[schemars(length(max = 256))]
+    pub region: Option<String>,
+    #[schemars(length(max = 128))]
+    pub country: String,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountBadgeOutput {
+    #[schemars(length(max = 256))]
+    pub name: String,
+    pub unlocked_at: Option<i64>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountVerificationOutput {
+    pub email_confirmed: bool,
+    pub identity_verified: bool,
+    pub identity_verification_valid: bool,
+    #[schemars(length(max = 64))]
+    pub identity_verification_method: Option<String>,
+    pub identity_verified_at: Option<i64>,
+    pub identity_expires_at: Option<i64>,
+    pub can_sell: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountStandingOutput {
+    pub restricted: bool,
+    pub outstanding_debt_count: i64,
+    pub outstanding_debt_total: Option<MoneyOutput>,
+    #[schemars(length(max = 64))]
+    pub frozen_reason: Option<String>,
+    pub has_conduct_warning: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountSubscriptionOutput {
+    #[schemars(length(max = 64))]
+    pub tier: String,
+    #[schemars(length(max = 256))]
+    pub tier_name: String,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub price: MoneyOutput,
+    pub current_period_end: i64,
+    pub cancel_at_period_end: bool,
+    pub lifetime: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountOnboardingStepOutput {
+    #[schemars(length(max = 64))]
+    pub kind: String,
+    pub required: bool,
+}
+
+impl From<AccountProfile> for AccountProfileOutput {
+    fn from(profile: AccountProfile) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let username = budget.optional_text(profile.username, MAX_NAME_BYTES);
+        let display_name = budget.text(profile.display_name, MAX_NAME_BYTES);
+        let bio = budget.optional_text(profile.bio, MAX_LONG_TEXT_BYTES);
+        let location = profile.location.map(|location| AccountLocationOutput {
+            city: budget.text(location.city, MAX_NAME_BYTES),
+            region: budget.optional_text(location.region, MAX_NAME_BYTES),
+            country: budget.text(location.country, MAX_CODE_BYTES),
+        });
+        let level_name = budget.optional_text(profile.level_name, MAX_NAME_BYTES);
+        let badges = budget
+            .objects(profile.badges, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|badge| AccountBadgeOutput {
+                name: budget.text(badge.name, MAX_NAME_BYTES),
+                unlocked_at: badge.unlocked_at,
+            })
+            .collect();
+        let subscription = profile
+            .subscription
+            .map(|subscription| AccountSubscriptionOutput {
+                tier: subscription.tier,
+                tier_name: budget.text(subscription.tier_name, MAX_NAME_BYTES),
+                status: subscription.status,
+                price: subscription.price.into(),
+                current_period_end: subscription.current_period_end,
+                cancel_at_period_end: subscription.cancel_at_period_end,
+                lifetime: subscription.lifetime,
+            });
+        let onboarding_steps = budget
+            .objects(profile.onboarding_steps, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|step| AccountOnboardingStepOutput {
+                kind: step.kind,
+                required: step.required,
+            })
+            .collect();
+        let verification = profile.verification;
+        let standing = profile.standing;
+        Self {
+            username,
+            display_name,
+            bio,
+            language: profile.language,
+            currency: profile.currency,
+            location,
+            rating: profile.rating,
+            total_ratings: profile.total_ratings,
+            is_company: profile.is_company,
+            member_since: profile.member_since,
+            level: profile.level,
+            level_name,
+            experience_points: profile.experience_points,
+            badges,
+            verification: AccountVerificationOutput {
+                email_confirmed: verification.email_confirmed,
+                identity_verified: verification.identity_verified,
+                identity_verification_valid: verification.identity_verification_valid,
+                identity_verification_method: verification.identity_verification_method,
+                identity_verified_at: verification.identity_verified_at,
+                identity_expires_at: verification.identity_expires_at,
+                can_sell: verification.can_sell,
+            },
+            standing: AccountStandingOutput {
+                restricted: standing.restricted,
+                outstanding_debt_count: standing.outstanding_debt_count,
+                outstanding_debt_total: standing.outstanding_debt_total.map(Into::into),
+                frozen_reason: standing.frozen_reason,
+                has_conduct_warning: standing.has_conduct_warning,
+            },
+            subscription,
+            onboarding_steps,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountFollowOutput {
+    /// Public username; null for closed or private accounts.
+    #[schemars(length(max = 256))]
+    pub username: Option<String>,
+    pub followed_at: i64,
+}
+
+impl From<AccountPage<AccountFollow>> for AccountPageOutput<AccountFollowOutput> {
+    fn from(page: AccountPage<AccountFollow>) -> Self {
+        project(page, |follow, budget| AccountFollowOutput {
+            username: budget.optional_text(follow.username, MAX_NAME_BYTES),
+            followed_at: follow.followed_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyOutput {
+    pub company_id: i64,
+    #[schemars(length(max = 256))]
+    pub name: String,
+    /// Shown only to the company account itself.
+    #[schemars(length(max = 256))]
+    pub legal_name: Option<String>,
+    /// Shown only to the company account itself.
+    #[schemars(length(max = 64))]
+    pub organization_number: Option<String>,
+    pub organization_verified: bool,
+    pub is_company_account: bool,
+    /// admin, manager or lister.
+    #[schemars(length(max = 64))]
+    pub role: String,
+    #[schemars(length(max = 32), inner(length(max = 64)))]
+    pub permissions: Vec<String>,
+    pub joined_at: i64,
+}
+
+fn project_company(company: AccountCompany, budget: &mut ProjectionBudget) -> AccountCompanyOutput {
+    AccountCompanyOutput {
+        company_id: company.company_id,
+        name: budget.text(company.name, MAX_NAME_BYTES),
+        legal_name: budget.optional_text(company.legal_name, MAX_NAME_BYTES),
+        organization_number: company.organization_number,
+        organization_verified: company.organization_verified,
+        is_company_account: company.is_company_account,
+        role: company.role,
+        permissions: company.permissions,
+        joined_at: company.joined_at,
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyInvitationOutput {
+    pub company_id: i64,
+    #[schemars(length(max = 256))]
+    pub company_name: String,
+    #[schemars(length(max = 64))]
+    pub role: String,
+    pub expires_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompaniesOutput {
+    #[schemars(length(max = 50))]
+    pub companies: Vec<AccountCompanyOutput>,
+    /// Pending invitations addressed to the account.
+    #[schemars(length(max = 50))]
+    pub invitations: Vec<AccountCompanyInvitationOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+impl From<AccountCompanies> for AccountCompaniesOutput {
+    fn from(companies: AccountCompanies) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let invitations = budget
+            .objects(companies.invitations, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|invitation| AccountCompanyInvitationOutput {
+                company_id: invitation.company_id,
+                company_name: budget.text(invitation.company_name, MAX_NAME_BYTES),
+                role: invitation.role,
+                expires_at: invitation.expires_at,
+            })
+            .collect();
+        Self {
+            companies: budget
+                .objects(companies.companies, MAX_PAGE_ITEMS)
+                .into_iter()
+                .map(|company| project_company(company, &mut budget))
+                .collect(),
+            invitations,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyMemberOutput {
+    #[schemars(length(max = 256))]
+    pub username: Option<String>,
+    #[schemars(length(max = 64))]
+    pub role: String,
+    pub joined_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyInvoicingOutput {
+    pub ready: bool,
+    pub vat_registered: Option<bool>,
+    #[schemars(length(max = 64))]
+    pub default_vat_treatment: Option<String>,
+    pub agreement_accepted_at: Option<i64>,
+    pub agreement_current: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyDetailOutput {
+    pub company: AccountCompanyOutput,
+    /// Members by public username; null unless the account may manage the company.
+    #[schemars(length(max = 50))]
+    pub members: Option<Vec<AccountCompanyMemberOutput>>,
+    /// Null unless the account is the company account itself.
+    pub invoicing: Option<AccountCompanyInvoicingOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+impl From<AccountCompanyDetail> for AccountCompanyDetailOutput {
+    fn from(detail: AccountCompanyDetail) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let company = project_company(detail.company, &mut budget);
+        let members = detail.members.map(|members| {
+            budget
+                .objects(members, MAX_PAGE_ITEMS)
+                .into_iter()
+                .map(|member| AccountCompanyMemberOutput {
+                    username: budget.optional_text(member.username, MAX_NAME_BYTES),
+                    role: member.role,
+                    joined_at: member.joined_at,
+                })
+                .collect()
+        });
+        Self {
+            company,
+            members,
+            invoicing: detail
+                .invoicing
+                .map(|invoicing| AccountCompanyInvoicingOutput {
+                    ready: invoicing.ready,
+                    vat_registered: invoicing.vat_registered,
+                    default_vat_treatment: invoicing.default_vat_treatment,
+                    agreement_accepted_at: invoicing.agreement_accepted_at,
+                    agreement_current: invoicing.agreement_current,
+                }),
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
     }
 }
 

@@ -120,6 +120,147 @@ impl AccountWatchlistListingsParams {
     }
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountConversationsParams {
+    /// Return only conversations with unread messages.
+    pub unread_only: Option<bool>,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountConversationsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountConversationParams {
+    /// Conversation ID returned by list_my_conversations.
+    #[schemars(range(min = 1))]
+    pub conversation_id: i64,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountConversationParams {
+    pub fn validate(&self) -> Result<(i64, u32, u32), InputError> {
+        if self.conversation_id < 1 {
+            return Err(InputError::new("conversation_id must be at least 1"));
+        }
+        let (page, limit) = validate_listing_page(self.page, self.limit)?;
+        Ok((self.conversation_id, page, limit))
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountCursorParams {
+    /// Cursor returned by the previous page; omit for the newest entries.
+    #[schemars(length(min = 1, max = 128))]
+    pub cursor: Option<String>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountCursorParams {
+    pub fn validate(&self) -> Result<(Option<&str>, u32), InputError> {
+        if self
+            .cursor
+            .as_ref()
+            .is_some_and(|cursor| cursor.is_empty() || cursor.len() > 128)
+        {
+            return Err(InputError::new("cursor must be 1..128 characters"));
+        }
+        Ok((
+            self.cursor.as_deref(),
+            validate_listing_page(None, self.limit)?.1,
+        ))
+    }
+}
+
+/// The period seller insights cover.
+#[derive(Clone, Copy, Debug, Default, Deserialize, schemars::JsonSchema)]
+pub enum InsightsRangeParam {
+    #[serde(rename = "7d")]
+    Week,
+    #[default]
+    #[serde(rename = "30d")]
+    Month,
+    #[serde(rename = "90d")]
+    Quarter,
+}
+
+impl InsightsRangeParam {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Week => "7d",
+            Self::Month => "30d",
+            Self::Quarter => "90d",
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountInsightsParams {
+    /// 7d, 30d or 90d; defaults to 30d.
+    pub range: Option<InsightsRangeParam>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountCompanyIdParams {
+    /// Company ID returned by list_my_companies.
+    #[schemars(range(min = 1))]
+    pub company_id: i64,
+}
+
+impl AccountCompanyIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        if self.company_id < 1 {
+            return Err(InputError::new("company_id must be at least 1"));
+        }
+        Ok(self.company_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountLimitParams {
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountLimitParams {
+    pub fn validate(&self) -> Result<u32, InputError> {
+        Ok(validate_listing_page(None, self.limit)?.1)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOrderIdParams {
+    /// Order ID returned by list_my_orders or a notification.
+    #[schemars(range(min = 1))]
+    pub order_id: i64,
+}
+
+impl AccountOrderIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        if self.order_id < 1 {
+            return Err(InputError::new("order_id must be at least 1"));
+        }
+        Ok(self.order_id)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderRoleParam {

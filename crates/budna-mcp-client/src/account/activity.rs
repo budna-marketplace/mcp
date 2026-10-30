@@ -20,6 +20,7 @@ pub struct AccountOffer {
     pub listing_id: String,
     pub listing_title: Option<String>,
     pub role: String,
+    pub counterparty_username: Option<String>,
     pub amount: Money,
     pub quantity: i32,
     pub counter_amount: Option<Money>,
@@ -80,6 +81,7 @@ pub struct AccountSavedSearchQuery {
 pub struct AccountOrder {
     pub id: i64,
     pub role: String,
+    pub counterparty_username: Option<String>,
     pub listing_id: String,
     pub listing_title: Option<String>,
     pub amount: Money,
@@ -124,24 +126,279 @@ pub struct AccountNotification {
 pub struct AccountRating {
     pub listing_id: String,
     pub listing_title: Option<String>,
+    pub counterparty_username: Option<String>,
     pub value: i32,
     pub comment: Option<String>,
     pub created_at: i64,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountOrderDetail {
+    pub order: AccountOrder,
+    pub tracking_events: Vec<AccountTrackingEvent>,
+    pub order_return: Option<AccountOrderReturn>,
+    pub refund: Option<AccountRefund>,
+    pub dispute: Option<AccountDispute>,
+    pub invoices: Vec<AccountInvoice>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountTrackingEvent {
+    pub status: String,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub occurred_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountOrderReturn {
+    pub status: Option<String>,
+    pub kind: Option<String>,
+    pub requested_at: Option<i64>,
+    pub deadline: Option<i64>,
+    pub carrier: Option<String>,
+    pub tracking_number: Option<String>,
+    pub received_at: Option<i64>,
+    pub delivered_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountRefund {
+    pub status: String,
+    pub amount: Money,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountDispute {
+    pub status: String,
+    pub reason: Option<String>,
+    pub opened_at: i64,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountInvoice {
+    pub kind: String,
+    pub number: String,
+    pub issued_at: i64,
+    pub total: Money,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountAutoBid {
+    pub listing_id: String,
+    pub listing_title: Option<String>,
+    pub max_amount: Money,
+    pub increment: Option<Money>,
+    pub current_bid: Option<Money>,
+    pub status: String,
+    pub expires_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountSecondChanceOffer {
+    pub offer_id: i64,
+    pub listing_id: String,
+    pub listing_title: Option<String>,
+    pub price: Money,
+    pub your_bid: Money,
+    pub status: String,
+    pub offer_status: String,
+    pub window_ends_at: Option<i64>,
+    pub order_id: Option<i64>,
+    pub created_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountMoneySummary {
+    pub currencies: Vec<AccountCurrencyTotals>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCurrencyTotals {
+    pub currency: String,
+    pub incoming_pending: Money,
+    pub incoming_on_the_way: Money,
+    pub incoming_paid_out: Money,
+    pub incoming_on_hold: Money,
+    pub incoming_in_balance: Money,
+    pub outgoing_paid: Money,
+    pub outgoing_refunded: Money,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPaymentActivity {
+    pub items: Vec<AccountPaymentActivityEntry>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPaymentActivityEntry {
+    pub id: String,
+    pub direction: String,
+    pub kind: String,
+    pub status: String,
+    pub amount: Money,
+    pub title: Option<String>,
+    pub order_id: Option<i64>,
+    pub listing_id: Option<String>,
+    pub release_eligible_at: Option<i64>,
+    pub created_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPayouts {
+    pub items: Vec<AccountPayout>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPayout {
+    pub id: String,
+    pub status: String,
+    pub amount: Money,
+    pub requested_at: i64,
+    pub settled_at: Option<i64>,
+    pub paid_out_at: Option<i64>,
+    pub failed_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountDebt {
+    pub id: i64,
+    pub amount: Money,
+    pub status: String,
+    pub reason: String,
+    pub order_id: i64,
+    pub created_at: i64,
+    pub resolved_at: Option<i64>,
+    pub waived_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountConversation {
+    pub id: i64,
+    pub counterparty_username: Option<String>,
+    pub listing_id: Option<String>,
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    pub last_message_preview: Option<String>,
+    pub unread_count: i64,
+    pub total_messages: i64,
+    pub is_archived: bool,
+    pub last_activity_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountConversationMessages {
+    pub counterparty_username: Option<String>,
+    pub listing_id: Option<String>,
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    pub items: Vec<AccountMessage>,
+    pub pagination: crate::Pagination,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountMessage {
+    pub id: i64,
+    pub from: String,
+    pub content: String,
+    pub message_type: String,
+    pub offer_id: Option<i64>,
+    pub image_count: u32,
+    pub sent_at: i64,
+    pub read: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountProfile {
+    pub username: Option<String>,
+    pub display_name: String,
+    pub bio: Option<String>,
+    pub language: String,
+    pub currency: String,
+    pub location: Option<AccountLocation>,
+    pub rating: String,
+    pub total_ratings: i32,
+    pub is_company: bool,
+    pub member_since: i64,
+    pub level: Option<i32>,
+    pub level_name: Option<String>,
+    pub experience_points: Option<i32>,
+    pub badges: Vec<AccountBadge>,
+    pub verification: AccountVerification,
+    pub standing: AccountStanding,
+    pub subscription: Option<AccountSubscription>,
+    pub onboarding_steps: Vec<AccountOnboardingStep>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountLocation {
+    pub city: String,
+    pub region: Option<String>,
+    pub country: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountBadge {
+    pub name: String,
+    pub unlocked_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountVerification {
+    pub email_confirmed: bool,
+    pub identity_verified: bool,
+    pub identity_verification_valid: bool,
+    pub identity_verification_method: Option<String>,
+    pub identity_verified_at: Option<i64>,
+    pub identity_expires_at: Option<i64>,
+    pub can_sell: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountStanding {
+    pub restricted: bool,
+    pub outstanding_debt_count: i64,
+    pub outstanding_debt_total: Option<Money>,
+    pub frozen_reason: Option<String>,
+    pub has_conduct_warning: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountSubscription {
+    pub tier: String,
+    pub tier_name: String,
+    pub status: String,
+    pub price: Money,
+    pub current_period_end: i64,
+    pub cancel_at_period_end: bool,
+    pub lifetime: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountOnboardingStep {
+    pub kind: String,
+    pub required: bool,
+}
+
 /// Status values are backend vocabulary that may grow, so they are checked by shape.
-fn code(value: &str) -> bool {
+pub(super) fn code(value: &str) -> bool {
     let mut bytes = value.bytes();
     value.len() <= 64
         && bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
-fn optional_text(value: Option<&str>, max: usize) -> bool {
+pub(super) fn optional_text(value: Option<&str>, max: usize) -> bool {
     value.is_none_or(|value| value.len() <= max)
 }
 
-fn optional_time(value: Option<i64>) -> bool {
+pub(super) fn optional_time(value: Option<i64>) -> bool {
     value.is_none_or(|value| value >= 0)
 }
 
@@ -149,7 +406,7 @@ fn optional_id(value: Option<i64>) -> bool {
     value.is_none_or(|value| value > 0)
 }
 
-fn money(value: &Money) -> bool {
+pub(super) fn money(value: &Money) -> bool {
     is_currency_code(&value.currency_code) && is_exact_decimal(&value.amount)
 }
 
@@ -167,6 +424,7 @@ impl AccountOffer {
     pub(super) fn is_valid(&self, role: &str) -> bool {
         self.id > 0
             && self.role == role
+            && optional_text(self.counterparty_username.as_deref(), 256)
             && is_listing_id(&self.listing_id)
             && optional_text(self.listing_title.as_deref(), 4096)
             && money(&self.amount)
@@ -235,6 +493,7 @@ impl AccountOrder {
     pub(super) fn is_valid(&self, role: &str) -> bool {
         self.id > 0
             && self.role == role
+            && optional_text(self.counterparty_username.as_deref(), 256)
             && is_listing_id(&self.listing_id)
             && optional_text(self.listing_title.as_deref(), 4096)
             && money(&self.amount)
@@ -277,8 +536,359 @@ impl AccountRating {
     pub(super) fn is_valid(&self) -> bool {
         is_listing_id(&self.listing_id)
             && optional_text(self.listing_title.as_deref(), 4096)
+            && optional_text(self.counterparty_username.as_deref(), 256)
             && (1..=5).contains(&self.value)
             && optional_text(self.comment.as_deref(), 8192)
             && self.created_at >= 0
+    }
+}
+
+impl AccountOrderDetail {
+    pub(super) fn is_valid(&self) -> bool {
+        matches!(self.order.role.as_str(), "buyer" | "seller")
+            && self.order.is_valid(&self.order.role)
+            && self.tracking_events.len() <= 200
+            && self.tracking_events.iter().all(|event| {
+                !event.status.is_empty()
+                    && event.status.len() <= 128
+                    && optional_text(event.description.as_deref(), 4096)
+                    && optional_text(event.location.as_deref(), 4096)
+                    && event.occurred_at >= 0
+            })
+            && self.order_return.as_ref().is_none_or(|order_return| {
+                order_return.status.as_deref().is_none_or(code)
+                    && order_return.kind.as_deref().is_none_or(code)
+                    && optional_text(order_return.carrier.as_deref(), 256)
+                    && optional_text(order_return.tracking_number.as_deref(), 256)
+                    && [
+                        order_return.requested_at,
+                        order_return.deadline,
+                        order_return.received_at,
+                        order_return.delivered_at,
+                    ]
+                    .into_iter()
+                    .all(optional_time)
+            })
+            && self.refund.as_ref().is_none_or(|refund| {
+                code(&refund.status)
+                    && money(&refund.amount)
+                    && refund.created_at >= 0
+                    && refund.updated_at >= 0
+            })
+            && self.dispute.as_ref().is_none_or(|dispute| {
+                code(&dispute.status)
+                    && dispute.reason.as_deref().is_none_or(code)
+                    && dispute.opened_at >= 0
+                    && optional_time(dispute.resolved_at)
+            })
+            && self.invoices.len() <= 100
+            && self.invoices.iter().all(|invoice| {
+                code(&invoice.kind)
+                    && !invoice.number.is_empty()
+                    && invoice.number.len() <= 128
+                    && invoice.issued_at >= 0
+                    && money(&invoice.total)
+            })
+    }
+}
+
+impl AccountAutoBid {
+    pub(super) fn is_valid(&self) -> bool {
+        is_listing_id(&self.listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && money(&self.max_amount)
+            && [&self.increment, &self.current_bid]
+                .into_iter()
+                .all(|amount| amount.as_ref().is_none_or(money))
+            && code(&self.status)
+            && optional_time(self.expires_at)
+            && self.created_at >= 0
+            && self.updated_at >= 0
+    }
+}
+
+impl AccountSecondChanceOffer {
+    pub(super) fn is_valid(&self) -> bool {
+        self.offer_id > 0
+            && is_listing_id(&self.listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && money(&self.price)
+            && money(&self.your_bid)
+            && code(&self.status)
+            && code(&self.offer_status)
+            && optional_time(self.window_ends_at)
+            && optional_id(self.order_id)
+            && self.created_at >= 0
+    }
+}
+
+fn opaque_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_".contains(&byte))
+}
+
+impl AccountMoneySummary {
+    pub(super) fn is_valid(&self) -> bool {
+        self.currencies.len() <= 10
+            && self.currencies.iter().all(|totals| {
+                is_currency_code(&totals.currency)
+                    && [
+                        &totals.incoming_pending,
+                        &totals.incoming_on_the_way,
+                        &totals.incoming_paid_out,
+                        &totals.incoming_on_hold,
+                        &totals.incoming_in_balance,
+                        &totals.outgoing_paid,
+                        &totals.outgoing_refunded,
+                    ]
+                    .into_iter()
+                    .all(|amount| money(amount) && amount.currency_code == totals.currency)
+            })
+    }
+}
+
+impl AccountPaymentActivity {
+    pub(super) fn is_valid(&self, limit: u32) -> bool {
+        self.items.len() <= limit as usize
+            && self
+                .next_cursor
+                .as_deref()
+                .is_none_or(|cursor| !cursor.is_empty() && cursor.len() <= 128)
+            && self.items.iter().all(|entry| {
+                opaque_id(&entry.id)
+                    && code(&entry.direction)
+                    && code(&entry.kind)
+                    && code(&entry.status)
+                    && money(&entry.amount)
+                    && optional_text(entry.title.as_deref(), 4096)
+                    && optional_id(entry.order_id)
+                    && entry.listing_id.as_deref().is_none_or(is_listing_id)
+                    && optional_time(entry.release_eligible_at)
+                    && entry.created_at >= 0
+            })
+    }
+}
+
+impl AccountPayouts {
+    pub(super) fn is_valid(&self, limit: u32) -> bool {
+        self.items.len() <= limit as usize
+            && self.items.iter().all(|payout| {
+                opaque_id(&payout.id)
+                    && code(&payout.status)
+                    && money(&payout.amount)
+                    && payout.requested_at >= 0
+                    && [payout.settled_at, payout.paid_out_at, payout.failed_at]
+                        .into_iter()
+                        .all(optional_time)
+            })
+    }
+}
+
+impl AccountDebt {
+    pub(super) fn is_valid(&self) -> bool {
+        self.id > 0
+            && money(&self.amount)
+            && code(&self.status)
+            && code(&self.reason)
+            && self.order_id > 0
+            && self.created_at >= 0
+            && optional_time(self.resolved_at)
+            && optional_time(self.waived_at)
+    }
+}
+
+impl AccountConversation {
+    pub(super) fn is_valid(&self) -> bool {
+        self.id > 0
+            && optional_text(self.counterparty_username.as_deref(), 256)
+            && self.listing_id.as_deref().is_none_or(is_listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && optional_id(self.order_id)
+            && optional_text(self.last_message_preview.as_deref(), 8192)
+            && self.unread_count >= 0
+            && self.total_messages >= 0
+            && self.last_activity_at >= 0
+    }
+}
+
+impl AccountConversationMessages {
+    pub(super) fn is_valid(&self) -> bool {
+        optional_text(self.counterparty_username.as_deref(), 256)
+            && self.listing_id.as_deref().is_none_or(is_listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && optional_id(self.order_id)
+            && self.items.iter().all(AccountMessage::is_valid)
+    }
+}
+
+impl AccountMessage {
+    pub(super) fn is_valid(&self) -> bool {
+        self.id > 0
+            && matches!(self.from.as_str(), "me" | "other_party")
+            && self.content.len() <= 20_000
+            && !self.message_type.is_empty()
+            && self.message_type.len() <= 64
+            && optional_id(self.offer_id)
+            && self.image_count <= 100
+            && self.sent_at >= 0
+    }
+}
+
+impl AccountProfile {
+    pub(super) fn is_valid(&self) -> bool {
+        optional_text(self.username.as_deref(), 256)
+            && self.display_name.len() <= 4096
+            && optional_text(self.bio.as_deref(), 20_000)
+            && code(&self.language)
+            && is_currency_code(&self.currency)
+            && self.location.as_ref().is_none_or(|location| {
+                location.city.len() <= 4096
+                    && optional_text(location.region.as_deref(), 4096)
+                    && location.country.len() <= 128
+            })
+            && crate::decimal_in_range(&self.rating, 0.0, 5.0)
+            && self.total_ratings >= 0
+            && self.member_since >= 0
+            && self.level.is_none_or(|level| level >= 0)
+            && optional_text(self.level_name.as_deref(), 256)
+            && self.experience_points.is_none_or(|xp| xp >= 0)
+            && self.badges.len() <= 200
+            && self.badges.iter().all(|badge| {
+                !badge.name.is_empty()
+                    && badge.name.len() <= 256
+                    && optional_time(badge.unlocked_at)
+            })
+            && optional_text(
+                self.verification.identity_verification_method.as_deref(),
+                64,
+            )
+            && optional_time(self.verification.identity_verified_at)
+            && optional_time(self.verification.identity_expires_at)
+            && self.standing.outstanding_debt_count >= 0
+            && self
+                .standing
+                .outstanding_debt_total
+                .as_ref()
+                .is_none_or(money)
+            && self.standing.frozen_reason.as_deref().is_none_or(code)
+            && self.subscription.as_ref().is_none_or(|subscription| {
+                code(&subscription.tier)
+                    && subscription.tier_name.len() <= 256
+                    && code(&subscription.status)
+                    && money(&subscription.price)
+                    && subscription.current_period_end >= 0
+            })
+            && self.onboarding_steps.len() <= 50
+            && self.onboarding_steps.iter().all(|step| code(&step.kind))
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountFollow {
+    pub username: Option<String>,
+    pub followed_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanies {
+    pub companies: Vec<AccountCompany>,
+    pub invitations: Vec<AccountCompanyInvitation>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompany {
+    pub company_id: i64,
+    pub name: String,
+    pub legal_name: Option<String>,
+    pub organization_number: Option<String>,
+    pub organization_verified: bool,
+    pub is_company_account: bool,
+    pub role: String,
+    pub permissions: Vec<String>,
+    pub joined_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyInvitation {
+    pub company_id: i64,
+    pub company_name: String,
+    pub role: String,
+    pub expires_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyDetail {
+    pub company: AccountCompany,
+    pub members: Option<Vec<AccountCompanyMember>>,
+    pub invoicing: Option<AccountCompanyInvoicing>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyMember {
+    pub username: Option<String>,
+    pub role: String,
+    pub joined_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyInvoicing {
+    pub ready: bool,
+    pub vat_registered: Option<bool>,
+    pub default_vat_treatment: Option<String>,
+    pub agreement_accepted_at: Option<i64>,
+    pub agreement_current: bool,
+}
+
+impl AccountFollow {
+    pub(super) fn is_valid(&self) -> bool {
+        optional_text(self.username.as_deref(), 256) && self.followed_at >= 0
+    }
+}
+
+impl AccountCompanies {
+    pub(super) fn is_valid(&self) -> bool {
+        self.companies.len() <= 50
+            && self.invitations.len() <= 50
+            && self.companies.iter().all(AccountCompany::is_valid)
+            && self.invitations.iter().all(|invitation| {
+                invitation.company_id > 0
+                    && invitation.company_name.len() <= 4096
+                    && code(&invitation.role)
+                    && invitation.expires_at >= 0
+            })
+    }
+}
+
+impl AccountCompany {
+    fn is_valid(&self) -> bool {
+        self.company_id > 0
+            && self.name.len() <= 4096
+            && optional_text(self.legal_name.as_deref(), 4096)
+            && optional_text(self.organization_number.as_deref(), 64)
+            && code(&self.role)
+            && self.permissions.len() <= 32
+            && self.permissions.iter().all(|permission| code(permission))
+            && self.joined_at >= 0
+    }
+}
+
+impl AccountCompanyDetail {
+    pub(super) fn is_valid(&self) -> bool {
+        self.company.is_valid()
+            && self.members.as_ref().is_none_or(|members| {
+                members.len() <= 50
+                    && members.iter().all(|member| {
+                        optional_text(member.username.as_deref(), 256)
+                            && code(&member.role)
+                            && member.joined_at >= 0
+                    })
+            })
+            && self.invoicing.as_ref().is_none_or(|invoicing| {
+                invoicing.default_vat_treatment.as_deref().is_none_or(code)
+                    && optional_time(invoicing.agreement_accepted_at)
+            })
     }
 }
