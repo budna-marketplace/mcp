@@ -6,7 +6,8 @@ use std::{
 };
 
 use budna_mcp_client::{
-    CategoryListRequest, LISTING_ID_PATTERN, SearchListingsRequest, USER_ID_PATTERN, is_listing_id,
+    COLLECTION_ID_PATTERN, CategoryListRequest, LISTING_ID_PATTERN, LIVE_STREAM_ID_PATTERN,
+    SearchListingsRequest, USER_ID_PATTERN, is_collection_id, is_listing_id, is_live_stream_id,
     is_user_id,
 };
 use rmcp::schemars;
@@ -21,6 +22,10 @@ const MAX_LISTING_PAGE_RESULTS: u32 = 50;
 const MAX_LISTING_PAGE: u32 = 10_000;
 const MAX_CUSTOM_FILTERS: usize = 20;
 const MAX_TOOL_ARGUMENT_BYTES: usize = 64 * 1024;
+const MAX_LIVE_STREAM_RESULTS: u32 = 20;
+const MAX_BRAND_RESULTS: u32 = 100;
+const MAX_RATING_RESULTS: u32 = 20;
+const MAX_SUGGESTION_RESULTS: u32 = 20;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -324,6 +329,75 @@ impl AccountRatingsParams {
     pub fn validate(&self) -> Result<(u32, u32), InputError> {
         validate_listing_page(self.page, self.limit)
     }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountDisputeIdParams {
+    /// Dispute ID returned by list_my_disputes.
+    #[schemars(range(min = 1))]
+    pub dispute_id: i64,
+}
+
+impl AccountDisputeIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        positive_id("dispute_id", self.dispute_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOrderGroupIdParams {
+    /// Combined-shipping group ID returned by list_my_order_groups.
+    #[schemars(range(min = 1))]
+    pub group_id: i64,
+}
+
+impl AccountOrderGroupIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        positive_id("group_id", self.group_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOfferIdParams {
+    /// Offer ID returned by list_my_offers or a notification.
+    #[schemars(range(min = 1))]
+    pub offer_id: i64,
+}
+
+impl AccountOfferIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        positive_id("offer_id", self.offer_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountSavedSearchMatchesParams {
+    /// Saved search ID returned by list_my_saved_searches.
+    #[schemars(range(min = 1))]
+    pub saved_search_id: i64,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountSavedSearchMatchesParams {
+    pub fn validate(&self) -> Result<(i64, u32, u32), InputError> {
+        let saved_search_id = positive_id("saved_search_id", self.saved_search_id)?;
+        let (page, limit) = validate_listing_page(self.page, self.limit)?;
+        Ok((saved_search_id, page, limit))
+    }
+}
+
+fn positive_id(field: &str, value: i64) -> Result<i64, InputError> {
+    if value < 1 {
+        return Err(InputError::new(format!("{field} must be at least 1")));
+    }
+    Ok(value)
 }
 
 struct BoundedSizeSink {
@@ -748,6 +822,341 @@ impl FilterOptionsParams {
     }
 }
 
+/// No arguments. The empty `properties` keeps the schema a closed object that every client reads.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(extend("properties" = {}))]
+pub struct EmptyParams {}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BrowseCollectionsParams {
+    /// Only this seller's live and ended collections. Without it, the feed of live collections.
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: Option<String>,
+
+    /// Feed only: the marketplace to browse.
+    pub market: Option<MarketParam>,
+
+    /// Feed only: just collections streaming live right now.
+    pub live_only: Option<bool>,
+
+    /// One-indexed result page. Defaults to 1.
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+
+    /// Results per page. Defaults to 10 and is capped at 50.
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl BrowseCollectionsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        if let Some(seller_id) = &self.seller_id {
+            validate_seller_id(seller_id)?;
+            if self.market.is_some() || self.live_only.is_some() {
+                return Err(InputError::new(
+                    "market and live_only apply only to the feed, without seller_id",
+                ));
+            }
+        }
+        validate_listing_page(self.page, self.limit)
+    }
+
+    pub fn market(&self) -> Option<&'static str> {
+        self.market.map(MarketParam::as_str)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CollectionParams {
+    /// Public Budna collection ID, prefixed with showcase_.
+    #[schemars(length(min = 45, max = 45), regex(pattern = COLLECTION_ID_PATTERN))]
+    pub collection_id: String,
+
+    /// One-indexed page of the collection's items. Defaults to 1.
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+
+    /// Items per page. Defaults to 10 and is capped at 50.
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl CollectionParams {
+    pub fn validate(&self) -> Result<(&str, u32, u32), InputError> {
+        if !is_collection_id(&self.collection_id) {
+            return Err(InputError::new(
+                "collection_id must be a canonical showcase_ UUIDv4 ID",
+            ));
+        }
+        let (page, limit) = validate_listing_page(self.page, self.limit)?;
+        Ok((&self.collection_id, page, limit))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveStreamStatusParam {
+    Live,
+    Upcoming,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LiveStreamsParams {
+    /// live (default): on air now; upcoming: scheduled, soonest first.
+    pub status: Option<LiveStreamStatusParam>,
+
+    /// Streams to return. Defaults to 10 and is capped at 20.
+    #[schemars(range(min = 1, max = 20))]
+    pub limit: Option<u32>,
+}
+
+impl LiveStreamsParams {
+    /// Whether to list upcoming streams, and how many.
+    pub fn validate(&self) -> Result<(bool, u32), InputError> {
+        let limit = self.limit.unwrap_or(10);
+        if !(1..=MAX_LIVE_STREAM_RESULTS).contains(&limit) {
+            return Err(InputError::new("limit must be between 1 and 20"));
+        }
+        Ok((
+            matches!(self.status, Some(LiveStreamStatusParam::Upcoming)),
+            limit,
+        ))
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LiveStreamParams {
+    /// Public Budna live stream ID, prefixed with live_.
+    #[schemars(length(min = 41, max = 41), regex(pattern = LIVE_STREAM_ID_PATTERN))]
+    pub live_stream_id: String,
+}
+
+impl LiveStreamParams {
+    pub fn validate(&self) -> Result<(), InputError> {
+        is_live_stream_id(&self.live_stream_id)
+            .then_some(())
+            .ok_or_else(|| InputError::new("live_stream_id must be a canonical live_ UUIDv4 ID"))
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BrandsParams {
+    /// One brand by the slug get_brands returns. Cannot be combined with the other fields.
+    #[schemars(length(min = 1, max = 100), regex(pattern = "^[a-z0-9-]+$"))]
+    pub slug: Option<String>,
+
+    /// Only brands Budna features.
+    pub featured_only: Option<bool>,
+
+    /// One-indexed result page. Defaults to 1.
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+
+    /// Brands per page. Defaults to 50 and is capped at 100.
+    #[schemars(range(min = 1, max = 100))]
+    pub limit: Option<u32>,
+}
+
+impl BrandsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        if let Some(slug) = &self.slug {
+            if slug.is_empty()
+                || slug.len() > 100
+                || !slug
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+            {
+                return Err(InputError::new(
+                    "slug must use lowercase letters, digits and hyphens",
+                ));
+            }
+            if self.featured_only.is_some() || self.page.is_some() || self.limit.is_some() {
+                return Err(InputError::new(
+                    "slug cannot be combined with featured_only, page or limit",
+                ));
+            }
+        }
+        let page = self.page.unwrap_or(1);
+        if !(1..=MAX_LISTING_PAGE).contains(&page) {
+            return Err(InputError::new("page must be between 1 and 10000"));
+        }
+        let limit = self.limit.unwrap_or(50);
+        if !(1..=MAX_BRAND_RESULTS).contains(&limit) {
+            return Err(InputError::new("limit must be between 1 and 100"));
+        }
+        Ok((page, limit))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ListingFeedParam {
+    Featured,
+    Recent,
+    Brand,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BrowseListingsParams {
+    /// featured: listings Budna features; recent: newest first; brand: one brand's listings.
+    pub feed: ListingFeedParam,
+
+    /// The brand name, as get_brands returns it. Required for the brand feed only.
+    #[schemars(length(min = 1, max = 100))]
+    pub brand: Option<String>,
+
+    /// One-indexed result page. Defaults to 1.
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+
+    /// Results per page. Defaults to 10 and is capped at 50.
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl BrowseListingsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        let has_brand = self
+            .brand
+            .as_deref()
+            .is_some_and(|brand| !brand.trim().is_empty() && brand.chars().count() <= 100);
+        match (self.feed, &self.brand) {
+            (ListingFeedParam::Brand, _) if !has_brand => {
+                return Err(InputError::new(
+                    "the brand feed needs a brand name of at most 100 characters",
+                ));
+            }
+            (ListingFeedParam::Featured | ListingFeedParam::Recent, Some(_)) => {
+                return Err(InputError::new("brand applies only to the brand feed"));
+            }
+            _ => {}
+        }
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SellerRatingsParams {
+    /// Public Budna seller user ID, prefixed with user_.
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
+
+    /// One-indexed page of ratings. Defaults to 1.
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+
+    /// Ratings per page. Defaults to 10 and is capped at 20.
+    #[schemars(range(min = 1, max = 20))]
+    pub limit: Option<u32>,
+}
+
+impl SellerRatingsParams {
+    pub fn validate(&self) -> Result<(&str, u32, u32), InputError> {
+        validate_seller_id(&self.seller_id)?;
+        let page = self.page.unwrap_or(1);
+        if !(1..=MAX_LISTING_PAGE).contains(&page) {
+            return Err(InputError::new("page must be between 1 and 10000"));
+        }
+        let limit = self.limit.unwrap_or(10);
+        if !(1..=MAX_RATING_RESULTS).contains(&limit) {
+            return Err(InputError::new("limit must be between 1 and 20"));
+        }
+        Ok((&self.seller_id, page, limit))
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SearchSuggestionsParams {
+    /// What the buyer has typed so far.
+    #[schemars(length(min = 1, max = 200))]
+    pub query: String,
+
+    pub market: Option<MarketParam>,
+
+    /// Defaults to 10 and is capped at 20.
+    #[schemars(range(min = 1, max = 20))]
+    pub limit: Option<u32>,
+}
+
+impl SearchSuggestionsParams {
+    pub fn validate(&self) -> Result<(String, Option<&'static str>, u32), InputError> {
+        let query = trimmed(Some(self.query.clone()))
+            .ok_or_else(|| InputError::new("query must not be empty"))?;
+        validate_max_chars("query", Some(query.as_str()), 200)?;
+        let limit = self.limit.unwrap_or(10);
+        if !(1..=MAX_SUGGESTION_RESULTS).contains(&limit) {
+            return Err(InputError::new("limit must be between 1 and 20"));
+        }
+        Ok((query, self.market.map(MarketParam::as_str), limit))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CountryParam {
+    #[default]
+    Se,
+    No,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LocationsParams {
+    /// SE (default) for Sweden or NO for Norway.
+    pub country: Option<CountryParam>,
+
+    /// Count only listings in this category and its subcategories.
+    #[schemars(range(min = 1))]
+    pub category_id: Option<i32>,
+}
+
+impl LocationsParams {
+    pub fn validate(&self) -> Result<(&'static str, Option<i32>), InputError> {
+        validate_positive_i32("category_id", self.category_id)?;
+        let country = match self.country.unwrap_or_default() {
+            CountryParam::Se => "SE",
+            CountryParam::No => "NO",
+        };
+        Ok((country, self.category_id))
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ListingQuestionsParams {
+    /// Public Budna listing ID, prefixed with listing_.
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
+
+    /// next_before_id from the previous page, to read older messages.
+    #[schemars(range(min = 1))]
+    pub before_id: Option<i64>,
+
+    /// Messages per page. Defaults to 20 and is capped at 50.
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl ListingQuestionsParams {
+    pub fn validate(&self) -> Result<(&str, Option<i64>, u32), InputError> {
+        validate_listing_id(&self.listing_id)?;
+        if self.before_id.is_some_and(|before_id| before_id < 1) {
+            return Err(InputError::new("before_id must be at least 1"));
+        }
+        let (_, limit) = validate_listing_page(None, Some(self.limit.unwrap_or(20)))?;
+        Ok((&self.listing_id, self.before_id, limit))
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MarketParam {
@@ -1063,6 +1472,30 @@ fn is_valid_filter_name(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn account_record_ids_must_be_positive() {
+        assert!(
+            AccountSavedSearchMatchesParams {
+                saved_search_id: 0,
+                page: None,
+                limit: None,
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            AccountDisputeIdParams { dispute_id: -1 }
+                .validate()
+                .is_err()
+        );
+        assert_eq!(
+            AccountOfferIdParams { offer_id: 11 }
+                .validate()
+                .unwrap_or_else(|error| panic!("a positive ID is valid: {}", error.message())),
+            11
+        );
+    }
 
     #[test]
     fn search_defaults_are_bounded() {

@@ -1,9 +1,13 @@
 mod account;
 mod account_detail;
 mod activity;
+mod collections;
 mod common;
+mod discovery;
+mod listing_activity;
 mod listings;
 mod profiles;
+mod records;
 mod selling;
 mod taxonomy;
 
@@ -17,14 +21,29 @@ pub(crate) use activity::{
     AccountPayoutsOutput, AccountProfileOutput, AccountRatingOutput, AccountSavedSearchOutput,
     AccountSecondChanceOfferOutput, AccountWatchedListingOutput, AccountWatchlistOutput,
 };
+pub(crate) use collections::{
+    CollectionDetailOutput, CollectionsOutput, LiveStreamOutput, LiveStreamsOutput,
+};
+pub(crate) use discovery::{
+    BrandsOutput, LocationsOutput, SearchSuggestionsOutput, ShippingRatesOutput,
+};
+pub(crate) use listing_activity::ListingQuestionsOutput;
 pub(crate) use listings::{
     ListingAttributesOutput, ListingBidSummaryOutput, ListingCollectionOutput, ListingDetailOutput,
     ListingSearchOutput,
 };
-pub(crate) use profiles::{RatingSummaryOutput, SellerProfileOutput};
+pub(crate) use profiles::{RatingSummaryOutput, SellerProfileOutput, SellerRatingsOutput};
+pub(crate) use records::{
+    AccountAchievementsOutput, AccountCreditsOutput, AccountDisputeDetailOutput,
+    AccountLegalDocumentsOutput, AccountListingChatOutput, AccountLiveReminderOutput,
+    AccountNotificationPreferencesOutput, AccountOfferHistoryOutput, AccountOrderGroupDetailOutput,
+    AccountOrderGroupOutput, AccountOwnDisputeOutput, AccountPayoutSetupOutput,
+    AccountReferralOutput, AccountSavedSearchMatchOutput,
+};
 pub(crate) use selling::{
-    AccountListingPromotionOutput, AccountLiveSessionOutput, AccountOwnBoostOutput,
-    AccountSellerInsightsOutput, AccountShippingSettingsOutput, AccountShowcaseOutput,
+    AccountListingPromotionOutput, AccountListingTagOutput, AccountLiveSessionOutput,
+    AccountOwnBoostOutput, AccountSellerInsightsOutput, AccountShippingSettingsOutput,
+    AccountShowcaseOutput,
 };
 pub(crate) use taxonomy::{CategoryFiltersOutput, CategoryListOutput, FilterOptionsOutput};
 

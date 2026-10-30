@@ -81,6 +81,15 @@ pub struct AccountListingPromotion {
     pub boost_history: Vec<AccountBoost>,
     pub search_priority: Option<AccountSearchPriority>,
     pub video: Option<AccountListingVideo>,
+    /// Only a company's listing carries a VAT treatment.
+    pub vat: Option<AccountListingVat>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountListingVat {
+    pub vat_registered: bool,
+    pub vat_treatment: Option<String>,
+    pub default_vat_treatment: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -125,6 +134,17 @@ pub struct AccountShowcase {
     pub is_boosted: bool,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+/// An in-store tag's activity; the printed tag code stays private.
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountListingTag {
+    pub listing_id: String,
+    pub listing_title: Option<String>,
+    pub scans: i64,
+    pub scans_last_7_days: i64,
+    pub last_scanned_on: Option<String>,
+    pub saves: i64,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -230,6 +250,10 @@ impl AccountListingPromotion {
                             && asset.updated_at >= 0
                     })
             })
+            && self.vat.as_ref().is_none_or(|vat| {
+                vat.vat_treatment.as_deref().is_none_or(code)
+                    && vat.default_vat_treatment.as_deref().is_none_or(code)
+            })
     }
 }
 
@@ -269,6 +293,17 @@ impl AccountLiveSession {
             && self.item_count >= 0
             && self.sold >= 0
             && money(&self.revenue)
+    }
+}
+
+impl AccountListingTag {
+    pub(super) fn is_valid(&self) -> bool {
+        is_listing_id(&self.listing_id)
+            && optional_text(self.listing_title.as_deref(), MAX_TITLE_BYTES)
+            && self.scans >= 0
+            && self.scans_last_7_days >= 0
+            && self.last_scanned_on.as_deref().is_none_or(is_calendar_day)
+            && self.saves >= 0
     }
 }
 

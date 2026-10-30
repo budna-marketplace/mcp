@@ -10,6 +10,7 @@
 mod account;
 mod config;
 mod error;
+mod explore;
 mod models;
 
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -23,31 +24,44 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 pub use account::{
-    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, AccountAutoBid, AccountBadge, AccountBid,
-    AccountBoost, AccountBuyerProtection, AccountCompanies, AccountCompany, AccountCompanyDetail,
-    AccountCompanyInvitation, AccountCompanyInvoicing, AccountCompanyMember, AccountConversation,
-    AccountConversationMessages, AccountCurrencyTotals, AccountDebt, AccountDispute,
+    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountAchievement, AccountAchievements, AccountApiClient,
+    AccountAutoBid, AccountBadge, AccountBid, AccountBoost, AccountBuyerProtection,
+    AccountCompanies, AccountCompany, AccountCompanyDetail, AccountCompanyInvitation,
+    AccountCompanyInvoicing, AccountCompanyMember, AccountConversation,
+    AccountConversationMessages, AccountCreditBalance, AccountCredits, AccountCurrencyTotals,
+    AccountDebt, AccountDispute, AccountDisputeDetail, AccountDisputeStatement,
     AccountEngagementDay, AccountEngagementLive, AccountEngagementPeriod, AccountFollow,
-    AccountInvoice, AccountListingAttribute, AccountListingAttributeValue, AccountListingAuction,
-    AccountListingDetail, AccountListingFixedPrice, AccountListingImage, AccountListingLive,
-    AccountListingLiveRound, AccountListingLiveStream, AccountListingPage, AccountListingPromotion,
-    AccountListingReserve, AccountListingRound, AccountListingShipping, AccountListingShowcase,
-    AccountListingSummary, AccountListingVideo, AccountLiveSession, AccountLocation,
-    AccountMessage, AccountMoneySummary, AccountNotification, AccountOffer, AccountOnboardingStep,
-    AccountOrder, AccountOrderDetail, AccountOrderReturn, AccountOrderTracking, AccountOwnBoost,
-    AccountPage, AccountPaymentActivity, AccountPaymentActivityEntry, AccountPayout,
-    AccountPayouts, AccountPriorityCredits, AccountProfile, AccountRating, AccountRefund,
-    AccountSavedSearch, AccountSavedSearchQuery, AccountSearchPriority, AccountSecondChanceOffer,
-    AccountSellerInsights, AccountShippingSettings, AccountShowcase, AccountStanding,
-    AccountSubscription, AccountSummary, AccountTopListing, AccountTrackingEvent,
-    AccountVerification, AccountVideo, AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE,
-    COMPANY_READ_SCOPE, DelegatedAccess, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE,
-    MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE,
-    PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE,
-    WATCHLIST_READ_SCOPE,
+    AccountInvoice, AccountLegalDocument, AccountLegalDocuments, AccountListingAttribute,
+    AccountListingAttributeValue, AccountListingAuction, AccountListingChat, AccountListingDetail,
+    AccountListingFixedPrice, AccountListingImage, AccountListingLive, AccountListingLiveRound,
+    AccountListingLiveStream, AccountListingPage, AccountListingPromotion, AccountListingReserve,
+    AccountListingRound, AccountListingShipping, AccountListingShowcase, AccountListingSummary,
+    AccountListingTag, AccountListingVat, AccountListingVideo, AccountLiveReminder,
+    AccountLiveSession, AccountLocation, AccountMessage, AccountMoneySummary, AccountNotification,
+    AccountNotificationPreferences, AccountOffer, AccountOfferHistory, AccountOfferStep,
+    AccountOnboardingStep, AccountOrder, AccountOrderDetail, AccountOrderGroup, AccountOrderReturn,
+    AccountOrderTracking, AccountOwnBoost, AccountOwnDispute, AccountPage, AccountPaymentActivity,
+    AccountPaymentActivityEntry, AccountPayout, AccountPayoutMethod, AccountPayoutSetup,
+    AccountPayouts, AccountPriorityCredits, AccountProfile, AccountRating, AccountReferral,
+    AccountReferralRewards, AccountReferralStep, AccountRefund, AccountSavedSearch,
+    AccountSavedSearchMatch, AccountSavedSearchQuery, AccountSearchPriority,
+    AccountSecondChanceOffer, AccountSellerInsights, AccountSettlementOffer,
+    AccountShippingSettings, AccountShowcase, AccountStanding, AccountSubscription, AccountSummary,
+    AccountTopListing, AccountTrackingEvent, AccountVerification, AccountVideo,
+    AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, DelegatedAccess,
+    FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE,
+    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE,
+    RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
+pub use explore::{
+    Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
+    CollectionItem, CollectionPage, ListingQuestion, ListingQuestions, ListingSuggestion,
+    LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity, LocationRegion,
+    PackagePreset, PublicRating, PublicSeller, RatingStatistics, SearchSuggestions, SellerRatings,
+    ShippingRate, ShippingRates,
+};
 pub use models::{
     AttributeValue, BuyerProtectionConfig, CategoryFilters, CategoryListRequest, CategoryPage,
     CategorySummary, CategoryTranslations, CategoryWithFilters, FacetCount, FilterConfiguration,
@@ -81,6 +95,10 @@ pub const LISTING_ID_PATTERN: &str =
     "^listing_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 pub const USER_ID_PATTERN: &str =
     "^user_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+pub const COLLECTION_ID_PATTERN: &str =
+    "^showcase_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+pub const LIVE_STREAM_ID_PATTERN: &str =
+    "^live_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 
 pub fn is_listing_id(value: &str) -> bool {
     is_public_id(value, "listing_")
@@ -88,6 +106,14 @@ pub fn is_listing_id(value: &str) -> bool {
 
 pub fn is_user_id(value: &str) -> bool {
     is_public_id(value, "user_")
+}
+
+pub fn is_collection_id(value: &str) -> bool {
+    is_public_id(value, "showcase_")
+}
+
+pub fn is_live_stream_id(value: &str) -> bool {
+    is_public_id(value, "live_")
 }
 
 fn is_public_id(value: &str, prefix: &str) -> bool {

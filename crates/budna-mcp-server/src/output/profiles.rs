@@ -1,15 +1,16 @@
 use budna_mcp_client::{LISTING_ID_PATTERN, USER_ID_PATTERN};
-use budna_mcp_client::{PublicBadge, RatingSummary, SellerProfileSummary};
+use budna_mcp_client::{PublicBadge, RatingSummary, SellerProfileSummary, SellerRatings};
 use rmcp::schemars;
 use serde::Serialize;
 
 use super::{
     MAX_CODE_BYTES, MAX_DISPLAY_TEXT_BYTES, MAX_LONG_TEXT_BYTES, MAX_NAME_BYTES, ProjectionBudget,
-    UNTRUSTED_CONTENT_NOTICE,
+    UNTRUSTED_CONTENT_NOTICE, common::PaginationOutput,
 };
 
 const MAX_SELLER_CATEGORIES: usize = 50;
 const MAX_SELLER_BADGES: usize = 50;
+const MAX_SELLER_RATINGS: usize = 20;
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct SellerProfileOutput {
@@ -167,11 +168,101 @@ impl From<RatingSummary> for RatingSummaryOutput {
     }
 }
 
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct RatingStatisticsOutput {
+    pub total_ratings_received: i64,
+    pub average_rating_received: f64,
+    /// Ratings received with 1, 2, 3, 4 and 5 stars.
+    pub rating_distribution: [i64; 5],
+    pub total_comments_received: i64,
+    pub latest_rating_received_at: Option<i64>,
+    pub most_common_rating_received: Option<i32>,
+    /// Share of ratings received with 4 or 5 stars.
+    pub positive_rating_percentage: f64,
+    #[schemars(length(max = 128))]
+    pub reputation_level: String,
+    pub is_trusted_member: bool,
+    pub total_ratings_given: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct PublicRatingOutput {
+    /// 1 to 5 stars.
+    pub value: i32,
+    #[schemars(length(max = 4096))]
+    pub comment: Option<String>,
+    pub created_at: i64,
+    /// Left after a completed purchase.
+    pub verified_transaction: bool,
+    /// buyer_to_seller or seller_to_buyer.
+    #[schemars(length(max = 128))]
+    pub rating_type: Option<String>,
+    /// The rater's public username, when they have one.
+    #[schemars(length(max = 256))]
+    pub rater_username: Option<String>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct SellerRatingsOutput {
+    pub content_notice: String,
+    pub truncated: bool,
+    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
+    pub seller_id: String,
+    pub statistics: RatingStatisticsOutput,
+    /// Ratings the seller received.
+    #[schemars(length(max = 20))]
+    pub ratings: Vec<PublicRatingOutput>,
+    pub pagination: PaginationOutput,
+}
+
+impl From<SellerRatings> for SellerRatingsOutput {
+    fn from(ratings: SellerRatings) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let statistics = ratings.statistics;
+        let statistics = RatingStatisticsOutput {
+            total_ratings_received: statistics.total_ratings_received,
+            average_rating_received: statistics.average_rating_received,
+            rating_distribution: statistics.rating_distribution,
+            total_comments_received: statistics.total_comments_received,
+            latest_rating_received_at: statistics.latest_rating_received_at,
+            most_common_rating_received: statistics.most_common_rating_received,
+            positive_rating_percentage: statistics.positive_rating_percentage,
+            reputation_level: budget.text(statistics.reputation_level, MAX_CODE_BYTES),
+            is_trusted_member: statistics.is_trusted_member,
+            total_ratings_given: statistics.total_ratings_given,
+        };
+        let list = budget
+            .objects(ratings.ratings, MAX_SELLER_RATINGS)
+            .into_iter()
+            .map(|rating| PublicRatingOutput {
+                value: rating.value,
+                comment: budget.optional_text(rating.comment, MAX_LONG_TEXT_BYTES),
+                created_at: rating.created_at,
+                verified_transaction: rating.verified_transaction,
+                rating_type: budget.optional_text(rating.rating_type, MAX_CODE_BYTES),
+                rater_username: budget.optional_text(rating.rater_username, MAX_NAME_BYTES),
+            })
+            .collect();
+        let truncated = budget.truncated();
+
+        Self {
+            content_notice: UNTRUSTED_CONTENT_NOTICE.to_owned(),
+            truncated,
+            seller_id: ratings.seller_id,
+            statistics,
+            ratings: list,
+            pagination: PaginationOutput::from(ratings.pagination),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
-    use budna_mcp_client::{PublicAuctionHistory, PublicVerificationStatus};
+    use budna_mcp_client::{
+        Pagination, PublicAuctionHistory, PublicRating, PublicVerificationStatus, RatingStatistics,
+    };
 
     use super::*;
     use crate::output::assert_within_mcp_result_budget;
@@ -318,6 +409,92 @@ mod tests {
                 "total_comments",
                 "total_ratings",
                 "truncated",
+            ])
+        );
+    }
+
+    #[test]
+    fn seller_ratings_shape_is_exact_and_bounded() {
+        let output = SellerRatingsOutput::from(SellerRatings {
+            seller_id: "user_00000000-0000-4000-8000-00000000002a".to_owned(),
+            statistics: RatingStatistics {
+                user_id: "user_00000000-0000-4000-8000-00000000002a".to_owned(),
+                total_ratings_received: 30,
+                total_ratings_given: 4,
+                average_rating_received: 4.5,
+                rating_distribution: [0, 1, 2, 7, 20],
+                total_comments_received: 30,
+                latest_rating_received_at: Some(1_700_000_000_000),
+                reputation_level: "Excellent".to_owned(),
+                most_common_rating_received: Some(5),
+                positive_rating_percentage: 90.0,
+                is_trusted_member: true,
+            },
+            ratings: (0..30)
+                .map(|_| PublicRating {
+                    value: 5,
+                    comment: Some("💡".repeat(MAX_LONG_TEXT_BYTES)),
+                    created_at: 1_700_000_000_000,
+                    verified_transaction: true,
+                    rating_type: Some("buyer_to_seller".to_owned()),
+                    rater_username: Some("buyer7".to_owned()),
+                })
+                .collect(),
+            pagination: Pagination {
+                page: 1,
+                limit: 20,
+                total: 30,
+                total_pages: 2,
+            },
+        });
+        assert!(output.truncated);
+        assert_eq!(output.ratings.len(), MAX_SELLER_RATINGS);
+        assert_within_mcp_result_budget(&output);
+        let value = serde_json::to_value(&output)
+            .unwrap_or_else(|error| panic!("ratings should serialize: {error}"));
+        assert_eq!(
+            keys(&value),
+            BTreeSet::from([
+                "content_notice",
+                "pagination",
+                "ratings",
+                "seller_id",
+                "statistics",
+                "truncated",
+            ])
+        );
+        assert_eq!(
+            keys(
+                value
+                    .pointer("/ratings/0")
+                    .unwrap_or_else(|| panic!("missing rating"))
+            ),
+            BTreeSet::from([
+                "comment",
+                "created_at",
+                "rater_username",
+                "rating_type",
+                "value",
+                "verified_transaction",
+            ])
+        );
+        assert_eq!(
+            keys(
+                value
+                    .pointer("/statistics")
+                    .unwrap_or_else(|| panic!("missing statistics"))
+            ),
+            BTreeSet::from([
+                "average_rating_received",
+                "is_trusted_member",
+                "latest_rating_received_at",
+                "most_common_rating_received",
+                "positive_rating_percentage",
+                "rating_distribution",
+                "reputation_level",
+                "total_comments_received",
+                "total_ratings_given",
+                "total_ratings_received",
             ])
         );
     }

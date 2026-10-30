@@ -61,7 +61,7 @@ export class McpAppBridge implements HostBridge {
     try {
       const result = await this.#request("ui/initialize", {
         appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
-        appInfo: { name: "Budna Marketplace Explorer", version: "0.6.0" },
+        appInfo: { name: "Budna Marketplace Explorer", version: "0.7.0" },
         protocolVersion: PROTOCOL_VERSION,
       });
       const initialized = parseInitializeResult(result);

@@ -304,7 +304,10 @@ pub struct CategoryTranslationsOutput {
 }
 
 impl CategoryTranslationsOutput {
-    fn project(translations: CategoryTranslations, budget: &mut ProjectionBudget) -> Self {
+    pub(super) fn project(
+        translations: CategoryTranslations,
+        budget: &mut ProjectionBudget,
+    ) -> Self {
         Self {
             name: TranslationMapOutput::project(translations.name, budget),
         }

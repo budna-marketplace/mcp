@@ -2,6 +2,7 @@ mod activity;
 mod config;
 mod listing;
 mod models;
+mod records;
 mod selling;
 
 use models::ExchangeResponse;
@@ -23,6 +24,7 @@ use zeroize::Zeroizing;
 pub use activity::*;
 pub use listing::*;
 pub use models::{AccountListingPage, AccountListingSummary, AccountPage, AccountSummary};
+pub use records::*;
 pub use selling::*;
 
 use crate::{ClientConfig, ClientError, is_listing_id, is_user_id, models::ApiEnvelope};
@@ -802,6 +804,284 @@ impl AccountApiClient {
         Ok(result)
     }
 
+    pub async fn disputes(
+        &self,
+        access: &DelegatedAccess,
+        page: u32,
+        limit: u32,
+    ) -> Result<AccountPage<AccountOwnDispute>, ClientError> {
+        let request = ActivityRequest::new(
+            "list_my_disputes",
+            ORDERS_READ_SCOPE,
+            "mcp/account/disputes",
+        );
+        self.activity(
+            access,
+            request.paged(page, limit),
+            AccountOwnDispute::is_valid,
+        )
+        .await
+    }
+
+    /// One own dispute with both parties' statements and the settlement offers, without evidence.
+    pub async fn dispute(
+        &self,
+        access: &DelegatedAccess,
+        dispute_id: i64,
+    ) -> Result<AccountDisputeDetail, ClientError> {
+        const OPERATION: &str = "get_my_dispute";
+        if dispute_id <= 0 {
+            self.require_scope(access, ORDERS_READ_SCOPE, OPERATION)?;
+            return Err(invalid_input(
+                OPERATION,
+                "dispute_id must be a positive dispute ID",
+            ));
+        }
+        let path = format!("mcp/account/disputes/{dispute_id}");
+        self.read(
+            access,
+            ActivityRequest::new(OPERATION, ORDERS_READ_SCOPE, &path),
+            |detail: &AccountDisputeDetail| detail.dispute.id == dispute_id && detail.is_valid(),
+        )
+        .await
+    }
+
+    pub async fn order_groups(
+        &self,
+        access: &DelegatedAccess,
+        page: u32,
+        limit: u32,
+    ) -> Result<AccountPage<AccountOrderGroup>, ClientError> {
+        let request = ActivityRequest::new(
+            "list_my_order_groups",
+            ORDERS_READ_SCOPE,
+            "mcp/account/order-groups",
+        );
+        self.activity(
+            access,
+            request.paged(page, limit),
+            AccountOrderGroup::is_valid,
+        )
+        .await
+    }
+
+    pub async fn order_group(
+        &self,
+        access: &DelegatedAccess,
+        group_id: i64,
+    ) -> Result<AccountOrderGroup, ClientError> {
+        const OPERATION: &str = "get_my_order_group";
+        if group_id <= 0 {
+            self.require_scope(access, ORDERS_READ_SCOPE, OPERATION)?;
+            return Err(invalid_input(
+                OPERATION,
+                "group_id must be a positive order group ID",
+            ));
+        }
+        let path = format!("mcp/account/order-groups/{group_id}");
+        self.read(
+            access,
+            ActivityRequest::new(OPERATION, ORDERS_READ_SCOPE, &path),
+            |group: &AccountOrderGroup| group.id == group_id && group.is_valid(),
+        )
+        .await
+    }
+
+    /// The negotiation steps of one offer the account made or received, oldest first.
+    pub async fn offer_history(
+        &self,
+        access: &DelegatedAccess,
+        offer_id: i64,
+    ) -> Result<AccountOfferHistory, ClientError> {
+        const OPERATION: &str = "get_my_offer_history";
+        if offer_id <= 0 {
+            self.require_scope(access, OFFERS_READ_SCOPE, OPERATION)?;
+            return Err(invalid_input(
+                OPERATION,
+                "offer_id must be a positive offer ID",
+            ));
+        }
+        let path = format!("mcp/account/offers/{offer_id}/history");
+        self.read(
+            access,
+            ActivityRequest::new(OPERATION, OFFERS_READ_SCOPE, &path),
+            AccountOfferHistory::is_valid,
+        )
+        .await
+    }
+
+    /// The listings one own saved search matches now.
+    pub async fn saved_search_matches(
+        &self,
+        access: &DelegatedAccess,
+        saved_search_id: i64,
+        page: u32,
+        limit: u32,
+    ) -> Result<AccountPage<AccountSavedSearchMatch>, ClientError> {
+        const OPERATION: &str = "list_my_saved_search_matches";
+        if saved_search_id <= 0 {
+            self.require_scope(access, WATCHLIST_READ_SCOPE, OPERATION)?;
+            return Err(invalid_input(
+                OPERATION,
+                "saved_search_id must be a positive saved search ID",
+            ));
+        }
+        let path = format!("mcp/account/saved-searches/{saved_search_id}/matches");
+        let request = ActivityRequest::new(OPERATION, WATCHLIST_READ_SCOPE, &path);
+        self.activity(
+            access,
+            request.paged(page, limit),
+            AccountSavedSearchMatch::is_valid,
+        )
+        .await
+    }
+
+    pub async fn live_reminders(
+        &self,
+        access: &DelegatedAccess,
+        page: u32,
+        limit: u32,
+    ) -> Result<AccountPage<AccountLiveReminder>, ClientError> {
+        let request = ActivityRequest::new(
+            "list_my_live_reminders",
+            WATCHLIST_READ_SCOPE,
+            "mcp/account/live-reminders",
+        );
+        self.activity(
+            access,
+            request.paged(page, limit),
+            AccountLiveReminder::is_valid,
+        )
+        .await
+    }
+
+    pub async fn listing_chats(
+        &self,
+        access: &DelegatedAccess,
+        page: u32,
+        limit: u32,
+    ) -> Result<AccountPage<AccountListingChat>, ClientError> {
+        let request = ActivityRequest::new(
+            "list_my_listing_chats",
+            MESSAGES_READ_SCOPE,
+            "mcp/account/listing-chats",
+        );
+        self.activity(
+            access,
+            request.paged(page, limit),
+            AccountListingChat::is_valid,
+        )
+        .await
+    }
+
+    pub async fn notification_preferences(
+        &self,
+        access: &DelegatedAccess,
+    ) -> Result<AccountNotificationPreferences, ClientError> {
+        let request = ActivityRequest::new(
+            "get_my_notification_preferences",
+            NOTIFICATIONS_READ_SCOPE,
+            "mcp/account/notifications/preferences",
+        );
+        self.read(access, request, AccountNotificationPreferences::is_valid)
+            .await
+    }
+
+    pub async fn credits(&self, access: &DelegatedAccess) -> Result<AccountCredits, ClientError> {
+        let request = ActivityRequest::new(
+            "get_my_credits",
+            PAYMENTS_READ_SCOPE,
+            "mcp/account/money/credits",
+        );
+        self.read(access, request, AccountCredits::is_valid).await
+    }
+
+    pub async fn payout_setup(
+        &self,
+        access: &DelegatedAccess,
+    ) -> Result<AccountPayoutSetup, ClientError> {
+        let request = ActivityRequest::new(
+            "get_my_payout_setup",
+            PAYMENTS_READ_SCOPE,
+            "mcp/account/money/payout-setup",
+        );
+        self.read(access, request, AccountPayoutSetup::is_valid)
+            .await
+    }
+
+    pub async fn achievements(
+        &self,
+        access: &DelegatedAccess,
+    ) -> Result<AccountAchievements, ClientError> {
+        let request = ActivityRequest::new(
+            "get_my_achievements",
+            PROFILE_READ_SCOPE,
+            "mcp/account/profile/achievements",
+        );
+        self.read(access, request, AccountAchievements::is_valid)
+            .await
+    }
+
+    pub async fn referral(&self, access: &DelegatedAccess) -> Result<AccountReferral, ClientError> {
+        let request = ActivityRequest::new(
+            "get_my_referral",
+            PROFILE_READ_SCOPE,
+            "mcp/account/referral",
+        );
+        self.read(access, request, AccountReferral::is_valid).await
+    }
+
+    pub async fn legal_documents(
+        &self,
+        access: &DelegatedAccess,
+    ) -> Result<AccountLegalDocuments, ClientError> {
+        let request = ActivityRequest::new(
+            "get_my_legal_documents",
+            PROFILE_READ_SCOPE,
+            "mcp/account/legal-documents",
+        );
+        self.read(access, request, AccountLegalDocuments::is_valid)
+            .await
+    }
+
+    pub async fn listing_tags(
+        &self,
+        access: &DelegatedAccess,
+        page: u32,
+        limit: u32,
+    ) -> Result<AccountPage<AccountListingTag>, ClientError> {
+        let request = ActivityRequest::new(
+            "list_my_listing_tags",
+            SELLING_READ_SCOPE,
+            "mcp/account/selling/listing-tags",
+        );
+        self.activity(
+            access,
+            request.paged(page, limit),
+            AccountListingTag::is_valid,
+        )
+        .await
+    }
+
+    /// One validated record, read only with the request's own permission.
+    async fn read<T: DeserializeOwned>(
+        &self,
+        access: &DelegatedAccess,
+        request: ActivityRequest<'_>,
+        valid: impl FnOnce(&T) -> bool,
+    ) -> Result<T, ClientError> {
+        let operation = request.operation;
+        self.require_scope(access, request.scope, operation)?;
+        let result: T = self
+            .get(operation, request.path, access, &request.query)
+            .await?;
+        if valid(&result) {
+            Ok(result)
+        } else {
+            Err(invalid_response(operation))
+        }
+    }
+
     async fn activity<T: DeserializeOwned>(
         &self,
         access: &DelegatedAccess,
@@ -1005,6 +1285,14 @@ fn invalid_response(operation: &'static str) -> ClientError {
     ClientError::InvalidResponse { operation }
 }
 
+fn invalid_input(operation: &'static str, message: &'static str) -> ClientError {
+    ClientError::InvalidInput {
+        operation,
+        code: "INVALID_INPUT",
+        message,
+    }
+}
+
 fn unauthorized(operation: &'static str) -> ClientError {
     ClientError::Api {
         operation,
@@ -1022,6 +1310,8 @@ mod tests {
         Mock, MockServer, ResponseTemplate,
         matchers::{body_json, header, method, path, query_param},
     };
+
+    mod records;
 
     const RESOURCE: &str = "https://mcp.example.test/account/mcp";
     const SERVICE: &str = "synthetic-service-credential-for-local-tests";

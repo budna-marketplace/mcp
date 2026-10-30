@@ -171,29 +171,45 @@ async fn authenticate(
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
         "get_my_account" => ACCOUNT_READ_SCOPE,
-        "get_my_profile" => PROFILE_READ_SCOPE,
+        "get_my_profile" | "get_my_achievements" | "get_my_referral" | "get_my_legal_documents" => {
+            PROFILE_READ_SCOPE
+        }
         "get_my_seller_insights"
         | "list_my_boosts"
         | "get_my_listing_promotion"
         | "get_my_shipping_settings"
         | "list_my_showcases"
-        | "list_my_live_sessions" => SELLING_READ_SCOPE,
+        | "list_my_live_sessions"
+        | "list_my_listing_tags" => SELLING_READ_SCOPE,
         "list_my_following" | "list_my_followers" => FOLLOWING_READ_SCOPE,
         "list_my_companies" | "get_my_company" => COMPANY_READ_SCOPE,
         "list_my_listings" | "get_my_listing" => LISTINGS_READ_SCOPE,
         "list_my_bids" | "list_my_auto_bids" => BIDS_READ_SCOPE,
-        "list_my_offers" | "list_my_second_chance_offers" => OFFERS_READ_SCOPE,
-        "list_my_watchlists" | "list_my_watchlist_listings" | "list_my_saved_searches" => {
-            WATCHLIST_READ_SCOPE
+        "list_my_offers" | "list_my_second_chance_offers" | "get_my_offer_history" => {
+            OFFERS_READ_SCOPE
         }
-        "list_my_orders" | "get_my_order" => ORDERS_READ_SCOPE,
-        "list_my_notifications" => NOTIFICATIONS_READ_SCOPE,
+        "list_my_watchlists"
+        | "list_my_watchlist_listings"
+        | "list_my_saved_searches"
+        | "list_my_saved_search_matches"
+        | "list_my_live_reminders" => WATCHLIST_READ_SCOPE,
+        "list_my_orders"
+        | "get_my_order"
+        | "list_my_disputes"
+        | "get_my_dispute"
+        | "list_my_order_groups"
+        | "get_my_order_group" => ORDERS_READ_SCOPE,
+        "list_my_notifications" | "get_my_notification_preferences" => NOTIFICATIONS_READ_SCOPE,
         "list_my_ratings" => RATINGS_READ_SCOPE,
-        "list_my_conversations" | "get_my_conversation" => MESSAGES_READ_SCOPE,
+        "list_my_conversations" | "get_my_conversation" | "list_my_listing_chats" => {
+            MESSAGES_READ_SCOPE
+        }
         "get_my_money_summary"
         | "list_my_payment_activity"
         | "list_my_payouts"
-        | "list_my_debts" => PAYMENTS_READ_SCOPE,
+        | "list_my_debts"
+        | "get_my_credits"
+        | "get_my_payout_setup" => PAYMENTS_READ_SCOPE,
         _ => return None,
     })
 }

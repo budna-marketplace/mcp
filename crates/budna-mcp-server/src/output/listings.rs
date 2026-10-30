@@ -449,7 +449,7 @@ pub struct ListingSummaryOutput {
 }
 
 impl ListingSummaryOutput {
-    fn project(
+    pub(super) fn project(
         listing: ListingResponse,
         public_urls: &PublicUrlSettings,
         budget: &mut ProjectionBudget,
@@ -686,7 +686,7 @@ fn project_image_ids(image_ids: Vec<String>, budget: &mut ProjectionBudget) -> V
     budget.atomic_strings(valid, MAX_LISTING_IMAGE_IDS, MAX_CODE_BYTES)
 }
 
-fn listing_url(public_urls: &PublicUrlSettings, listing_id: &str) -> String {
+pub(super) fn listing_url(public_urls: &PublicUrlSettings, listing_id: &str) -> String {
     if budna_mcp_client::is_listing_id(listing_id) {
         format!("{}/listing/{listing_id}", public_urls.listing_origin())
     } else {
@@ -723,7 +723,11 @@ fn derived_primary_image_url(
         })
 }
 
-fn image_url(public_urls: &PublicUrlSettings, listing_id: &str, image_id: &str) -> Option<String> {
+pub(super) fn image_url(
+    public_urls: &PublicUrlSettings,
+    listing_id: &str,
+    image_id: &str,
+) -> Option<String> {
     if !budna_mcp_client::is_listing_id(listing_id) || !is_canonical_uuid(image_id) {
         return None;
     }
@@ -747,7 +751,7 @@ fn is_canonical_uuid(value: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use std::collections::BTreeSet;
 
     use budna_mcp_client::{FacetCount, Money, Pagination, PriceStats};
@@ -771,7 +775,7 @@ mod tests {
         format!("user_00000000-0000-4000-8000-{id:012x}")
     }
 
-    fn listing_fixture(id: i64) -> ListingResponse {
+    pub(crate) fn listing_fixture(id: i64) -> ListingResponse {
         let money = |amount: &str| Money {
             amount: amount.to_owned(),
             currency_code: "NOK".to_owned(),

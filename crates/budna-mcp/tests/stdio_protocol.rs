@@ -432,6 +432,71 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .expect(1)
         .mount(api)
         .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path("/api/v1/search/suggestions"))
+        .and(query_param("q", "cam"))
+        .and(query_param("limit", "10"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": {
+                "listings": [{
+                    "id": public_listing_id(7),
+                    "title": "Camera",
+                    "price": "120",
+                    "currency": "NOK",
+                    "image_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "server_only_marker": PRIVATE_SENTINEL
+                }],
+                "categories": [{"id": 12, "name": "Cameras", "listing_count": null, "translations": null}],
+                "popular_searches": [{"term": "camera", "count": 9}]
+            }
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path("/api/v1/shipping/package-presets"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": [{
+                "id": 1,
+                "size_code": "small",
+                "label": "Small",
+                "max_weight_grams": 2_000,
+                "max_length_mm": 600,
+                "max_width_mm": 400,
+                "max_height_mm": 100,
+                "sort_order": 1,
+                "server_only_marker": PRIVATE_SENTINEL
+            }]
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path("/api/v1/shipping/domestic-rates"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": {
+                "from_country": "SE",
+                "to_country": "SE",
+                "rates": [{
+                    "provider_code": "postnord",
+                    "package_size": "small",
+                    "amount": {"amount": "59.00", "currency_code": "SEK"}
+                }],
+                "server_only_marker": PRIVATE_SENTINEL
+            }
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
 }
 
 async fn mount_error_mocks(api: &MockServer) {
@@ -678,16 +743,27 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
     assert_eq!(
         tool_names,
         BTreeSet::from([
+            "browse_collections",
+            "browse_listings",
+            "browse_live_streams",
+            "get_brands",
             "get_categories",
             "get_category_filters",
+            "get_collection",
             "get_filter_options",
             "get_listing",
             "get_listing_attributes",
             "get_listing_bid_summary",
+            "get_listing_questions",
             "get_listing_related",
-            "get_public_seller_profile",
+            "get_live_stream",
+            "get_locations",
             "get_public_ratings_summary",
+            "get_public_seller_profile",
+            "get_search_suggestions",
             "get_seller_listings",
+            "get_seller_ratings",
+            "get_shipping_rates",
             "search_listings",
         ])
     );
@@ -955,6 +1031,21 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
             json!({"listing_id": public_listing_id(7)}),
             "/rating_distribution/4",
             json!(7),
+        ),
+        (
+            "get_search_suggestions",
+            json!({"query": " cam "}),
+            "/listings/0/image_url",
+            json!(format!(
+                "{CONFIGURED_IMAGE_ORIGIN}/t/listings/{}/thumbs/123e4567-e89b-12d3-a456-426614174000_768x768.webp",
+                public_listing_id(7)
+            )),
+        ),
+        (
+            "get_shipping_rates",
+            json!({}),
+            "/rates/0/price/amount",
+            json!("59.00"),
         ),
     ];
     let mut successful_outputs = BTreeMap::new();
