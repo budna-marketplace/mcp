@@ -120,6 +120,23 @@ impl AccountWatchlistListingsParams {
     }
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOrderIdParams {
+    /// Order ID returned by list_my_orders or a notification.
+    #[schemars(range(min = 1))]
+    pub order_id: i64,
+}
+
+impl AccountOrderIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        if self.order_id < 1 {
+            return Err(InputError::new("order_id must be at least 1"));
+        }
+        Ok(self.order_id)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum OrderRoleParam {

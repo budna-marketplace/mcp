@@ -171,12 +171,12 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
         "get_my_account" => ACCOUNT_READ_SCOPE,
         "list_my_listings" | "get_my_listing" => LISTINGS_READ_SCOPE,
-        "list_my_bids" => BIDS_READ_SCOPE,
-        "list_my_offers" => OFFERS_READ_SCOPE,
+        "list_my_bids" | "list_my_auto_bids" => BIDS_READ_SCOPE,
+        "list_my_offers" | "list_my_second_chance_offers" => OFFERS_READ_SCOPE,
         "list_my_watchlists" | "list_my_watchlist_listings" | "list_my_saved_searches" => {
             WATCHLIST_READ_SCOPE
         }
-        "list_my_orders" => ORDERS_READ_SCOPE,
+        "list_my_orders" | "get_my_order" => ORDERS_READ_SCOPE,
         "list_my_notifications" => NOTIFICATIONS_READ_SCOPE,
         "list_my_ratings" => RATINGS_READ_SCOPE,
         _ => return None,

@@ -23,14 +23,16 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 pub use account::{
-    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, AccountBid, AccountBuyerProtection,
-    AccountListingAttribute, AccountListingAttributeValue, AccountListingAuction,
-    AccountListingDetail, AccountListingFixedPrice, AccountListingImage, AccountListingLive,
-    AccountListingLiveRound, AccountListingLiveStream, AccountListingPage, AccountListingReserve,
-    AccountListingRound, AccountListingShipping, AccountListingShowcase, AccountListingSummary,
-    AccountNotification, AccountOffer, AccountOrder, AccountOrderTracking, AccountPage,
-    AccountRating, AccountSavedSearch, AccountSavedSearchQuery, AccountSummary,
-    AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE, DelegatedAccess, LISTINGS_READ_SCOPE,
+    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, AccountAutoBid, AccountBid,
+    AccountBuyerProtection, AccountDispute, AccountInvoice, AccountListingAttribute,
+    AccountListingAttributeValue, AccountListingAuction, AccountListingDetail,
+    AccountListingFixedPrice, AccountListingImage, AccountListingLive, AccountListingLiveRound,
+    AccountListingLiveStream, AccountListingPage, AccountListingReserve, AccountListingRound,
+    AccountListingShipping, AccountListingShowcase, AccountListingSummary, AccountNotification,
+    AccountOffer, AccountOrder, AccountOrderDetail, AccountOrderReturn, AccountOrderTracking,
+    AccountPage, AccountRating, AccountRefund, AccountSavedSearch, AccountSavedSearchQuery,
+    AccountSecondChanceOffer, AccountSummary, AccountTrackingEvent, AccountWatchedListing,
+    AccountWatchlist, BIDS_READ_SCOPE, DelegatedAccess, LISTINGS_READ_SCOPE,
     NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, RATINGS_READ_SCOPE,
     WATCHLIST_READ_SCOPE,
 };

@@ -134,11 +134,14 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `list_my_listings` | Listings permission | List your own listings, including drafts, with title, status, type and update time |
 | `get_my_listing` | Listings permission | Read owner-visible details of one of your listings, including drafts and your reserve price |
 | `list_my_bids` | Bids permission | List your bids with amount, time and status (valid, outbid, won or cancelled), or only the ones currently winning |
+| `list_my_auto_bids` | Bids permission | List your automatic bids with the maximum you set and their status |
 | `list_my_offers` | Offers permission | List offers you sent or received, with amount, counter-offer, status, who acted last and expiry |
+| `list_my_second_chance_offers` | Offers permission | List second-chance offers you received after an auction you bid on |
 | `list_my_watchlists` | Watchlist permission | List your watchlists with their names and item counts |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |
 | `list_my_saved_searches` | Watchlist permission | List your saved searches with their criteria, alerts and unseen matches |
 | `list_my_orders` | Orders permission | List your purchases or sales with payment, delivery and return status, carrier, tracking number and, for sales, your payout |
+| `get_my_order` | Orders permission | Read one purchase or sale in detail: tracking events, return, refund and dispute status, and invoice numbers |
 | `list_my_notifications` | Notifications permission | List your notifications by type, read state and related listing, order, offer or saved search |
 | `list_my_ratings` | Ratings permission | List ratings you received or gave, with stars, comment and listing |
 

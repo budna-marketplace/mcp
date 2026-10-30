@@ -1,6 +1,7 @@
 use budna_mcp_client::{
-    AccountBid, AccountNotification, AccountOffer, AccountOrder, AccountPage, AccountRating,
-    AccountSavedSearch, AccountWatchedListing, AccountWatchlist,
+    AccountAutoBid, AccountBid, AccountNotification, AccountOffer, AccountOrder,
+    AccountOrderDetail, AccountPage, AccountRating, AccountSavedSearch, AccountSecondChanceOffer,
+    AccountWatchedListing, AccountWatchlist,
 };
 use rmcp::schemars;
 use serde::Serialize;
@@ -275,33 +276,237 @@ pub struct AccountOrderTrackingOutput {
     pub tracking_number: Option<String>,
 }
 
+fn project_order(order: AccountOrder, budget: &mut ProjectionBudget) -> AccountOrderOutput {
+    AccountOrderOutput {
+        id: order.id,
+        role: order.role,
+        listing_id: order.listing_id,
+        listing_title: budget.optional_text(order.listing_title, MAX_DISPLAY_TEXT_BYTES),
+        amount: order.amount.into(),
+        quantity: order.quantity,
+        status: order.status,
+        payment_status: order.payment_status,
+        fulfillment_mode: order.fulfillment_mode,
+        fulfillment_state: order.fulfillment_state,
+        is_auction_order: order.is_auction_order,
+        tracking: AccountOrderTrackingOutput {
+            available: order.tracking.available,
+            carrier: budget.optional_text(order.tracking.carrier, 64),
+            tracking_number: budget.optional_text(order.tracking.tracking_number, MAX_CODE_BYTES),
+        },
+        withdrawal_status: order.withdrawal_status,
+        payout: order.payout.map(Into::into),
+        payment_due_at: order.payment_due_at,
+        paid_at: order.paid_at,
+        ship_by: order.ship_by,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+    }
+}
+
 impl From<AccountPage<AccountOrder>> for AccountPageOutput<AccountOrderOutput> {
     fn from(page: AccountPage<AccountOrder>) -> Self {
-        project(page, |order, budget| AccountOrderOutput {
-            id: order.id,
-            role: order.role,
-            listing_id: order.listing_id,
-            listing_title: budget.optional_text(order.listing_title, MAX_DISPLAY_TEXT_BYTES),
-            amount: order.amount.into(),
-            quantity: order.quantity,
-            status: order.status,
-            payment_status: order.payment_status,
-            fulfillment_mode: order.fulfillment_mode,
-            fulfillment_state: order.fulfillment_state,
-            is_auction_order: order.is_auction_order,
-            tracking: AccountOrderTrackingOutput {
-                available: order.tracking.available,
-                carrier: budget.optional_text(order.tracking.carrier, 64),
-                tracking_number: budget
-                    .optional_text(order.tracking.tracking_number, MAX_CODE_BYTES),
-            },
-            withdrawal_status: order.withdrawal_status,
-            payout: order.payout.map(Into::into),
-            payment_due_at: order.payment_due_at,
-            paid_at: order.paid_at,
-            ship_by: order.ship_by,
-            created_at: order.created_at,
-            updated_at: order.updated_at,
+        project(page, project_order)
+    }
+}
+
+const MAX_TRACKING_EVENTS: usize = 100;
+const MAX_INVOICES: usize = 50;
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountOrderDetailOutput {
+    pub order: AccountOrderOutput,
+    #[schemars(length(max = 100))]
+    pub tracking_events: Vec<AccountTrackingEventOutput>,
+    pub order_return: Option<AccountOrderReturnOutput>,
+    pub refund: Option<AccountRefundOutput>,
+    pub dispute: Option<AccountDisputeOutput>,
+    #[schemars(length(max = 50))]
+    pub invoices: Vec<AccountInvoiceOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountTrackingEventOutput {
+    #[schemars(length(max = 128))]
+    pub status: String,
+    #[schemars(length(max = 512))]
+    pub description: Option<String>,
+    #[schemars(length(max = 256))]
+    pub location: Option<String>,
+    pub occurred_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountOrderReturnOutput {
+    #[schemars(length(max = 64))]
+    pub status: Option<String>,
+    #[schemars(length(max = 64))]
+    pub kind: Option<String>,
+    pub requested_at: Option<i64>,
+    pub deadline: Option<i64>,
+    #[schemars(length(max = 64))]
+    pub carrier: Option<String>,
+    #[schemars(length(max = 128))]
+    pub tracking_number: Option<String>,
+    pub received_at: Option<i64>,
+    pub delivered_at: Option<i64>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountRefundOutput {
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub amount: MoneyOutput,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountDisputeOutput {
+    #[schemars(length(max = 64))]
+    pub status: String,
+    #[schemars(length(max = 64))]
+    pub reason: Option<String>,
+    pub opened_at: i64,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountInvoiceOutput {
+    #[schemars(length(max = 64))]
+    pub kind: String,
+    #[schemars(length(max = 128))]
+    pub number: String,
+    pub issued_at: i64,
+    pub total: MoneyOutput,
+}
+
+impl From<AccountOrderDetail> for AccountOrderDetailOutput {
+    fn from(detail: AccountOrderDetail) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let order = project_order(detail.order, &mut budget);
+        let tracking_events = budget
+            .objects(detail.tracking_events, MAX_TRACKING_EVENTS)
+            .into_iter()
+            .map(|event| AccountTrackingEventOutput {
+                status: budget.text(event.status, MAX_CODE_BYTES),
+                description: budget.optional_text(event.description, MAX_DISPLAY_TEXT_BYTES),
+                location: budget.optional_text(event.location, MAX_NAME_BYTES),
+                occurred_at: event.occurred_at,
+            })
+            .collect();
+        let order_return = detail
+            .order_return
+            .map(|order_return| AccountOrderReturnOutput {
+                status: order_return.status,
+                kind: order_return.kind,
+                requested_at: order_return.requested_at,
+                deadline: order_return.deadline,
+                carrier: budget.optional_text(order_return.carrier, 64),
+                tracking_number: budget.optional_text(order_return.tracking_number, MAX_CODE_BYTES),
+                received_at: order_return.received_at,
+                delivered_at: order_return.delivered_at,
+            });
+        let invoices = budget
+            .objects(detail.invoices, MAX_INVOICES)
+            .into_iter()
+            .map(|invoice| AccountInvoiceOutput {
+                kind: invoice.kind,
+                number: budget.text(invoice.number, MAX_CODE_BYTES),
+                issued_at: invoice.issued_at,
+                total: invoice.total.into(),
+            })
+            .collect();
+        Self {
+            order,
+            tracking_events,
+            order_return,
+            refund: detail.refund.map(|refund| AccountRefundOutput {
+                status: refund.status,
+                amount: refund.amount.into(),
+                created_at: refund.created_at,
+                updated_at: refund.updated_at,
+            }),
+            dispute: detail.dispute.map(|dispute| AccountDisputeOutput {
+                status: dispute.status,
+                reason: dispute.reason,
+                opened_at: dispute.opened_at,
+                resolved_at: dispute.resolved_at,
+            }),
+            invoices,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountAutoBidOutput {
+    #[schemars(length(max = 64))]
+    pub listing_id: String,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub max_amount: MoneyOutput,
+    pub increment: Option<MoneyOutput>,
+    pub current_bid: Option<MoneyOutput>,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub expires_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+impl From<AccountPage<AccountAutoBid>> for AccountPageOutput<AccountAutoBidOutput> {
+    fn from(page: AccountPage<AccountAutoBid>) -> Self {
+        project(page, |auto_bid, budget| AccountAutoBidOutput {
+            listing_id: auto_bid.listing_id,
+            listing_title: budget.optional_text(auto_bid.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            max_amount: auto_bid.max_amount.into(),
+            increment: auto_bid.increment.map(Into::into),
+            current_bid: auto_bid.current_bid.map(Into::into),
+            status: auto_bid.status,
+            expires_at: auto_bid.expires_at,
+            created_at: auto_bid.created_at,
+            updated_at: auto_bid.updated_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountSecondChanceOfferOutput {
+    pub offer_id: i64,
+    #[schemars(length(max = 64))]
+    pub listing_id: String,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub price: MoneyOutput,
+    pub your_bid: MoneyOutput,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    #[schemars(length(max = 64))]
+    pub offer_status: String,
+    pub window_ends_at: Option<i64>,
+    pub order_id: Option<i64>,
+    pub created_at: i64,
+}
+
+impl From<AccountPage<AccountSecondChanceOffer>>
+    for AccountPageOutput<AccountSecondChanceOfferOutput>
+{
+    fn from(page: AccountPage<AccountSecondChanceOffer>) -> Self {
+        project(page, |offer, budget| AccountSecondChanceOfferOutput {
+            offer_id: offer.offer_id,
+            listing_id: offer.listing_id,
+            listing_title: budget.optional_text(offer.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            price: offer.price.into(),
+            your_bid: offer.your_bid.into(),
+            status: offer.status,
+            offer_status: offer.offer_status,
+            window_ends_at: offer.window_ends_at,
+            order_id: offer.order_id,
+            created_at: offer.created_at,
         })
     }
 }

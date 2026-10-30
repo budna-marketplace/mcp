@@ -1,6 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use budna_mcp_client::{AccountOrderTracking, AccountSavedSearchQuery, Money, Pagination};
+use budna_mcp_client::{
+    AccountInvoice, AccountOrderDetail, AccountOrderTracking, AccountRefund,
+    AccountSavedSearchQuery, AccountTrackingEvent, Money, Pagination,
+};
 use serde_json::{Value, json};
 
 use super::*;
@@ -190,5 +193,87 @@ fn maximum_activity_pages_stay_within_the_tool_result_budget() {
     let output = AccountPageOutput::<AccountRatingOutput>::from(page(ratings));
     assert_eq!(output.items.len(), 50);
     assert!(output.truncated);
+    assert_within_mcp_result_budget(&output);
+}
+
+#[test]
+fn order_detail_bounds_carrier_text_and_omits_documents() {
+    let order = AccountOrder {
+        id: 14,
+        role: "buyer".to_owned(),
+        listing_id: LISTING.to_owned(),
+        listing_title: None,
+        amount: sek("120.50"),
+        quantity: 1,
+        status: "shipped".to_owned(),
+        payment_status: "paid".to_owned(),
+        fulfillment_mode: "carrier_tracked".to_owned(),
+        fulfillment_state: "shipped".to_owned(),
+        is_auction_order: true,
+        tracking: AccountOrderTracking {
+            available: true,
+            carrier: Some("postnord".to_owned()),
+            tracking_number: Some("SYNTHETIC123".to_owned()),
+        },
+        withdrawal_status: None,
+        payout: None,
+        payment_due_at: None,
+        paid_at: Some(1),
+        ship_by: None,
+        created_at: 1,
+        updated_at: 1,
+    };
+    let output = AccountOrderDetailOutput::from(AccountOrderDetail {
+        order,
+        tracking_events: (0..150)
+            .map(|_| AccountTrackingEvent {
+                status: "IN_TRANSIT".to_owned(),
+                description: Some("d".repeat(2_000)),
+                location: Some("Stockholm".to_owned()),
+                occurred_at: 1,
+            })
+            .collect(),
+        order_return: None,
+        refund: Some(AccountRefund {
+            status: "succeeded".to_owned(),
+            amount: sek("120.50"),
+            created_at: 1,
+            updated_at: 1,
+        }),
+        dispute: None,
+        invoices: vec![AccountInvoice {
+            kind: "receipt".to_owned(),
+            number: "KV-1001".to_owned(),
+            issued_at: 1,
+            total: sek("120.50"),
+        }],
+    });
+    let value = json_value(&output);
+    assert_eq!(
+        keys(&value),
+        BTreeSet::from([
+            "dispute",
+            "invoices",
+            "order",
+            "order_return",
+            "refund",
+            "tracking_events",
+            "truncated",
+            "untrusted_content_notice",
+        ])
+    );
+    assert_eq!(output.tracking_events.len(), 100);
+    assert_eq!(
+        output.tracking_events[0]
+            .description
+            .as_deref()
+            .map(str::len),
+        Some(512)
+    );
+    assert!(output.truncated);
+    assert_eq!(
+        keys(&value["invoices"][0]),
+        BTreeSet::from(["issued_at", "kind", "number", "total"])
+    );
     assert_within_mcp_result_budget(&output);
 }

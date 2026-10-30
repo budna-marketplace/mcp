@@ -94,6 +94,9 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | `list_my_watchlist_listings` | `watchlist:read` | Listing IDs and titles in one own watchlist |
 | `list_my_saved_searches` | `watchlist:read` | Saved searches with name, search criteria and filters, alert frequency, active flag and match counts |
 | `list_my_orders` | `orders:read` | Purchases or sales with listing, amount, quantity, order/payment/fulfillment status, carrier, tracking number, return status, deadlines and seller payout |
+| `get_my_order` | `orders:read` | One own purchase or sale with tracking events, return, refund and dispute status and invoice numbers and totals, without documents |
+| `list_my_auto_bids` | `bids:read` | Own automatic bids with listing, maximum, increment, current bid and status |
+| `list_my_second_chance_offers` | `offers:read` | Second-chance offers received, with listing, price, your bid, status and window |
 | `list_my_notifications` | `notifications:read` | Notifications with type, priority, read state, time and related listing, order, offer or saved search |
 | `list_my_ratings` | `ratings:read` | Ratings received or given with listing, 1–5 star value, comment and time |
 

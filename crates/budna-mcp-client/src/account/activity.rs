@@ -129,6 +129,87 @@ pub struct AccountRating {
     pub created_at: i64,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountOrderDetail {
+    pub order: AccountOrder,
+    pub tracking_events: Vec<AccountTrackingEvent>,
+    pub order_return: Option<AccountOrderReturn>,
+    pub refund: Option<AccountRefund>,
+    pub dispute: Option<AccountDispute>,
+    pub invoices: Vec<AccountInvoice>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountTrackingEvent {
+    pub status: String,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub occurred_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountOrderReturn {
+    pub status: Option<String>,
+    pub kind: Option<String>,
+    pub requested_at: Option<i64>,
+    pub deadline: Option<i64>,
+    pub carrier: Option<String>,
+    pub tracking_number: Option<String>,
+    pub received_at: Option<i64>,
+    pub delivered_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountRefund {
+    pub status: String,
+    pub amount: Money,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountDispute {
+    pub status: String,
+    pub reason: Option<String>,
+    pub opened_at: i64,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountInvoice {
+    pub kind: String,
+    pub number: String,
+    pub issued_at: i64,
+    pub total: Money,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountAutoBid {
+    pub listing_id: String,
+    pub listing_title: Option<String>,
+    pub max_amount: Money,
+    pub increment: Option<Money>,
+    pub current_bid: Option<Money>,
+    pub status: String,
+    pub expires_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountSecondChanceOffer {
+    pub offer_id: i64,
+    pub listing_id: String,
+    pub listing_title: Option<String>,
+    pub price: Money,
+    pub your_bid: Money,
+    pub status: String,
+    pub offer_status: String,
+    pub window_ends_at: Option<i64>,
+    pub order_id: Option<i64>,
+    pub created_at: i64,
+}
+
 /// Status values are backend vocabulary that may grow, so they are checked by shape.
 fn code(value: &str) -> bool {
     let mut bytes = value.bytes();
@@ -279,6 +360,85 @@ impl AccountRating {
             && optional_text(self.listing_title.as_deref(), 4096)
             && (1..=5).contains(&self.value)
             && optional_text(self.comment.as_deref(), 8192)
+            && self.created_at >= 0
+    }
+}
+
+impl AccountOrderDetail {
+    pub(super) fn is_valid(&self) -> bool {
+        matches!(self.order.role.as_str(), "buyer" | "seller")
+            && self.order.is_valid(&self.order.role)
+            && self.tracking_events.len() <= 200
+            && self.tracking_events.iter().all(|event| {
+                !event.status.is_empty()
+                    && event.status.len() <= 128
+                    && optional_text(event.description.as_deref(), 4096)
+                    && optional_text(event.location.as_deref(), 4096)
+                    && event.occurred_at >= 0
+            })
+            && self.order_return.as_ref().is_none_or(|order_return| {
+                order_return.status.as_deref().is_none_or(code)
+                    && order_return.kind.as_deref().is_none_or(code)
+                    && optional_text(order_return.carrier.as_deref(), 256)
+                    && optional_text(order_return.tracking_number.as_deref(), 256)
+                    && [
+                        order_return.requested_at,
+                        order_return.deadline,
+                        order_return.received_at,
+                        order_return.delivered_at,
+                    ]
+                    .into_iter()
+                    .all(optional_time)
+            })
+            && self.refund.as_ref().is_none_or(|refund| {
+                code(&refund.status)
+                    && money(&refund.amount)
+                    && refund.created_at >= 0
+                    && refund.updated_at >= 0
+            })
+            && self.dispute.as_ref().is_none_or(|dispute| {
+                code(&dispute.status)
+                    && dispute.reason.as_deref().is_none_or(code)
+                    && dispute.opened_at >= 0
+                    && optional_time(dispute.resolved_at)
+            })
+            && self.invoices.len() <= 100
+            && self.invoices.iter().all(|invoice| {
+                code(&invoice.kind)
+                    && !invoice.number.is_empty()
+                    && invoice.number.len() <= 128
+                    && invoice.issued_at >= 0
+                    && money(&invoice.total)
+            })
+    }
+}
+
+impl AccountAutoBid {
+    pub(super) fn is_valid(&self) -> bool {
+        is_listing_id(&self.listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && money(&self.max_amount)
+            && [&self.increment, &self.current_bid]
+                .into_iter()
+                .all(|amount| amount.as_ref().is_none_or(money))
+            && code(&self.status)
+            && optional_time(self.expires_at)
+            && self.created_at >= 0
+            && self.updated_at >= 0
+    }
+}
+
+impl AccountSecondChanceOffer {
+    pub(super) fn is_valid(&self) -> bool {
+        self.offer_id > 0
+            && is_listing_id(&self.listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && money(&self.price)
+            && money(&self.your_bid)
+            && code(&self.status)
+            && code(&self.offer_status)
+            && optional_time(self.window_ends_at)
+            && optional_id(self.order_id)
             && self.created_at >= 0
     }
 }
