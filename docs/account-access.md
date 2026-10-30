@@ -97,6 +97,10 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | `get_my_order` | `orders:read` | One own purchase or sale with tracking events, return, refund and dispute status and invoice numbers and totals, without documents |
 | `list_my_auto_bids` | `bids:read` | Own automatic bids with listing, maximum, increment, current bid and status |
 | `list_my_second_chance_offers` | `offers:read` | Second-chance offers received, with listing, price, your bid, status and window |
+| `get_my_money_summary` | `payments:read` | Per-currency totals of incoming proceeds (pending, on the way, paid out, on hold, in balance) and outgoing payments (paid, refunded) |
+| `list_my_payment_activity` | `payments:read` | Newest-first payment activity with direction, kind, status, amount and related order or listing; continue with `cursor` |
+| `list_my_payouts` | `payments:read` | Recent payouts with amount, status and timestamps |
+| `list_my_debts` | `payments:read` | Debts to Budna with amount, status, reason and related order |
 | `list_my_notifications` | `notifications:read` | Notifications with type, priority, read state, time and related listing, order, offer or saved search |
 | `list_my_ratings` | `ratings:read` | Ratings received or given with listing, 1–5 star value, comment and time |
 

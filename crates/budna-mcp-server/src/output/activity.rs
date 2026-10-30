@@ -1,6 +1,7 @@
 use budna_mcp_client::{
-    AccountAutoBid, AccountBid, AccountNotification, AccountOffer, AccountOrder,
-    AccountOrderDetail, AccountPage, AccountRating, AccountSavedSearch, AccountSecondChanceOffer,
+    AccountAutoBid, AccountBid, AccountDebt, AccountMoneySummary, AccountNotification,
+    AccountOffer, AccountOrder, AccountOrderDetail, AccountPage, AccountPaymentActivity,
+    AccountPayouts, AccountRating, AccountSavedSearch, AccountSecondChanceOffer,
     AccountWatchedListing, AccountWatchlist,
 };
 use rmcp::schemars;
@@ -567,6 +568,172 @@ impl From<AccountPage<AccountRating>> for AccountPageOutput<AccountRatingOutput>
             value: rating.value,
             comment: budget.optional_text(rating.comment, MAX_LONG_TEXT_BYTES),
             created_at: rating.created_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountMoneySummaryOutput {
+    #[schemars(length(max = 10))]
+    pub currencies: Vec<AccountCurrencyTotalsOutput>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCurrencyTotalsOutput {
+    #[schemars(length(min = 3, max = 3))]
+    pub currency: String,
+    pub incoming_pending: MoneyOutput,
+    pub incoming_on_the_way: MoneyOutput,
+    pub incoming_paid_out: MoneyOutput,
+    pub incoming_on_hold: MoneyOutput,
+    pub incoming_in_balance: MoneyOutput,
+    pub outgoing_paid: MoneyOutput,
+    pub outgoing_refunded: MoneyOutput,
+}
+
+impl From<AccountMoneySummary> for AccountMoneySummaryOutput {
+    fn from(summary: AccountMoneySummary) -> Self {
+        Self {
+            currencies: summary
+                .currencies
+                .into_iter()
+                .map(|totals| AccountCurrencyTotalsOutput {
+                    currency: totals.currency,
+                    incoming_pending: totals.incoming_pending.into(),
+                    incoming_on_the_way: totals.incoming_on_the_way.into(),
+                    incoming_paid_out: totals.incoming_paid_out.into(),
+                    incoming_on_hold: totals.incoming_on_hold.into(),
+                    incoming_in_balance: totals.incoming_in_balance.into(),
+                    outgoing_paid: totals.outgoing_paid.into(),
+                    outgoing_refunded: totals.outgoing_refunded.into(),
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPaymentActivityOutput {
+    #[schemars(length(max = 50))]
+    pub items: Vec<AccountPaymentActivityEntryOutput>,
+    #[schemars(length(max = 128))]
+    pub next_cursor: Option<String>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPaymentActivityEntryOutput {
+    #[schemars(length(max = 128))]
+    pub id: String,
+    #[schemars(length(max = 64))]
+    pub direction: String,
+    #[schemars(length(max = 64))]
+    pub kind: String,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub amount: MoneyOutput,
+    #[schemars(length(max = 512))]
+    pub title: Option<String>,
+    pub order_id: Option<i64>,
+    #[schemars(length(max = 64))]
+    pub listing_id: Option<String>,
+    pub release_eligible_at: Option<i64>,
+    pub created_at: i64,
+}
+
+impl From<AccountPaymentActivity> for AccountPaymentActivityOutput {
+    fn from(activity: AccountPaymentActivity) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let items = budget
+            .objects(activity.items, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|entry| AccountPaymentActivityEntryOutput {
+                id: entry.id,
+                direction: entry.direction,
+                kind: entry.kind,
+                status: entry.status,
+                amount: entry.amount.into(),
+                title: budget.optional_text(entry.title, MAX_DISPLAY_TEXT_BYTES),
+                order_id: entry.order_id,
+                listing_id: entry.listing_id,
+                release_eligible_at: entry.release_eligible_at,
+                created_at: entry.created_at,
+            })
+            .collect();
+        Self {
+            items,
+            next_cursor: activity.next_cursor,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPayoutsOutput {
+    #[schemars(length(max = 50))]
+    pub items: Vec<AccountPayoutOutput>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountPayoutOutput {
+    #[schemars(length(max = 128))]
+    pub id: String,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub amount: MoneyOutput,
+    pub requested_at: i64,
+    pub settled_at: Option<i64>,
+    pub paid_out_at: Option<i64>,
+    pub failed_at: Option<i64>,
+}
+
+impl From<AccountPayouts> for AccountPayoutsOutput {
+    fn from(payouts: AccountPayouts) -> Self {
+        Self {
+            items: payouts
+                .items
+                .into_iter()
+                .map(|payout| AccountPayoutOutput {
+                    id: payout.id,
+                    status: payout.status,
+                    amount: payout.amount.into(),
+                    requested_at: payout.requested_at,
+                    settled_at: payout.settled_at,
+                    paid_out_at: payout.paid_out_at,
+                    failed_at: payout.failed_at,
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountDebtOutput {
+    pub id: i64,
+    pub amount: MoneyOutput,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    #[schemars(length(max = 64))]
+    pub reason: String,
+    pub order_id: i64,
+    pub created_at: i64,
+    pub resolved_at: Option<i64>,
+    pub waived_at: Option<i64>,
+}
+
+impl From<AccountPage<AccountDebt>> for AccountPageOutput<AccountDebtOutput> {
+    fn from(page: AccountPage<AccountDebt>) -> Self {
+        project(page, |debt, _budget| AccountDebtOutput {
+            id: debt.id,
+            amount: debt.amount.into(),
+            status: debt.status,
+            reason: debt.reason,
+            order_id: debt.order_id,
+            created_at: debt.created_at,
+            resolved_at: debt.resolved_at,
+            waived_at: debt.waived_at,
         })
     }
 }

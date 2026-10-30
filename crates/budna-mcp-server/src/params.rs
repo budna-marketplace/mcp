@@ -122,6 +122,45 @@ impl AccountWatchlistListingsParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct AccountCursorParams {
+    /// Cursor returned by the previous page; omit for the newest entries.
+    #[schemars(length(min = 1, max = 128))]
+    pub cursor: Option<String>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountCursorParams {
+    pub fn validate(&self) -> Result<(Option<&str>, u32), InputError> {
+        if self
+            .cursor
+            .as_ref()
+            .is_some_and(|cursor| cursor.is_empty() || cursor.len() > 128)
+        {
+            return Err(InputError::new("cursor must be 1..128 characters"));
+        }
+        Ok((
+            self.cursor.as_deref(),
+            validate_listing_page(None, self.limit)?.1,
+        ))
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountLimitParams {
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountLimitParams {
+    pub fn validate(&self) -> Result<u32, InputError> {
+        Ok(validate_listing_page(None, self.limit)?.1)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AccountOrderIdParams {
     /// Order ID returned by list_my_orders or a notification.
     #[schemars(range(min = 1))]

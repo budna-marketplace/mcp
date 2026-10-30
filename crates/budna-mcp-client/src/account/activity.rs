@@ -210,6 +210,71 @@ pub struct AccountSecondChanceOffer {
     pub created_at: i64,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountMoneySummary {
+    pub currencies: Vec<AccountCurrencyTotals>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCurrencyTotals {
+    pub currency: String,
+    pub incoming_pending: Money,
+    pub incoming_on_the_way: Money,
+    pub incoming_paid_out: Money,
+    pub incoming_on_hold: Money,
+    pub incoming_in_balance: Money,
+    pub outgoing_paid: Money,
+    pub outgoing_refunded: Money,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPaymentActivity {
+    pub items: Vec<AccountPaymentActivityEntry>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPaymentActivityEntry {
+    pub id: String,
+    pub direction: String,
+    pub kind: String,
+    pub status: String,
+    pub amount: Money,
+    pub title: Option<String>,
+    pub order_id: Option<i64>,
+    pub listing_id: Option<String>,
+    pub release_eligible_at: Option<i64>,
+    pub created_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPayouts {
+    pub items: Vec<AccountPayout>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountPayout {
+    pub id: String,
+    pub status: String,
+    pub amount: Money,
+    pub requested_at: i64,
+    pub settled_at: Option<i64>,
+    pub paid_out_at: Option<i64>,
+    pub failed_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountDebt {
+    pub id: i64,
+    pub amount: Money,
+    pub status: String,
+    pub reason: String,
+    pub order_id: i64,
+    pub created_at: i64,
+    pub resolved_at: Option<i64>,
+    pub waived_at: Option<i64>,
+}
+
 /// Status values are backend vocabulary that may grow, so they are checked by shape.
 fn code(value: &str) -> bool {
     let mut bytes = value.bytes();
@@ -440,5 +505,83 @@ impl AccountSecondChanceOffer {
             && optional_time(self.window_ends_at)
             && optional_id(self.order_id)
             && self.created_at >= 0
+    }
+}
+
+fn opaque_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_".contains(&byte))
+}
+
+impl AccountMoneySummary {
+    pub(super) fn is_valid(&self) -> bool {
+        self.currencies.len() <= 10
+            && self.currencies.iter().all(|totals| {
+                is_currency_code(&totals.currency)
+                    && [
+                        &totals.incoming_pending,
+                        &totals.incoming_on_the_way,
+                        &totals.incoming_paid_out,
+                        &totals.incoming_on_hold,
+                        &totals.incoming_in_balance,
+                        &totals.outgoing_paid,
+                        &totals.outgoing_refunded,
+                    ]
+                    .into_iter()
+                    .all(|amount| money(amount) && amount.currency_code == totals.currency)
+            })
+    }
+}
+
+impl AccountPaymentActivity {
+    pub(super) fn is_valid(&self, limit: u32) -> bool {
+        self.items.len() <= limit as usize
+            && self
+                .next_cursor
+                .as_deref()
+                .is_none_or(|cursor| !cursor.is_empty() && cursor.len() <= 128)
+            && self.items.iter().all(|entry| {
+                opaque_id(&entry.id)
+                    && code(&entry.direction)
+                    && code(&entry.kind)
+                    && code(&entry.status)
+                    && money(&entry.amount)
+                    && optional_text(entry.title.as_deref(), 4096)
+                    && optional_id(entry.order_id)
+                    && entry.listing_id.as_deref().is_none_or(is_listing_id)
+                    && optional_time(entry.release_eligible_at)
+                    && entry.created_at >= 0
+            })
+    }
+}
+
+impl AccountPayouts {
+    pub(super) fn is_valid(&self, limit: u32) -> bool {
+        self.items.len() <= limit as usize
+            && self.items.iter().all(|payout| {
+                opaque_id(&payout.id)
+                    && code(&payout.status)
+                    && money(&payout.amount)
+                    && payout.requested_at >= 0
+                    && [payout.settled_at, payout.paid_out_at, payout.failed_at]
+                        .into_iter()
+                        .all(optional_time)
+            })
+    }
+}
+
+impl AccountDebt {
+    pub(super) fn is_valid(&self) -> bool {
+        self.id > 0
+            && money(&self.amount)
+            && code(&self.status)
+            && code(&self.reason)
+            && self.order_id > 0
+            && self.created_at >= 0
+            && optional_time(self.resolved_at)
+            && optional_time(self.waived_at)
     }
 }
