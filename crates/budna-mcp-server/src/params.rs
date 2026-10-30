@@ -189,20 +189,20 @@ impl AccountCursorParams {
 #[derive(Clone, Copy, Debug, Default, Deserialize, schemars::JsonSchema)]
 pub enum InsightsRangeParam {
     #[serde(rename = "7d")]
-    SevenDays,
+    Week,
     #[default]
     #[serde(rename = "30d")]
-    ThirtyDays,
+    Month,
     #[serde(rename = "90d")]
-    NinetyDays,
+    Quarter,
 }
 
 impl InsightsRangeParam {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::SevenDays => "7d",
-            Self::ThirtyDays => "30d",
-            Self::NinetyDays => "90d",
+            Self::Week => "7d",
+            Self::Month => "30d",
+            Self::Quarter => "90d",
         }
     }
 }
