@@ -442,6 +442,7 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             .collect::<BTreeSet<_>>(),
         BTreeSet::from([
             "get_my_account",
+            "get_my_profile",
             "list_my_listings",
             "get_my_listing",
             "list_my_bids",

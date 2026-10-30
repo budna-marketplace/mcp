@@ -131,6 +131,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `get_listing_bid_summary` | Public | Get a listing's bid count and current price, without bidder identities |
 | `get_public_ratings_summary` | Public | Get a listing's aggregate public rating signals |
 | `get_my_account` | Account permission | Read your account ID, account type and display name |
+| `get_my_profile` | Profile permission | Read your profile, level and badges, verification, account standing, subscription and onboarding steps |
 | `list_my_listings` | Listings permission | List your own listings, including drafts, with title, status, type and update time |
 | `get_my_listing` | Listings permission | Read owner-visible details of one of your listings, including drafts and your reserve price |
 | `list_my_bids` | Bids permission | List your bids with amount, time and status (valid, outbid, won or cancelled), or only the ones currently winning |
@@ -157,7 +158,7 @@ Budna MCP cannot currently bid, make offers, buy, message, record views, change 
 
 ### Permissions you control
 
-- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`), **Listings** (`listings:read`), **Bids** (`bids:read`), **Offers** (`offers:read`), **Watchlists and saved searches** (`watchlist:read`), **Orders** (`orders:read`), **Notifications** (`notifications:read`), **Ratings** (`ratings:read`), **Payments** (`payments:read`) and **Messages** (`messages:read`).
+- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`), **Listings** (`listings:read`), **Bids** (`bids:read`), **Offers** (`offers:read`), **Watchlists and saved searches** (`watchlist:read`), **Orders** (`orders:read`), **Notifications** (`notifications:read`), **Ratings** (`ratings:read`), **Payments** (`payments:read`), **Messages** (`messages:read`) and **Profile** (`profile:read`).
 - Account tools name the other buyer or seller only by the public username the app shows, and never reveal who bid on a listing. Addresses, contact details and notification text are never included; message text is shared only with the Messages permission.
 - Under Account → Security → Connected apps you can remove a permission or disconnect an app at any time. Removing a permission takes effect immediately, including for access the app already holds; restoring it requires approving the app again.
 - A connection lasts at most seven days before you approve it again.

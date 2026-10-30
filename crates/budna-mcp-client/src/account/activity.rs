@@ -314,6 +314,78 @@ pub struct AccountMessage {
     pub read: bool,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountProfile {
+    pub username: Option<String>,
+    pub display_name: String,
+    pub bio: Option<String>,
+    pub language: String,
+    pub currency: String,
+    pub location: Option<AccountLocation>,
+    pub rating: String,
+    pub total_ratings: i32,
+    pub is_company: bool,
+    pub member_since: i64,
+    pub level: Option<i32>,
+    pub level_name: Option<String>,
+    pub experience_points: Option<i32>,
+    pub badges: Vec<AccountBadge>,
+    pub verification: AccountVerification,
+    pub standing: AccountStanding,
+    pub subscription: Option<AccountSubscription>,
+    pub onboarding_steps: Vec<AccountOnboardingStep>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountLocation {
+    pub city: String,
+    pub region: Option<String>,
+    pub country: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountBadge {
+    pub name: String,
+    pub unlocked_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountVerification {
+    pub email_confirmed: bool,
+    pub identity_verified: bool,
+    pub identity_verification_valid: bool,
+    pub identity_verification_method: Option<String>,
+    pub identity_verified_at: Option<i64>,
+    pub identity_expires_at: Option<i64>,
+    pub can_sell: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountStanding {
+    pub restricted: bool,
+    pub outstanding_debt_count: i64,
+    pub outstanding_debt_total: Option<Money>,
+    pub frozen_reason: Option<String>,
+    pub has_conduct_warning: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountSubscription {
+    pub tier: String,
+    pub tier_name: String,
+    pub status: String,
+    pub price: Money,
+    pub current_period_end: i64,
+    pub cancel_at_period_end: bool,
+    pub lifetime: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountOnboardingStep {
+    pub kind: String,
+    pub required: bool,
+}
+
 /// Status values are backend vocabulary that may grow, so they are checked by shape.
 fn code(value: &str) -> bool {
     let mut bytes = value.bytes();
@@ -662,5 +734,54 @@ impl AccountMessage {
             && optional_id(self.offer_id)
             && self.image_count <= 100
             && self.sent_at >= 0
+    }
+}
+
+impl AccountProfile {
+    pub(super) fn is_valid(&self) -> bool {
+        optional_text(self.username.as_deref(), 256)
+            && self.display_name.len() <= 4096
+            && optional_text(self.bio.as_deref(), 20_000)
+            && code(&self.language)
+            && is_currency_code(&self.currency)
+            && self.location.as_ref().is_none_or(|location| {
+                location.city.len() <= 4096
+                    && optional_text(location.region.as_deref(), 4096)
+                    && location.country.len() <= 128
+            })
+            && crate::decimal_in_range(&self.rating, 0.0, 5.0)
+            && self.total_ratings >= 0
+            && self.member_since >= 0
+            && self.level.is_none_or(|level| level >= 0)
+            && optional_text(self.level_name.as_deref(), 256)
+            && self.experience_points.is_none_or(|xp| xp >= 0)
+            && self.badges.len() <= 200
+            && self.badges.iter().all(|badge| {
+                !badge.name.is_empty()
+                    && badge.name.len() <= 256
+                    && optional_time(badge.unlocked_at)
+            })
+            && optional_text(
+                self.verification.identity_verification_method.as_deref(),
+                64,
+            )
+            && optional_time(self.verification.identity_verified_at)
+            && optional_time(self.verification.identity_expires_at)
+            && self.standing.outstanding_debt_count >= 0
+            && self
+                .standing
+                .outstanding_debt_total
+                .as_ref()
+                .is_none_or(money)
+            && self.standing.frozen_reason.as_deref().is_none_or(code)
+            && self.subscription.as_ref().is_none_or(|subscription| {
+                code(&subscription.tier)
+                    && subscription.tier_name.len() <= 256
+                    && code(&subscription.status)
+                    && money(&subscription.price)
+                    && subscription.current_period_end >= 0
+            })
+            && self.onboarding_steps.len() <= 50
+            && self.onboarding_steps.iter().all(|step| code(&step.kind))
     }
 }

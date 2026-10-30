@@ -12,9 +12,9 @@ pub(crate) use activity::{
     AccountAutoBidOutput, AccountBidOutput, AccountConversationMessagesOutput,
     AccountConversationOutput, AccountDebtOutput, AccountMoneySummaryOutput,
     AccountNotificationOutput, AccountOfferOutput, AccountOrderDetailOutput, AccountOrderOutput,
-    AccountPageOutput, AccountPaymentActivityOutput, AccountPayoutsOutput, AccountRatingOutput,
-    AccountSavedSearchOutput, AccountSecondChanceOfferOutput, AccountWatchedListingOutput,
-    AccountWatchlistOutput,
+    AccountPageOutput, AccountPaymentActivityOutput, AccountPayoutsOutput, AccountProfileOutput,
+    AccountRatingOutput, AccountSavedSearchOutput, AccountSecondChanceOfferOutput,
+    AccountWatchedListingOutput, AccountWatchlistOutput,
 };
 pub(crate) use listings::{
     ListingAttributesOutput, ListingBidSummaryOutput, ListingCollectionOutput, ListingDetailOutput,

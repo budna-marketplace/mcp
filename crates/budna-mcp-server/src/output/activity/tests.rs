@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use budna_mcp_client::{
-    AccountInvoice, AccountOrderDetail, AccountOrderTracking, AccountRefund,
-    AccountSavedSearchQuery, AccountTrackingEvent, Money, Pagination,
+    AccountBadge, AccountInvoice, AccountLocation, AccountOnboardingStep, AccountOrderDetail,
+    AccountOrderTracking, AccountRefund, AccountSavedSearchQuery, AccountStanding,
+    AccountSubscription, AccountTrackingEvent, AccountVerification, Money, Pagination,
 };
 use serde_json::{Value, json};
 
@@ -278,6 +279,98 @@ fn order_detail_bounds_carrier_text_and_omits_documents() {
     assert_eq!(
         keys(&value["invoices"][0]),
         BTreeSet::from(["issued_at", "kind", "number", "total"])
+    );
+    assert_within_mcp_result_budget(&output);
+}
+
+#[test]
+fn profile_projection_is_an_exact_allowlist_with_bounded_text() {
+    let profile = AccountProfile {
+        username: Some("u".repeat(300)),
+        display_name: "d".repeat(4096),
+        bio: Some("\u{0000}".repeat(20_000)),
+        language: "swedish".to_owned(),
+        currency: "SEK".to_owned(),
+        location: Some(AccountLocation {
+            city: "c".repeat(4096),
+            region: None,
+            country: "Sweden".to_owned(),
+        }),
+        rating: "4.80".to_owned(),
+        total_ratings: 12,
+        is_company: false,
+        member_since: 1,
+        level: Some(3),
+        level_name: Some("l".repeat(256)),
+        experience_points: Some(420),
+        badges: (0..200)
+            .map(|_| AccountBadge {
+                name: "b".repeat(256),
+                unlocked_at: Some(1),
+            })
+            .collect(),
+        verification: AccountVerification {
+            email_confirmed: true,
+            identity_verified: true,
+            identity_verification_valid: true,
+            identity_verification_method: Some("bankid".to_owned()),
+            identity_verified_at: Some(1),
+            identity_expires_at: None,
+            can_sell: true,
+        },
+        standing: AccountStanding {
+            restricted: false,
+            outstanding_debt_count: 1,
+            outstanding_debt_total: Some(sek("49.00")),
+            frozen_reason: None,
+            has_conduct_warning: false,
+        },
+        subscription: Some(AccountSubscription {
+            tier: "personal_pro".to_owned(),
+            tier_name: "Pro".to_owned(),
+            status: "active".to_owned(),
+            price: sek("99.00"),
+            current_period_end: 1,
+            cancel_at_period_end: false,
+            lifetime: false,
+        }),
+        onboarding_steps: vec![AccountOnboardingStep {
+            kind: "add_profile_photo".to_owned(),
+            required: false,
+        }],
+    };
+    let output = AccountProfileOutput::from(profile);
+    assert_eq!(output.badges.len(), 50);
+    assert!(output.truncated);
+    let value = json_value(&output);
+    assert_eq!(
+        keys(&value),
+        BTreeSet::from([
+            "badges",
+            "bio",
+            "currency",
+            "display_name",
+            "experience_points",
+            "is_company",
+            "language",
+            "level",
+            "level_name",
+            "location",
+            "member_since",
+            "onboarding_steps",
+            "rating",
+            "standing",
+            "subscription",
+            "total_ratings",
+            "truncated",
+            "untrusted_content_notice",
+            "username",
+            "verification",
+        ])
+    );
+    assert_eq!(
+        value["standing"]["outstanding_debt_total"]["amount"],
+        "49.00"
     );
     assert_within_mcp_result_budget(&output);
 }

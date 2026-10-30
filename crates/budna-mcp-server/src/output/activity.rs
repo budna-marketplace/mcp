@@ -1,8 +1,8 @@
 use budna_mcp_client::{
     AccountAutoBid, AccountBid, AccountConversation, AccountConversationMessages, AccountDebt,
     AccountMoneySummary, AccountNotification, AccountOffer, AccountOrder, AccountOrderDetail,
-    AccountPage, AccountPaymentActivity, AccountPayouts, AccountRating, AccountSavedSearch,
-    AccountSecondChanceOffer, AccountWatchedListing, AccountWatchlist,
+    AccountPage, AccountPaymentActivity, AccountPayouts, AccountProfile, AccountRating,
+    AccountSavedSearch, AccountSecondChanceOffer, AccountWatchedListing, AccountWatchlist,
 };
 use rmcp::schemars;
 use serde::Serialize;
@@ -844,6 +844,179 @@ impl From<AccountConversationMessages> for AccountConversationMessagesOutput {
             order_id: thread.order_id,
             items,
             pagination: thread.pagination.into(),
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountProfileOutput {
+    #[schemars(length(max = 256))]
+    pub username: Option<String>,
+    #[schemars(length(max = 256))]
+    pub display_name: String,
+    #[schemars(length(max = 4096))]
+    pub bio: Option<String>,
+    #[schemars(length(max = 64))]
+    pub language: String,
+    #[schemars(length(min = 3, max = 3))]
+    pub currency: String,
+    pub location: Option<AccountLocationOutput>,
+    #[schemars(length(max = 128))]
+    pub rating: String,
+    pub total_ratings: i32,
+    pub is_company: bool,
+    pub member_since: i64,
+    pub level: Option<i32>,
+    #[schemars(length(max = 256))]
+    pub level_name: Option<String>,
+    pub experience_points: Option<i32>,
+    #[schemars(length(max = 50))]
+    pub badges: Vec<AccountBadgeOutput>,
+    pub verification: AccountVerificationOutput,
+    pub standing: AccountStandingOutput,
+    pub subscription: Option<AccountSubscriptionOutput>,
+    #[schemars(length(max = 50))]
+    pub onboarding_steps: Vec<AccountOnboardingStepOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountLocationOutput {
+    #[schemars(length(max = 256))]
+    pub city: String,
+    #[schemars(length(max = 256))]
+    pub region: Option<String>,
+    #[schemars(length(max = 128))]
+    pub country: String,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountBadgeOutput {
+    #[schemars(length(max = 256))]
+    pub name: String,
+    pub unlocked_at: Option<i64>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountVerificationOutput {
+    pub email_confirmed: bool,
+    pub identity_verified: bool,
+    pub identity_verification_valid: bool,
+    #[schemars(length(max = 64))]
+    pub identity_verification_method: Option<String>,
+    pub identity_verified_at: Option<i64>,
+    pub identity_expires_at: Option<i64>,
+    pub can_sell: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountStandingOutput {
+    pub restricted: bool,
+    pub outstanding_debt_count: i64,
+    pub outstanding_debt_total: Option<MoneyOutput>,
+    #[schemars(length(max = 64))]
+    pub frozen_reason: Option<String>,
+    pub has_conduct_warning: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountSubscriptionOutput {
+    #[schemars(length(max = 64))]
+    pub tier: String,
+    #[schemars(length(max = 256))]
+    pub tier_name: String,
+    #[schemars(length(max = 64))]
+    pub status: String,
+    pub price: MoneyOutput,
+    pub current_period_end: i64,
+    pub cancel_at_period_end: bool,
+    pub lifetime: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountOnboardingStepOutput {
+    #[schemars(length(max = 64))]
+    pub kind: String,
+    pub required: bool,
+}
+
+impl From<AccountProfile> for AccountProfileOutput {
+    fn from(profile: AccountProfile) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let username = budget.optional_text(profile.username, MAX_NAME_BYTES);
+        let display_name = budget.text(profile.display_name, MAX_NAME_BYTES);
+        let bio = budget.optional_text(profile.bio, MAX_LONG_TEXT_BYTES);
+        let location = profile.location.map(|location| AccountLocationOutput {
+            city: budget.text(location.city, MAX_NAME_BYTES),
+            region: budget.optional_text(location.region, MAX_NAME_BYTES),
+            country: budget.text(location.country, MAX_CODE_BYTES),
+        });
+        let level_name = budget.optional_text(profile.level_name, MAX_NAME_BYTES);
+        let badges = budget
+            .objects(profile.badges, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|badge| AccountBadgeOutput {
+                name: budget.text(badge.name, MAX_NAME_BYTES),
+                unlocked_at: badge.unlocked_at,
+            })
+            .collect();
+        let subscription = profile
+            .subscription
+            .map(|subscription| AccountSubscriptionOutput {
+                tier: subscription.tier,
+                tier_name: budget.text(subscription.tier_name, MAX_NAME_BYTES),
+                status: subscription.status,
+                price: subscription.price.into(),
+                current_period_end: subscription.current_period_end,
+                cancel_at_period_end: subscription.cancel_at_period_end,
+                lifetime: subscription.lifetime,
+            });
+        let onboarding_steps = budget
+            .objects(profile.onboarding_steps, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|step| AccountOnboardingStepOutput {
+                kind: step.kind,
+                required: step.required,
+            })
+            .collect();
+        let verification = profile.verification;
+        let standing = profile.standing;
+        Self {
+            username,
+            display_name,
+            bio,
+            language: profile.language,
+            currency: profile.currency,
+            location,
+            rating: profile.rating,
+            total_ratings: profile.total_ratings,
+            is_company: profile.is_company,
+            member_since: profile.member_since,
+            level: profile.level,
+            level_name,
+            experience_points: profile.experience_points,
+            badges,
+            verification: AccountVerificationOutput {
+                email_confirmed: verification.email_confirmed,
+                identity_verified: verification.identity_verified,
+                identity_verification_valid: verification.identity_verification_valid,
+                identity_verification_method: verification.identity_verification_method,
+                identity_verified_at: verification.identity_verified_at,
+                identity_expires_at: verification.identity_expires_at,
+                can_sell: verification.can_sell,
+            },
+            standing: AccountStandingOutput {
+                restricted: standing.restricted,
+                outstanding_debt_count: standing.outstanding_debt_count,
+                outstanding_debt_total: standing.outstanding_debt_total.map(Into::into),
+                frozen_reason: standing.frozen_reason,
+                has_conduct_warning: standing.has_conduct_warning,
+            },
+            subscription,
+            onboarding_steps,
             truncated: budget.truncated(),
             untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
         }

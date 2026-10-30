@@ -11,7 +11,8 @@ use axum::{
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, BIDS_READ_SCOPE, ClientError,
     LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE,
-    ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, RATINGS_READ_SCOPE, WATCHLIST_READ_SCOPE,
+    ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE,
+    WATCHLIST_READ_SCOPE,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -170,6 +171,7 @@ async fn authenticate(
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
         "get_my_account" => ACCOUNT_READ_SCOPE,
+        "get_my_profile" => PROFILE_READ_SCOPE,
         "list_my_listings" | "get_my_listing" => LISTINGS_READ_SCOPE,
         "list_my_bids" | "list_my_auto_bids" => BIDS_READ_SCOPE,
         "list_my_offers" | "list_my_second_chance_offers" => OFFERS_READ_SCOPE,

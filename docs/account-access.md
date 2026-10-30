@@ -86,6 +86,7 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | Tool | Scope | Output |
 | --- | --- | --- |
 | `get_my_account` | `account:read` | Account ID, personal/company kind and optional public account label |
+| `get_my_profile` | `profile:read` | Own profile and status: username, display name, bio, city, rating, level and badges, verification, standing with outstanding debt, active subscription and onboarding steps; never birth date, addresses or payment preferences |
 | `list_my_listings` | `listings:read` | Bounded own listing summaries, including drafts, with ID, nullable title, status, type and update time |
 | `get_my_listing` | `listings:read` | Owner-visible details for one own listing, including drafts and the owner's reserve price |
 | `list_my_bids` | `bids:read` | Own bids with listing ID and title, amount, placement time and status; optionally only currently winning bids |
