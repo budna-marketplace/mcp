@@ -8,7 +8,11 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use budna_mcp_client::{ACCOUNT_READ_SCOPE, AccountApiClient, ClientError, LISTINGS_READ_SCOPE};
+use budna_mcp_client::{
+    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, BIDS_READ_SCOPE, ClientError,
+    LISTINGS_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE,
+    RATINGS_READ_SCOPE, WATCHLIST_READ_SCOPE,
+};
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
     HeaderValue, StatusCode,
@@ -49,8 +53,9 @@ pub fn account_http_router(
             .with_cancellation_token(cancellation.child_token()),
     );
     let challenge = HeaderValue::from_str(&format!(
-        "Bearer resource_metadata=\"{}\", scope=\"{ACCOUNT_READ_SCOPE} {LISTINGS_READ_SCOPE}\"",
-        account.metadata_url()
+        "Bearer resource_metadata=\"{}\", scope=\"{}\"",
+        account.metadata_url(),
+        ACCOUNT_SCOPES.join(" ")
     ))?;
     let auth = AccountAuth {
         client,
@@ -60,7 +65,7 @@ pub fn account_http_router(
     let metadata = serde_json::json!({
         "resource": account.resource(),
         "authorization_servers": [account.issuer()],
-        "scopes_supported": [ACCOUNT_READ_SCOPE, LISTINGS_READ_SCOPE],
+        "scopes_supported": ACCOUNT_SCOPES,
         "bearer_methods_supported": ["header"],
         "resource_name": "Budna account reads"
     });
@@ -118,16 +123,10 @@ async fn authenticate(
                         let scope = if message.get("method").and_then(|value| value.as_str())
                             == Some("tools/call")
                         {
-                            match message
+                            message
                                 .pointer("/params/name")
                                 .and_then(|value| value.as_str())
-                            {
-                                Some("get_my_account") => Some(ACCOUNT_READ_SCOPE),
-                                Some("list_my_listings" | "get_my_listing") => {
-                                    Some(LISTINGS_READ_SCOPE)
-                                }
-                                _ => None,
-                            }
+                                .and_then(account_tool_scope)
                         } else {
                             None
                         };
@@ -165,6 +164,23 @@ async fn authenticate(
         .headers_mut()
         .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
     result
+}
+
+/// The permission each account tool needs, checked before the call reaches the tool.
+pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "get_my_account" => ACCOUNT_READ_SCOPE,
+        "list_my_listings" | "get_my_listing" => LISTINGS_READ_SCOPE,
+        "list_my_bids" => BIDS_READ_SCOPE,
+        "list_my_offers" => OFFERS_READ_SCOPE,
+        "list_my_watchlists" | "list_my_watchlist_listings" | "list_my_saved_searches" => {
+            WATCHLIST_READ_SCOPE
+        }
+        "list_my_orders" => ORDERS_READ_SCOPE,
+        "list_my_notifications" => NOTIFICATIONS_READ_SCOPE,
+        "list_my_ratings" => RATINGS_READ_SCOPE,
+        _ => return None,
+    })
 }
 
 fn unauthorized(auth: &AccountAuth) -> Response {

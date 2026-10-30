@@ -26,6 +26,8 @@ use crate::BudnaMcpServer;
 mod account;
 
 pub use account::account_http_router;
+#[cfg(test)]
+pub(crate) use account::account_tool_scope;
 
 /// Explicit alias for the stateless public Explore router.
 pub use public_http_router as stateless_public_http_router;

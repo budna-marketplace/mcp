@@ -21,6 +21,11 @@ CORS. The host owns TLS, listener binding and graceful shutdown through the
 supplied cancellation token. The standalone application's listener stays on
 loopback.
 
+`AccountMcpServer::with_public` also serves every public Explore tool and the
+Marketplace Explorer resources on `/account/mcp`, so a connected client reads
+public and own data through one connection. Public tools need no delegated
+permission and still use only the credential-free public client.
+
 Hosts offering both profiles can merge the account router with
 `budna_mcp_server::public_http_router`, which serves anonymous tools at `/mcp`
 using stateless JSON responses without sessions or replica affinity.
@@ -83,6 +88,14 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | `get_my_account` | `account:read` | Account ID, personal/company kind and optional public account label |
 | `list_my_listings` | `listings:read` | Bounded own listing summaries, including drafts, with ID, nullable title, status, type and update time |
 | `get_my_listing` | `listings:read` | Owner-visible details for one own listing, including drafts and the owner's reserve price |
+| `list_my_bids` | `bids:read` | Own bids with listing ID and title, amount, placement time and status; optionally only currently winning bids |
+| `list_my_offers` | `offers:read` | Offers sent or received with listing, role, amount, quantity, counter amount, status, last actor (`me` or `other_party`) and expiry |
+| `list_my_watchlists` | `watchlist:read` | Own watchlists with ID, name, default flag, item count and timestamps |
+| `list_my_watchlist_listings` | `watchlist:read` | Listing IDs and titles in one own watchlist |
+| `list_my_saved_searches` | `watchlist:read` | Saved searches with name, search criteria and filters, alert frequency, active flag and match counts |
+| `list_my_orders` | `orders:read` | Purchases or sales with listing, amount, quantity, order/payment/fulfillment status, carrier, tracking number, return status, deadlines and seller payout |
+| `list_my_notifications` | `notifications:read` | Notifications with type, priority, read state, time and related listing, order, offer or saved search |
+| `list_my_ratings` | `ratings:read` | Ratings received or given with listing, 1–5 star value, comment and time |
 
 The listing collection accepts only `page` (1–10000) and `limit` (1–50). Detail
 accepts only a canonical `listing_id`. The account
@@ -105,6 +118,20 @@ session metadata provides context without playback credentials. Attributes with
 complex values expose their app display text and a `json_display_only` marker
 rather than arbitrary JSON; unsupported complex shapes have a null display value.
 Buyer protection fee amounts carry the listing's currency.
+
+Activity tools accept `page` (1–10000) and `limit` (1–50) plus only their
+documented selectors: `winning_only` for bids, `role` (`sent`/`received`) and
+`open_only` for offers, `watchlist_id` for watchlist listings, `role`
+(`buyer`/`seller`) for orders, `unread_only` for notifications and
+`direction` (`received`/`given`) for ratings. They read only records where the
+connected account is the bidder, buyer, seller, watcher, searcher, recipient,
+rater or ratee. They omit the other party's identity, addresses, contact
+details, offer and order messages, notification text and senders, payment
+instruments and internal staff or risk data. Status values are backend codes
+in lowercase snake case and may gain new values. Seller-entered carrier names
+and tracking numbers, saved-search text, watchlist names and rating comments
+are untrusted content. Each activity response reports `truncated` when output
+limits shorten text or item counts.
 
 The projection omits precise addresses, contacts, other people's identities,
 internal row IDs, moderation or risk notes, staff metadata, tag claim codes,
@@ -137,8 +164,9 @@ service using the dedicated service credential. The request is JSON
 separate bearer API token, expiry, scope, subject, grant ID, client ID and
 resource. Tokens are never returned as tool output or embedded in resources.
 
-Only that short-lived delegated API token is used for `GET mcp/account` and
-`GET mcp/listings` and `GET mcp/listings/{listing_id}` beneath the API base. The API must independently enforce
+Only that short-lived delegated API token is used for `GET mcp/account`,
+`GET mcp/listings`, `GET mcp/listings/{listing_id}` and the activity reads
+beneath `mcp/account/` relative to the API base. The API must independently enforce
 grant revocation, expiry, scope, account standing and ownership, and must reject
 these credentials on all other capabilities. The MCP token is never forwarded
 to a marketplace resource endpoint. The connector stores no refresh tokens or

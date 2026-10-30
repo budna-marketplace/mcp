@@ -26,7 +26,10 @@ impl ToolPolicy {
         matches!(
             (self, capability),
             (Self::PublicExplore, ToolCapability::PublicExplore)
-                | (Self::AccountRead, ToolCapability::AccountRead)
+                | (
+                    Self::AccountRead,
+                    ToolCapability::AccountRead | ToolCapability::PublicExplore
+                )
         )
     }
 }

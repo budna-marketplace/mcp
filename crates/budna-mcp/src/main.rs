@@ -30,9 +30,13 @@ async fn main() -> Result<()> {
         let secret = std::env::var("BUDNA_MCP_SERVICE_SECRET").map_err(|_| {
             anyhow::anyhow!("the account profile requires BUDNA_MCP_SERVICE_SECRET")
         })?;
+        let public = BudnaMcpServer::new(PublicApiClient::new(client_config.clone())?)
+            .with_public_urls(settings.public_urls().clone())
+            .with_operation_timeout(settings.request_timeout());
         let client =
             AccountApiClient::new(client_config, account.issuer(), account.resource(), secret)?;
-        let server = AccountMcpServer::new(client.clone(), settings.request_timeout());
+        let server =
+            AccountMcpServer::new(client.clone(), settings.request_timeout()).with_public(public);
         return account_http_transport::serve(
             server,
             client,

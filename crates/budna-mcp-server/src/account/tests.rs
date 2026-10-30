@@ -69,3 +69,16 @@ async fn account_tool_timeout_cancels_work_and_releases_its_slot() {
     );
     assert_eq!(server.slots.available_permits(), 8);
 }
+
+#[test]
+fn every_account_tool_requires_a_delegated_permission() {
+    let tools = AccountMcpServer::tool_router().list_all();
+    assert_eq!(tools.len(), 11);
+    for tool in tools {
+        assert!(
+            crate::http_transport::account_tool_scope(&tool.name).is_some(),
+            "{} has no permission",
+            tool.name
+        );
+    }
+}
