@@ -37,15 +37,15 @@ pub use account::{
     AccountListingLiveStream, AccountListingPage, AccountListingPromotion, AccountListingReserve,
     AccountListingRound, AccountListingShipping, AccountListingShowcase, AccountListingSummary,
     AccountListingTag, AccountListingVat, AccountListingVideo, AccountLiveReminder,
-    AccountLiveSession, AccountLocation, AccountMessage, AccountMoneySummary, AccountNotification,
-    AccountNotificationPreferences, AccountOffer, AccountOfferHistory, AccountOfferStep,
-    AccountOnboardingStep, AccountOrder, AccountOrderDetail, AccountOrderGroup, AccountOrderReturn,
-    AccountOrderTracking, AccountOwnBoost, AccountOwnDispute, AccountPage, AccountPaymentActivity,
-    AccountPaymentActivityEntry, AccountPayout, AccountPayoutMethod, AccountPayoutSetup,
-    AccountPayouts, AccountPriorityCredits, AccountProfile, AccountRating, AccountReferral,
-    AccountReferralRewards, AccountReferralStep, AccountRefund, AccountSavedSearch,
-    AccountSavedSearchMatch, AccountSavedSearchQuery, AccountSearchPriority,
-    AccountSecondChanceOffer, AccountSellerInsights, AccountSettlementOffer,
+    AccountLiveSession, AccountLocation, AccountMessage, AccountMessageMatch, AccountMessageSearch,
+    AccountMoneySummary, AccountNotification, AccountNotificationPreferences, AccountOffer,
+    AccountOfferHistory, AccountOfferStep, AccountOnboardingStep, AccountOrder, AccountOrderDetail,
+    AccountOrderGroup, AccountOrderReturn, AccountOrderTracking, AccountOwnBoost,
+    AccountOwnDispute, AccountPage, AccountPaymentActivity, AccountPaymentActivityEntry,
+    AccountPayout, AccountPayoutMethod, AccountPayoutSetup, AccountPayouts, AccountPriorityCredits,
+    AccountProfile, AccountRating, AccountReferral, AccountReferralRewards, AccountReferralStep,
+    AccountRefund, AccountSavedSearch, AccountSavedSearchMatch, AccountSavedSearchQuery,
+    AccountSearchPriority, AccountSecondChanceOffer, AccountSellerInsights, AccountSettlementOffer,
     AccountShippingSettings, AccountShowcase, AccountStanding, AccountSubscription, AccountSummary,
     AccountTopListing, AccountTrackingEvent, AccountVerification, AccountVideo,
     AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, DelegatedAccess,
@@ -56,11 +56,11 @@ pub use account::{
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
 pub use explore::{
-    Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
-    CollectionItem, CollectionPage, ListingQuestion, ListingQuestions, ListingSuggestion,
-    LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity, LocationRegion,
-    PackagePreset, PublicRating, PublicSeller, RatingStatistics, SearchSuggestions, SellerRatings,
-    ShippingRate, ShippingRates,
+    AuctionRound, Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
+    CollectionItem, CollectionPage, ListingBidHistory, ListingQuestion, ListingQuestions,
+    ListingSuggestion, LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity,
+    LocationRegion, PackagePreset, PublicBid, PublicRating, PublicSeller, RatingStatistics,
+    SearchSuggestions, SellerRatings, ShippingRate, ShippingRates,
 };
 pub use models::{
     AttributeValue, BuyerProtectionConfig, CategoryFilters, CategoryListRequest, CategoryPage,
@@ -556,6 +556,22 @@ impl PublicApiClient {
     where
         T: DeserializeOwned,
     {
+        let envelope: ApiEnvelope<T> = self.get_body(operation, request).await?;
+        if !envelope.success {
+            return Err(ClientError::UnsuccessfulEnvelope { operation });
+        }
+        Ok(envelope.data)
+    }
+
+    /// Sends a public GET with bounded retries and decodes the whole response body.
+    async fn get_body<B>(
+        &self,
+        operation: &'static str,
+        request: RequestBuilder,
+    ) -> Result<B, ClientError>
+    where
+        B: DeserializeOwned,
+    {
         let request = request
             .header(ACCEPT, ACCEPTED_RESPONSE_MEDIA_TYPES)
             .header("X-Budna-Contract", "external-ids-v1")
@@ -568,7 +584,7 @@ impl PublicApiClient {
             let attempt_request = request
                 .try_clone()
                 .ok_or(ClientError::RetryInvariant { operation })?;
-            let result = self.send_once::<T>(operation, attempt_request).await;
+            let result = self.send_once::<B>(operation, attempt_request).await;
             let elapsed_ms = elapsed_millis(started);
 
             match result {
@@ -635,13 +651,13 @@ impl PublicApiClient {
         Err(ClientError::RetryInvariant { operation })
     }
 
-    async fn send_once<T>(
+    async fn send_once<B>(
         &self,
         operation: &'static str,
         request: reqwest::Request,
-    ) -> Result<Option<T>, ClientError>
+    ) -> Result<B, ClientError>
     where
-        T: DeserializeOwned,
+        B: DeserializeOwned,
     {
         let mut response = self
             .http
@@ -695,13 +711,8 @@ impl PublicApiClient {
             });
         }
 
-        let envelope = serde_json::from_slice::<ApiEnvelope<T>>(&body)
-            .map_err(|source| ClientError::Decode { operation, source })?;
-        if !envelope.success {
-            return Err(ClientError::UnsuccessfulEnvelope { operation });
-        }
-
-        Ok(envelope.data)
+        serde_json::from_slice::<B>(&body)
+            .map_err(|source| ClientError::Decode { operation, source })
     }
 }
 

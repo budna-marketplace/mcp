@@ -393,6 +393,32 @@ impl AccountSavedSearchMatchesParams {
     }
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountMessageSearchParams {
+    /// Text to find in message bodies, 3 to 100 characters after trimming.
+    #[schemars(length(min = 3, max = 100))]
+    pub query: String,
+    /// next_page from the previous result; defaults to 1.
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountMessageSearchParams {
+    pub fn validate(&self) -> Result<(&str, u32, u32), InputError> {
+        let query = self.query.trim();
+        if !(3..=100).contains(&query.chars().count()) {
+            return Err(InputError::new(
+                "query must contain 3 to 100 characters after trimming",
+            ));
+        }
+        let (page, limit) = validate_listing_page(self.page, self.limit)?;
+        Ok((query, page, limit))
+    }
+}
+
 fn positive_id(field: &str, value: i64) -> Result<i64, InputError> {
     if value < 1 {
         return Err(InputError::new(format!("{field} must be at least 1")));
@@ -1044,6 +1070,28 @@ impl BrowseListingsParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct BidHistoryParams {
+    /// Public Budna listing ID, prefixed with listing_.
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
+
+    /// An auction round from the returned rounds. Defaults to the current round.
+    #[schemars(range(min = 1))]
+    pub round_id: Option<i64>,
+}
+
+impl BidHistoryParams {
+    pub fn validate(&self) -> Result<(), InputError> {
+        validate_listing_id(&self.listing_id)?;
+        if self.round_id.is_some_and(|round_id| round_id < 1) {
+            return Err(InputError::new("round_id must be at least 1"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SellerRatingsParams {
     /// Public Budna seller user ID, prefixed with user_.
     #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
@@ -1472,6 +1520,22 @@ fn is_valid_filter_name(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn account_message_search_trims_and_bounds_its_query() {
+        let params = |query: &str| AccountMessageSearchParams {
+            query: query.to_owned(),
+            page: None,
+            limit: None,
+        };
+        assert!(matches!(
+            params("  leica  ").validate(),
+            Ok(("leica", 1, 10))
+        ));
+        assert!(params("  ab  ").validate().is_err());
+        assert!(params(&"å".repeat(101)).validate().is_err());
+        assert!(params(&"å".repeat(100)).validate().is_ok());
+    }
 
     #[test]
     fn account_record_ids_must_be_positive() {

@@ -201,9 +201,10 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         | "get_my_order_group" => ORDERS_READ_SCOPE,
         "list_my_notifications" | "get_my_notification_preferences" => NOTIFICATIONS_READ_SCOPE,
         "list_my_ratings" => RATINGS_READ_SCOPE,
-        "list_my_conversations" | "get_my_conversation" | "list_my_listing_chats" => {
-            MESSAGES_READ_SCOPE
-        }
+        "list_my_conversations"
+        | "get_my_conversation"
+        | "list_my_listing_chats"
+        | "search_my_messages" => MESSAGES_READ_SCOPE,
         "get_my_money_summary"
         | "list_my_payment_activity"
         | "list_my_payouts"

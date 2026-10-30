@@ -24,7 +24,10 @@ loopback.
 `AccountMcpServer::with_public` also serves every public Explore tool and the
 Marketplace Explorer resources on `/account/mcp`, so a connected client reads
 public and own data through one connection. Public tools need no delegated
-permission and still use only the credential-free public client.
+permission and still use only the credential-free public client. As in the
+app, `get_listing_bid_history` there labels the connected account's own bids
+`You` when the grant includes `bids:read`; other bidders stay `Bidder N`, and
+the public resource never labels a bid `You`.
 
 Hosts offering both profiles can merge the account router with
 `budna_mcp_server::public_http_router`, which serves anonymous tools at `/mcp`
@@ -117,6 +120,7 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | `list_my_conversations` | `messages:read` | Conversations with the other participant's public username, related listing or order, latest message preview and counts |
 | `get_my_conversation` | `messages:read` | Messages in one own conversation: sender (`me` or `other_party`), text, type, related offer, image count, time and read state |
 | `list_my_listing_chats` | `messages:read` | Public listing chats the user takes part in: listing, side, who wrote the latest message with their public username when it is someone else, its preview, unread count and last activity |
+| `search_my_messages` | `messages:read` | Own conversation messages containing `query`: conversation and message IDs, sender (`me` or `other_party`), a snippet of up to 300 characters and time; continue with `next_page` |
 | `get_my_seller_insights` | `selling:read` | Engagement for `range` 7d, 30d (default) or 90d: status, live and period counts, a daily series, up to 10 top listings and the priority-credit balance |
 | `list_my_boosts` | `selling:read` | Bought boosts with the boosted listing or collection, title, type, status, price, start and expiry |
 | `get_my_listing_promotion` | `selling:read` | One own listing's current, queued and recent boosts, search priority with quoted price, video processing status without links, and a company listing's VAT treatment with the company default |
@@ -159,8 +163,9 @@ documented selectors: `winning_only` for bids, `role` (`sent`/`received`) and
 `open_only` for offers, `watchlist_id` for watchlist listings,
 `saved_search_id` for saved-search matches, `role` (`buyer`/`seller`) for
 orders, `unread_only` for notifications and `direction` (`received`/`given`)
-for ratings. The order, dispute, combined-shipment, offer-history and company
-reads take only a positive
+for ratings. Message search takes `query`, 3–100 characters after trimming,
+and returns `next_page` instead of a total. The order, dispute,
+combined-shipment, offer-history and company reads take only a positive
 `order_id`, `dispute_id`, `group_id`, `offer_id` or `company_id`; a record that
 does not exist or is not the account's own is unavailable. They read only
 records where the connected account is the bidder, buyer, seller, watcher,
@@ -173,7 +178,7 @@ senders, dispute evidence, payment instruments, bank and account numbers,
 printed tag codes and internal staff or risk data. Status values are backend
 codes in lowercase snake case and may gain new values. Seller-entered carrier
 names and tracking numbers, saved-search text, watchlist names, rating comments,
-dispute statements and chat previews are untrusted content.
+dispute statements, chat previews and message snippets are untrusted content.
 Each activity response reports `truncated` when output limits shorten text or
 item counts.
 

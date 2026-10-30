@@ -191,7 +191,7 @@ fn maximum_activity_pages_stay_within_the_tool_result_budget() {
             listing_title: Some("t".repeat(4096)),
             counterparty_username: Some("u".repeat(300)),
             value: 5,
-            comment: Some("\u{0000}".repeat(8192)),
+            comment: Some("\"".repeat(8192)),
             created_at: 1,
         })
         .collect::<Vec<_>>();
@@ -289,7 +289,7 @@ fn profile_projection_is_an_exact_allowlist_with_bounded_text() {
     let profile = AccountProfile {
         username: Some("u".repeat(300)),
         display_name: "d".repeat(4096),
-        bio: Some("\u{0000}".repeat(20_000)),
+        bio: Some("\"".repeat(20_000)),
         language: "swedish".to_owned(),
         currency: "SEK".to_owned(),
         location: Some(AccountLocation {

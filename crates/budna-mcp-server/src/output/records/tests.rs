@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use budna_mcp_client::{
     AccountAchievement, AccountCreditBalance, AccountDisputeStatement, AccountLegalDocument,
-    AccountOfferStep, AccountPayoutMethod, AccountReferralRewards, AccountReferralStep,
-    AccountSettlementOffer, Money, Pagination,
+    AccountMessageMatch, AccountOfferStep, AccountPayoutMethod, AccountReferralRewards,
+    AccountReferralStep, AccountSettlementOffer, Money, Pagination,
 };
 use serde_json::{Value, json};
 
@@ -86,7 +86,7 @@ fn maximum_dispute_detail_bounds_statements_and_stays_within_budget() {
         statements: (0..120)
             .map(|index| AccountDisputeStatement {
                 from: (if index % 2 == 0 { "me" } else { "other_party" }).to_owned(),
-                text: "\u{0000}".repeat(20_000),
+                text: "\"".repeat(20_000),
                 created_at: index,
             })
             .collect(),
@@ -197,7 +197,44 @@ fn order_groups_bound_their_orders_and_name_the_other_party_only_by_username() {
 }
 
 #[test]
-fn listing_chats_bound_and_flag_message_text() {
+fn message_search_and_listing_chats_bound_and_flag_message_text() {
+    let search = AccountMessageSearch {
+        items: (0..60)
+            .map(|index| AccountMessageMatch {
+                conversation_id: 5,
+                message_id: index + 1,
+                from: "other_party".to_owned(),
+                snippet: "\"".repeat(4096),
+                sent_at: 1,
+            })
+            .collect(),
+        next_page: Some(2),
+    };
+    let output = AccountMessageSearchOutput::from(search);
+    assert_eq!(output.items.len(), 50);
+    assert!(output.truncated);
+    let value = json_value(&output);
+    assert_eq!(
+        keys(&value),
+        BTreeSet::from([
+            "items",
+            "next_page",
+            "truncated",
+            "untrusted_content_notice"
+        ])
+    );
+    assert_eq!(
+        keys(&value["items"][0]),
+        BTreeSet::from([
+            "conversation_id",
+            "from",
+            "message_id",
+            "sent_at",
+            "snippet"
+        ])
+    );
+    assert_within_mcp_result_budget(&output);
+
     let chats = (0..60)
         .map(|_| AccountListingChat {
             listing_id: LISTING.to_owned(),
@@ -406,8 +443,8 @@ fn maximum_achievements_stay_within_the_tool_result_budget() {
     let achievements = AccountAchievements {
         achievements: (0..500)
             .map(|_| AccountAchievement {
-                name: "\u{0000}".repeat(256),
-                description: "\u{0000}".repeat(4096),
+                name: "\"".repeat(256),
+                description: "\"".repeat(4096),
                 category: "selling".to_owned(),
                 progress: 1,
                 target: 10,

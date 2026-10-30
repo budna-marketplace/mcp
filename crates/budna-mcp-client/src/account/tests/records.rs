@@ -52,6 +52,11 @@ fn listing_chat(from: &str) -> serde_json::Value {
         "unread_count":2,"last_activity_at":1})
 }
 
+fn message_search(next_page: u32) -> serde_json::Value {
+    json!({"items":[{"conversation_id":5,"message_id":6,"from":"other_party",
+        "snippet":"Is the leica lens still available?","sent_at":1}],"next_page":next_page})
+}
+
 fn preferences(quiet_hours_start: i32) -> serde_json::Value {
     json!({"push_enabled":true,"email_enabled":false,"in_app_enabled":true,
         "categories":{"bids":true,"promotional":false},"quiet_hours_start":quiet_hours_start,
@@ -136,6 +141,17 @@ async fn mount_valid_records(api: &MockServer) {
         listing_chat("other_party"),
     )
     .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/mcp/account/messages/search"))
+        .and(query_param("q", "leica lens"))
+        .and(query_param("page", "1"))
+        .and(query_param("limit", "10"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"success":true,"data":message_search(2)})),
+        )
+        .mount(api)
+        .await;
     mount_record(
         api,
         "/api/v1/mcp/account/notifications/preferences",
@@ -238,6 +254,11 @@ async fn remaining_reads_decode_their_contract_and_forward_only_their_input() {
         chats.items[0].counterparty_username.as_deref(),
         Some("synthetic_buyer")
     );
+    let found = client
+        .search_messages(&access, "  leica lens  ", 1, 10)
+        .await
+        .unwrap_or_else(|error| panic!("message search: {error}"));
+    assert_eq!(found.next_page, Some(2));
     let preferences = client
         .notification_preferences(&access)
         .await
@@ -298,6 +319,8 @@ async fn remaining_reads_require_their_own_permission_before_any_request() {
         client.saved_search_matches(&access, 13, 1, 10).await.err(),
         client.live_reminders(&access, 1, 10).await.err(),
         client.listing_chats(&access, 1, 10).await.err(),
+        client.search_messages(&access, "leica", 1, 10).await.err(),
+        client.search_messages(&access, "le", 1, 10).await.err(),
         client.notification_preferences(&access).await.err(),
         client.credits(&access).await.err(),
         client.payout_setup(&access).await.err(),
@@ -341,6 +364,12 @@ async fn remaining_reads_reject_bad_input_and_records_outside_the_contract() {
     .await;
     mount_record(
         &api,
+        "/api/v1/mcp/account/messages/search",
+        message_search(3),
+    )
+    .await;
+    mount_record(
+        &api,
         "/api/v1/mcp/account/notifications/preferences",
         preferences(24),
     )
@@ -371,6 +400,12 @@ async fn remaining_reads_reject_bad_input_and_records_outside_the_contract() {
         client.order_group(&access, -1).await.err(),
         client.offer_history(&access, 0).await.err(),
         client.saved_search_matches(&access, 0, 1, 10).await.err(),
+        client.search_messages(&access, "  ab  ", 1, 10).await.err(),
+        client
+            .search_messages(&access, &"x".repeat(101), 1, 10)
+            .await
+            .err(),
+        client.search_messages(&access, "leica", 1, 51).await.err(),
         client.listing_tags(&access, 0, 10).await.err(),
     ];
     for error in input {
@@ -381,6 +416,7 @@ async fn remaining_reads_reject_bad_input_and_records_outside_the_contract() {
         client.dispute(&access, 23).await.err(),
         client.order_group(&access, 32).await.err(),
         client.listing_chats(&access, 1, 10).await.err(),
+        client.search_messages(&access, "leica", 1, 10).await.err(),
         client.notification_preferences(&access).await.err(),
         client.credits(&access).await.err(),
         client.payout_setup(&access).await.err(),

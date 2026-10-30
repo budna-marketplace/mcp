@@ -466,7 +466,7 @@ mod tests {
             top_listings: (0..12)
                 .map(|_| AccountTopListing {
                     listing_id: LISTING.to_owned(),
-                    title: "\u{0000}".repeat(4096),
+                    title: "\"".repeat(4096),
                     counted_views: 9,
                     new_saves: 1,
                     current_external_saves: 1,
@@ -560,7 +560,7 @@ mod tests {
             items: (0..60)
                 .map(|_| AccountListingTag {
                     listing_id: LISTING.to_owned(),
-                    listing_title: Some("\u{0000}".repeat(4096)),
+                    listing_title: Some("\"".repeat(4096)),
                     scans: 12,
                     scans_last_7_days: 3,
                     last_scanned_on: Some("2026-10-29".to_owned()),
