@@ -6,7 +6,7 @@
 [![MCP Registry](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0.1%2Fservers%2Fio.github.budna-marketplace%252Fmcp%2Fversions%2Flatest&query=%24.server.version&label=MCP+Registry&prefix=v&color=blue)](https://registry.modelcontextprotocol.io/?q=io.github.budna-marketplace%2Fmcp)
 [![Homebrew](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbudna-marketplace%2Fhomebrew-tap%2Fmain%2FFormula%2Fbudna-mcp.rb&search=version+%22%28%5B%5E%22%5D%2B%29%22&replace=v%241&label=Homebrew&logo=homebrew&logoColor=white&color=FBB040)](https://github.com/budna-marketplace/homebrew-tap)
 
-Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account and listings, with the permissions you choose. Budna MCP is read-only: it cannot change marketplace data.
+Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account, listings, bids, offers, watchlists, saved searches, purchases, sales, notifications and ratings, with the permissions you choose. Budna MCP is read-only: it cannot change marketplace data.
 
 ## Quick start
 
@@ -133,6 +133,14 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `get_my_account` | Account permission | Read your account ID, account type and display name |
 | `list_my_listings` | Listings permission | List your own listings, including drafts, with title, status, type and update time |
 | `get_my_listing` | Listings permission | Read owner-visible details of one of your listings, including drafts and your reserve price |
+| `list_my_bids` | Bids permission | List your bids with amount, time and status (valid, outbid, won or cancelled), or only the ones currently winning |
+| `list_my_offers` | Offers permission | List offers you sent or received, with amount, counter-offer, status, who acted last and expiry |
+| `list_my_watchlists` | Watchlist permission | List your watchlists with their names and item counts |
+| `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |
+| `list_my_saved_searches` | Watchlist permission | List your saved searches with their criteria, alerts and unseen matches |
+| `list_my_orders` | Orders permission | List your purchases or sales with payment, delivery and return status, carrier, tracking number and, for sales, your payout |
+| `list_my_notifications` | Notifications permission | List your notifications by type, read state and related listing, order, offer or saved search |
+| `list_my_ratings` | Ratings permission | List ratings you received or gave, with stars, comment and listing |
 
 In compatible MCP Apps clients you can also browse interactive listing cards and explicitly ask the AI to compare two to four selected listings.
 
@@ -140,14 +148,15 @@ Budna MCP cannot currently bid, make offers, buy, message, record views, change 
 
 ### Permissions you control
 
-- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`) and **Listings** (`listings:read`).
+- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`), **Listings** (`listings:read`), **Bids** (`bids:read`), **Offers** (`offers:read`), **Watchlists and saved searches** (`watchlist:read`), **Orders** (`orders:read`), **Notifications** (`notifications:read`) and **Ratings** (`ratings:read`).
+- Account tools never show who the other buyer, bidder or seller is, their addresses or contact details, or the text of messages and notifications.
 - Under Account → Security → Connected apps you can remove a permission or disconnect an app at any time. Removing a permission takes effect immediately, including for access the app already holds; restoring it requires approving the app again.
 - A connection lasts at most seven days before you approve it again.
 - Disconnecting stops future access, but cannot recall information already shared with the AI service.
 
 ### Where Budna MCP is going
 
-Budna MCP is growing toward everything you can do in the Budna app and on the web, such as bidding, making offers, buying, selling and managing your listings, and messaging. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. None of these actions are available yet.
+Budna MCP is growing toward everything you can do in the Budna app and on the web. Next come the remaining reads of your own data, such as messages, payments and payouts, returns and disputes, and your profile. After that come actions such as bidding, making offers, buying, selling and managing your listings, and messaging. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. None of these actions are available yet.
 
 ## Connect your Budna account
 

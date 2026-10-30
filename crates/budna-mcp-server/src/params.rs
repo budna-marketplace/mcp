@@ -41,6 +41,150 @@ impl AccountListingsParams {
     }
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountPageParams {
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountPageParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountBidsParams {
+    /// Return only bids that currently lead their auction.
+    pub winning_only: Option<bool>,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountBidsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OfferRoleParam {
+    Sent,
+    Received,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOffersParams {
+    /// sent: offers you made on other listings; received: offers on your listings.
+    pub role: OfferRoleParam,
+    /// Return only offers that still await a response.
+    pub open_only: Option<bool>,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountOffersParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountWatchlistListingsParams {
+    /// Watchlist ID returned by list_my_watchlists.
+    #[schemars(range(min = 1))]
+    pub watchlist_id: i64,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountWatchlistListingsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        if self.watchlist_id < 1 {
+            return Err(InputError::new("watchlist_id must be at least 1"));
+        }
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OrderRoleParam {
+    Buyer,
+    Seller,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOrdersParams {
+    /// buyer: your purchases; seller: your sales.
+    pub role: OrderRoleParam,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountOrdersParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountNotificationsParams {
+    /// Return only notifications the account has not read.
+    pub unread_only: Option<bool>,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountNotificationsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RatingDirectionParam {
+    Received,
+    Given,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountRatingsParams {
+    /// received: ratings others gave you; given: ratings you gave others.
+    pub direction: RatingDirectionParam,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountRatingsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
 struct BoundedSizeSink {
     remaining: usize,
 }

@@ -1,5 +1,6 @@
 mod account;
 mod account_detail;
+mod activity;
 mod common;
 mod listings;
 mod profiles;
@@ -7,6 +8,11 @@ mod taxonomy;
 
 pub(crate) use account::{AccountListingsOutput, AccountOutput};
 pub(crate) use account_detail::AccountListingDetailOutput;
+pub(crate) use activity::{
+    AccountBidOutput, AccountNotificationOutput, AccountOfferOutput, AccountOrderOutput,
+    AccountPageOutput, AccountRatingOutput, AccountSavedSearchOutput, AccountWatchedListingOutput,
+    AccountWatchlistOutput,
+};
 pub(crate) use listings::{
     ListingAttributesOutput, ListingBidSummaryOutput, ListingCollectionOutput, ListingDetailOutput,
     ListingSearchOutput,

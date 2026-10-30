@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::Pagination;
+use crate::{Pagination, is_listing_id};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AccountSummary {
@@ -18,11 +18,30 @@ pub struct AccountListingSummary {
     pub updated_at: i64,
 }
 
+impl AccountListingSummary {
+    pub(super) fn is_valid(&self) -> bool {
+        is_listing_id(&self.id)
+            && self.title.as_ref().is_none_or(|title| title.len() <= 4096)
+            && self.updated_at >= 0
+            && matches!(
+                self.status.as_str(),
+                "draft" | "active" | "sold" | "expired" | "cancelled"
+            )
+            && matches!(
+                self.listing_type.as_str(),
+                "auction" | "fixed_price" | "auction_fixed_price" | "in_stock"
+            )
+    }
+}
+
+/// One bounded page of the connected account's own records.
 #[derive(Clone, Debug, Deserialize)]
-pub struct AccountListingPage {
-    pub items: Vec<AccountListingSummary>,
+pub struct AccountPage<T> {
+    pub items: Vec<T>,
     pub pagination: Pagination,
 }
+
+pub type AccountListingPage = AccountPage<AccountListingSummary>;
 
 use super::Credential;
 

@@ -440,7 +440,19 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             .iter()
             .filter_map(|tool| tool["name"].as_str())
             .collect::<BTreeSet<_>>(),
-        BTreeSet::from(["get_my_account", "list_my_listings", "get_my_listing"])
+        BTreeSet::from([
+            "get_my_account",
+            "list_my_listings",
+            "get_my_listing",
+            "list_my_bids",
+            "list_my_offers",
+            "list_my_watchlists",
+            "list_my_watchlist_listings",
+            "list_my_saved_searches",
+            "list_my_orders",
+            "list_my_notifications",
+            "list_my_ratings",
+        ])
     );
     for tool in tools {
         assert_eq!(
@@ -504,6 +516,19 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
         denied.headers()[header::WWW_AUTHENTICATE]
             .to_str()?
             .contains("insufficient_scope")
+    );
+    let orders_denied = post(
+        &client,
+        &endpoint,
+        "incoming-a",
+        call("list_my_orders", json!({"role":"buyer"})),
+    )
+    .await?;
+    assert_eq!(orders_denied.status(), StatusCode::FORBIDDEN);
+    assert!(
+        orders_denied.headers()[header::WWW_AUTHENTICATE]
+            .to_str()?
+            .contains("orders:read")
     );
     let listings: Value = post(
         &client,
