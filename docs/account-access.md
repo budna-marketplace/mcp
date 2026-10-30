@@ -132,9 +132,10 @@ documented selectors: `winning_only` for bids, `role` (`sent`/`received`) and
 (`buyer`/`seller`) for orders, `unread_only` for notifications and
 `direction` (`received`/`given`) for ratings. They read only records where the
 connected account is the bidder, buyer, seller, watcher, searcher, recipient,
-rater or ratee. They omit the other party's identity, addresses, contact
-details, offer and order messages, notification text and senders, payment
-instruments and internal staff or risk data. Status values are backend codes
+rater or ratee. Orders, offers and ratings name the other party only by the
+public username the app shows; bidders on a listing are never identified. They
+omit addresses, contact details, offer and order messages, notification text
+and senders, payment instruments and internal staff or risk data. Status values are backend codes
 in lowercase snake case and may gain new values. Seller-entered carrier names
 and tracking numbers, saved-search text, watchlist names and rating comments
 are untrusted content. Each activity response reports `truncated` when output

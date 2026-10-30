@@ -78,6 +78,7 @@ fn order_projection_is_an_exact_allowlist_with_bounded_seller_text() {
     let output = AccountPageOutput::<AccountOrderOutput>::from(page(vec![AccountOrder {
         id: 14,
         role: "seller".to_owned(),
+        counterparty_username: Some("synthetic_buyer".to_owned()),
         listing_id: LISTING.to_owned(),
         listing_title: Some("x".repeat(600)),
         amount: sek("120.50"),
@@ -106,6 +107,7 @@ fn order_projection_is_an_exact_allowlist_with_bounded_seller_text() {
         keys(order),
         BTreeSet::from([
             "amount",
+            "counterparty_username",
             "created_at",
             "fulfillment_mode",
             "fulfillment_state",
@@ -185,6 +187,7 @@ fn maximum_activity_pages_stay_within_the_tool_result_budget() {
         .map(|_| AccountRating {
             listing_id: LISTING.to_owned(),
             listing_title: Some("t".repeat(4096)),
+            counterparty_username: Some("u".repeat(300)),
             value: 5,
             comment: Some("\u{0000}".repeat(8192)),
             created_at: 1,
@@ -201,6 +204,7 @@ fn order_detail_bounds_carrier_text_and_omits_documents() {
     let order = AccountOrder {
         id: 14,
         role: "buyer".to_owned(),
+        counterparty_username: None,
         listing_id: LISTING.to_owned(),
         listing_title: None,
         amount: sek("120.50"),

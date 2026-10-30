@@ -135,15 +135,15 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `get_my_listing` | Listings permission | Read owner-visible details of one of your listings, including drafts and your reserve price |
 | `list_my_bids` | Bids permission | List your bids with amount, time and status (valid, outbid, won or cancelled), or only the ones currently winning |
 | `list_my_auto_bids` | Bids permission | List your automatic bids with the maximum you set and their status |
-| `list_my_offers` | Offers permission | List offers you sent or received, with amount, counter-offer, status, who acted last and expiry |
+| `list_my_offers` | Offers permission | List offers you sent or received, with the other party's public username, amount, counter-offer, status, who acted last and expiry |
 | `list_my_second_chance_offers` | Offers permission | List second-chance offers you received after an auction you bid on |
 | `list_my_watchlists` | Watchlist permission | List your watchlists with their names and item counts |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |
 | `list_my_saved_searches` | Watchlist permission | List your saved searches with their criteria, alerts and unseen matches |
-| `list_my_orders` | Orders permission | List your purchases or sales with payment, delivery and return status, carrier, tracking number and, for sales, your payout |
+| `list_my_orders` | Orders permission | List your purchases or sales with the other party's public username, payment, delivery and return status, carrier, tracking number and, for sales, your payout |
 | `get_my_order` | Orders permission | Read one purchase or sale in detail: tracking events, return, refund and dispute status, and invoice numbers |
 | `list_my_notifications` | Notifications permission | List your notifications by type, read state and related listing, order, offer or saved search |
-| `list_my_ratings` | Ratings permission | List ratings you received or gave, with stars, comment and listing |
+| `list_my_ratings` | Ratings permission | List ratings you received or gave, with the other party's public username, stars, comment and listing |
 | `get_my_money_summary` | Payments permission | Read your money totals per currency: proceeds pending, on the way, paid out, on hold or in balance, and payments made and refunded |
 | `list_my_payment_activity` | Payments permission | List your payment activity, newest first, with amount, kind and status |
 | `list_my_payouts` | Payments permission | List your recent payouts of sale proceeds |
@@ -156,7 +156,7 @@ Budna MCP cannot currently bid, make offers, buy, message, record views, change 
 ### Permissions you control
 
 - When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`), **Listings** (`listings:read`), **Bids** (`bids:read`), **Offers** (`offers:read`), **Watchlists and saved searches** (`watchlist:read`), **Orders** (`orders:read`), **Notifications** (`notifications:read`), **Ratings** (`ratings:read`) and **Payments** (`payments:read`).
-- Account tools never show who the other buyer, bidder or seller is, their addresses or contact details, or the text of messages and notifications.
+- Account tools name the other buyer or seller only by the public username the app shows, and never reveal who bid on a listing. Addresses, contact details and notification text are never included.
 - Under Account → Security → Connected apps you can remove a permission or disconnect an app at any time. Removing a permission takes effect immediately, including for access the app already holds; restoring it requires approving the app again.
 - A connection lasts at most seven days before you approve it again.
 - Disconnecting stops future access, but cannot recall information already shared with the AI service.

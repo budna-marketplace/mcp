@@ -76,6 +76,8 @@ pub struct AccountOfferOutput {
     pub listing_title: Option<String>,
     #[schemars(length(max = 16))]
     pub role: String,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
     pub amount: MoneyOutput,
     pub quantity: i32,
     pub counter_amount: Option<MoneyOutput>,
@@ -96,6 +98,8 @@ impl From<AccountPage<AccountOffer>> for AccountPageOutput<AccountOfferOutput> {
             listing_id: offer.listing_id,
             listing_title: budget.optional_text(offer.listing_title, MAX_DISPLAY_TEXT_BYTES),
             role: offer.role,
+            counterparty_username: budget
+                .optional_text(offer.counterparty_username, MAX_NAME_BYTES),
             amount: offer.amount.into(),
             quantity: offer.quantity,
             counter_amount: offer.counter_amount.map(Into::into),
@@ -242,6 +246,8 @@ pub struct AccountOrderOutput {
     pub id: i64,
     #[schemars(length(max = 16))]
     pub role: String,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
     #[schemars(length(max = 64))]
     pub listing_id: String,
     #[schemars(length(max = 512))]
@@ -281,6 +287,7 @@ fn project_order(order: AccountOrder, budget: &mut ProjectionBudget) -> AccountO
     AccountOrderOutput {
         id: order.id,
         role: order.role,
+        counterparty_username: budget.optional_text(order.counterparty_username, MAX_NAME_BYTES),
         listing_id: order.listing_id,
         listing_title: budget.optional_text(order.listing_title, MAX_DISPLAY_TEXT_BYTES),
         amount: order.amount.into(),
@@ -553,6 +560,8 @@ pub struct AccountRatingOutput {
     pub listing_id: String,
     #[schemars(length(max = 512))]
     pub listing_title: Option<String>,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
     #[schemars(range(min = 1, max = 5))]
     pub value: i32,
     #[schemars(length(max = 4096))]
@@ -565,6 +574,8 @@ impl From<AccountPage<AccountRating>> for AccountPageOutput<AccountRatingOutput>
         project(page, |rating, budget| AccountRatingOutput {
             listing_id: rating.listing_id,
             listing_title: budget.optional_text(rating.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            counterparty_username: budget
+                .optional_text(rating.counterparty_username, MAX_NAME_BYTES),
             value: rating.value,
             comment: budget.optional_text(rating.comment, MAX_LONG_TEXT_BYTES),
             created_at: rating.created_at,

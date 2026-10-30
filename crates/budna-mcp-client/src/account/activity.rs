@@ -20,6 +20,7 @@ pub struct AccountOffer {
     pub listing_id: String,
     pub listing_title: Option<String>,
     pub role: String,
+    pub counterparty_username: Option<String>,
     pub amount: Money,
     pub quantity: i32,
     pub counter_amount: Option<Money>,
@@ -80,6 +81,7 @@ pub struct AccountSavedSearchQuery {
 pub struct AccountOrder {
     pub id: i64,
     pub role: String,
+    pub counterparty_username: Option<String>,
     pub listing_id: String,
     pub listing_title: Option<String>,
     pub amount: Money,
@@ -124,6 +126,7 @@ pub struct AccountNotification {
 pub struct AccountRating {
     pub listing_id: String,
     pub listing_title: Option<String>,
+    pub counterparty_username: Option<String>,
     pub value: i32,
     pub comment: Option<String>,
     pub created_at: i64,
@@ -313,6 +316,7 @@ impl AccountOffer {
     pub(super) fn is_valid(&self, role: &str) -> bool {
         self.id > 0
             && self.role == role
+            && optional_text(self.counterparty_username.as_deref(), 256)
             && is_listing_id(&self.listing_id)
             && optional_text(self.listing_title.as_deref(), 4096)
             && money(&self.amount)
@@ -381,6 +385,7 @@ impl AccountOrder {
     pub(super) fn is_valid(&self, role: &str) -> bool {
         self.id > 0
             && self.role == role
+            && optional_text(self.counterparty_username.as_deref(), 256)
             && is_listing_id(&self.listing_id)
             && optional_text(self.listing_title.as_deref(), 4096)
             && money(&self.amount)
@@ -423,6 +428,7 @@ impl AccountRating {
     pub(super) fn is_valid(&self) -> bool {
         is_listing_id(&self.listing_id)
             && optional_text(self.listing_title.as_deref(), 4096)
+            && optional_text(self.counterparty_username.as_deref(), 256)
             && (1..=5).contains(&self.value)
             && optional_text(self.comment.as_deref(), 8192)
             && self.created_at >= 0

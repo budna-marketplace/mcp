@@ -1103,7 +1103,7 @@ mod tests {
             ),
             (
                 "/api/v1/mcp/account/offers",
-                json!({"id":11,"listing_id":LISTING,"listing_title":null,"role":"seller","amount":money,"quantity":1,"counter_amount":{"amount":"130.00","currency_code":"SEK"},"status":"countered","last_action_by":"me","amount_withdrawn_at":null,"expires_at":1700000000000_i64,"created_at":1700000000000_i64,"updated_at":1700000000000_i64,"buyer_id":"ignored-activity-sentinel"}),
+                json!({"id":11,"listing_id":LISTING,"listing_title":null,"role":"seller","counterparty_username":"synthetic_buyer","amount":money,"quantity":1,"counter_amount":{"amount":"130.00","currency_code":"SEK"},"status":"countered","last_action_by":"me","amount_withdrawn_at":null,"expires_at":1700000000000_i64,"created_at":1700000000000_i64,"updated_at":1700000000000_i64,"buyer_id":"ignored-activity-sentinel"}),
             ),
             (
                 "/api/v1/mcp/account/watchlists",
@@ -1119,7 +1119,7 @@ mod tests {
             ),
             (
                 "/api/v1/mcp/account/orders",
-                json!({"id":14,"role":"buyer","listing_id":LISTING,"listing_title":"Leica M6","amount":money,"quantity":1,"status":"shipped","payment_status":"paid","fulfillment_mode":"carrier_tracked","fulfillment_state":"shipped","is_auction_order":true,"tracking":{"available":true,"carrier":"postnord","tracking_number":"SYNTHETIC123"},"withdrawal_status":null,"payout":null,"payment_due_at":null,"paid_at":1700000000000_i64,"ship_by":1700000000000_i64,"created_at":1700000000000_i64,"updated_at":1700000000000_i64,"shipping_address":"ignored-activity-sentinel"}),
+                json!({"id":14,"role":"buyer","counterparty_username":"synthetic_seller","listing_id":LISTING,"listing_title":"Leica M6","amount":money,"quantity":1,"status":"shipped","payment_status":"paid","fulfillment_mode":"carrier_tracked","fulfillment_state":"shipped","is_auction_order":true,"tracking":{"available":true,"carrier":"postnord","tracking_number":"SYNTHETIC123"},"withdrawal_status":null,"payout":null,"payment_due_at":null,"paid_at":1700000000000_i64,"ship_by":1700000000000_i64,"created_at":1700000000000_i64,"updated_at":1700000000000_i64,"shipping_address":"ignored-activity-sentinel"}),
             ),
             (
                 "/api/v1/mcp/account/notifications",
@@ -1162,6 +1162,10 @@ mod tests {
             .await
             .unwrap_or_else(|error| panic!("offers: {error}"));
         assert_eq!(offers.items[0].last_action_by.as_deref(), Some("me"));
+        assert_eq!(
+            offers.items[0].counterparty_username.as_deref(),
+            Some("synthetic_buyer")
+        );
         let watchlists = client
             .watchlists(&access, 1, 10)
             .await
