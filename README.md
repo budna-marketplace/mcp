@@ -124,12 +124,24 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `get_listing_attributes` | Public | Get a listing's structured public attributes |
 | `get_listing_related` | Public | Find public listings related to a listing |
 | `get_seller_listings` | Public | List a seller's public listings |
+| `browse_listings` | Public | Browse featured listings, the newest listings or one brand's listings |
 | `get_categories` | Public | Browse the category tree |
 | `get_category_filters` | Public | Get the filters available in a category |
 | `get_filter_options` | Public | Get the options for one filter |
+| `get_brands` | Public | List brands with their listing counts, or get one brand |
+| `get_locations` | Public | List the regions and municipalities search can filter by in Sweden or Norway, with listing counts |
+| `get_search_suggestions` | Public | Get search suggestions for partly typed text, and popular searches |
 | `get_public_seller_profile` | Public | Get a seller's public profile |
+| `get_seller_ratings` | Public | Get a seller's rating statistics and the ratings they received, with stars, comment and the rater's public username |
 | `get_listing_bid_summary` | Public | Get a listing's bid count and current price, without bidder identities |
+| `get_listing_bid_history` | Public | Get a listing's auction rounds and bid history, with bidders shown only as Bidder 1, Bidder 2 and so on |
 | `get_public_ratings_summary` | Public | Get a listing's aggregate public rating signals |
+| `get_listing_questions` | Public | Read a listing's public questions and chat, with authors by public username |
+| `browse_collections` | Public | Browse collections, a seller's listings under one banner: the live ones or one seller's |
+| `get_collection` | Public | Get one collection and a page of its listings |
+| `browse_live_streams` | Public | List live shopping streams on air now or coming up |
+| `get_live_stream` | Public | Get one live stream, with the listing on stage, the auction running and the items to come |
+| `get_shipping_rates` | Public | Get package sizes and domestic shipping prices per carrier |
 | `get_my_account` | Account permission | Read your account ID, account type and display name |
 | `get_my_profile` | Profile permission | Read your profile, level and badges, verification, account standing, subscription and onboarding steps |
 | `list_my_listings` | Listings permission | List your own listings, including drafts, with title, status, type and update time |
@@ -176,7 +188,7 @@ Budna MCP cannot currently bid, make offers, buy, message, record views, change 
 
 ### Where Budna MCP is going
 
-Budna MCP is growing toward everything you can do in the Budna app and on the web. Next come the remaining reads of your own data, such as your profile and settings, seller insights, following and company accounts, and the remaining public marketplace data. After that come actions such as bidding, making offers, buying, selling and managing your listings, and messaging. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. None of these actions are available yet.
+Budna MCP is growing toward everything you can do in the Budna app and on the web. Next come the remaining reads of your own data. After that come actions such as bidding, making offers, buying, selling and managing your listings, and messaging. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. None of these actions are available yet.
 
 ## Connect your Budna account
 

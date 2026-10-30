@@ -9,8 +9,11 @@ read-only architecture.
 
 Current tools may call only approved public GET endpoints for listing
 discovery, listing details and attributes, related listing discovery, public
-seller listing discovery, category and filter browsing, public seller profiles,
-public rating summaries, and privacy-safe bid summaries. Do not add
+seller listing discovery, listing feeds, category, filter, brand and location
+browsing, search suggestions, collections, live streams, public seller profiles
+and ratings, public rating summaries, listing questions, domestic shipping
+rates, and privacy-safe bid summaries and bid histories that number bidders
+instead of naming them. Do not add
 credentials, protected endpoints, mutations, view recording, contact
 submission, bidding, buying, messaging, or account actions to this profile.
 

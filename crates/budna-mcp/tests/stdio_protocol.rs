@@ -261,7 +261,7 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .and(header("x-budna-contract", "external-ids-v1"))
         .and(path(format!("/api/v1/listings/{}", public_listing_id(7))))
         .respond_with(ResponseTemplate::new(200).set_body_json(listing_envelope(7)))
-        .expect(5)
+        .expect(6)
         .mount(api)
         .await;
 
@@ -426,6 +426,137 @@ async fn mount_public_tool_mocks(api: &MockServer) {
                 "has_comments": true,
                 "most_common_rating": 5,
                 "positive_percentage": 91.67,
+                "server_only_marker": PRIVATE_SENTINEL
+            }
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!(
+            "/api/v1/listings/{}/auctions",
+            public_listing_id(7)
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": [{
+                "id": 3,
+                "listing_id": public_listing_id(7),
+                "round": 1,
+                "status": "active",
+                "outcome": null,
+                "start_time": 1_700_000_000_000_i64,
+                "end_time": 1_800_000_000_000_i64,
+                "bid_count": 2,
+                "highest_amount": {"amount": "120.00", "currency_code": "NOK"},
+                "closed_at": null,
+                "server_only_marker": PRIVATE_SENTINEL
+            }]
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    let bid = |id: i64, bidder: i64, amount: &str, bid_time: i64| {
+        json!({
+            "id": id,
+            "listing_id": public_listing_id(7),
+            "bidder_id": public_user_id(bidder),
+            "price": {"amount": amount, "currency_code": "NOK"},
+            "bid_time": bid_time,
+            "status": "outbid",
+            "listing_title": PRIVATE_SENTINEL,
+            "listing_image_id": null,
+            "auction_id": 3
+        })
+    };
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!(
+            "/api/v1/bids/listing/{}",
+            public_listing_id(7)
+        )))
+        .and(query_param("page", "1"))
+        .and(query_param("limit", "100"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": [
+                bid(2, 77, "120.00", 1_700_000_200_000),
+                bid(1, 55, "110.00", 1_700_000_100_000)
+            ],
+            "pagination": {
+                "page": 1,
+                "per_page": 100,
+                "total": 2,
+                "total_pages": 1,
+                "has_next": false,
+                "has_previous": false
+            }
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path("/api/v1/search/suggestions"))
+        .and(query_param("q", "cam"))
+        .and(query_param("limit", "10"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": {
+                "listings": [{
+                    "id": public_listing_id(7),
+                    "title": "Camera",
+                    "price": "120",
+                    "currency": "NOK",
+                    "image_id": "123e4567-e89b-12d3-a456-426614174000",
+                    "server_only_marker": PRIVATE_SENTINEL
+                }],
+                "categories": [{"id": 12, "name": "Cameras", "listing_count": null, "translations": null}],
+                "popular_searches": [{"term": "camera", "count": 9}]
+            }
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path("/api/v1/shipping/package-presets"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": [{
+                "id": 1,
+                "size_code": "small",
+                "label": "Small",
+                "max_weight_grams": 2_000,
+                "max_length_mm": 600,
+                "max_width_mm": 400,
+                "max_height_mm": 100,
+                "sort_order": 1,
+                "server_only_marker": PRIVATE_SENTINEL
+            }]
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path("/api/v1/shipping/domestic-rates"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": {
+                "from_country": "SE",
+                "to_country": "SE",
+                "rates": [{
+                    "provider_code": "postnord",
+                    "package_size": "small",
+                    "amount": {"amount": "59.00", "currency_code": "SEK"}
+                }],
                 "server_only_marker": PRIVATE_SENTINEL
             }
         })))
@@ -678,16 +809,28 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
     assert_eq!(
         tool_names,
         BTreeSet::from([
+            "browse_collections",
+            "browse_listings",
+            "browse_live_streams",
+            "get_brands",
             "get_categories",
             "get_category_filters",
+            "get_collection",
             "get_filter_options",
             "get_listing",
             "get_listing_attributes",
+            "get_listing_bid_history",
             "get_listing_bid_summary",
+            "get_listing_questions",
             "get_listing_related",
-            "get_public_seller_profile",
+            "get_live_stream",
+            "get_locations",
             "get_public_ratings_summary",
+            "get_public_seller_profile",
+            "get_search_suggestions",
             "get_seller_listings",
+            "get_seller_ratings",
+            "get_shipping_rates",
             "search_listings",
         ])
     );
@@ -956,6 +1099,27 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
             "/rating_distribution/4",
             json!(7),
         ),
+        (
+            "get_listing_bid_history",
+            json!({"listing_id": public_listing_id(7)}),
+            "/bids/0/bidder",
+            json!("Bidder 2"),
+        ),
+        (
+            "get_search_suggestions",
+            json!({"query": " cam "}),
+            "/listings/0/image_url",
+            json!(format!(
+                "{CONFIGURED_IMAGE_ORIGIN}/t/listings/{}/thumbs/123e4567-e89b-12d3-a456-426614174000_768x768.webp",
+                public_listing_id(7)
+            )),
+        ),
+        (
+            "get_shipping_rates",
+            json!({}),
+            "/rates/0/price/amount",
+            json!("59.00"),
+        ),
     ];
     let mut successful_outputs = BTreeMap::new();
     for (tool_name, arguments, expected_pointer, expected_value) in success_cases {
@@ -980,6 +1144,18 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         );
         successful_outputs.insert(tool_name, output);
     }
+
+    let bid_history = successful_outputs
+        .get("get_listing_bid_history")
+        .context("bid history output should be retained")?;
+    assert_eq!(
+        bid_history.pointer("/bids/1/bidder"),
+        Some(&json!("Bidder 1"))
+    );
+    assert!(
+        !bid_history.to_string().contains("user_"),
+        "bid history must never name a bidder"
+    );
 
     let search = successful_outputs
         .get("search_listings")

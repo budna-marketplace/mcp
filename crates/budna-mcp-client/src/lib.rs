@@ -10,6 +10,7 @@
 mod account;
 mod config;
 mod error;
+mod explore;
 mod models;
 
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -48,6 +49,13 @@ pub use account::{
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
+pub use explore::{
+    AuctionRound, Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
+    CollectionItem, CollectionPage, ListingBidHistory, ListingQuestion, ListingQuestions,
+    ListingSuggestion, LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity,
+    LocationRegion, PackagePreset, PopularSearch, PublicBid, PublicRating, PublicSeller,
+    RatingStatistics, SearchSuggestions, SellerRatings, ShippingRate, ShippingRates,
+};
 pub use models::{
     AttributeValue, BuyerProtectionConfig, CategoryFilters, CategoryListRequest, CategoryPage,
     CategorySummary, CategoryTranslations, CategoryWithFilters, FacetCount, FilterConfiguration,
@@ -81,6 +89,10 @@ pub const LISTING_ID_PATTERN: &str =
     "^listing_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 pub const USER_ID_PATTERN: &str =
     "^user_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+pub const COLLECTION_ID_PATTERN: &str =
+    "^showcase_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+pub const LIVE_STREAM_ID_PATTERN: &str =
+    "^live_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 
 pub fn is_listing_id(value: &str) -> bool {
     is_public_id(value, "listing_")
@@ -88,6 +100,14 @@ pub fn is_listing_id(value: &str) -> bool {
 
 pub fn is_user_id(value: &str) -> bool {
     is_public_id(value, "user_")
+}
+
+pub fn is_collection_id(value: &str) -> bool {
+    is_public_id(value, "showcase_")
+}
+
+pub fn is_live_stream_id(value: &str) -> bool {
+    is_public_id(value, "live_")
 }
 
 fn is_public_id(value: &str, prefix: &str) -> bool {
@@ -530,6 +550,22 @@ impl PublicApiClient {
     where
         T: DeserializeOwned,
     {
+        let envelope: ApiEnvelope<T> = self.get_body(operation, request).await?;
+        if !envelope.success {
+            return Err(ClientError::UnsuccessfulEnvelope { operation });
+        }
+        Ok(envelope.data)
+    }
+
+    /// Sends a public GET with bounded retries and decodes the whole response body.
+    async fn get_body<B>(
+        &self,
+        operation: &'static str,
+        request: RequestBuilder,
+    ) -> Result<B, ClientError>
+    where
+        B: DeserializeOwned,
+    {
         let request = request
             .header(ACCEPT, ACCEPTED_RESPONSE_MEDIA_TYPES)
             .header("X-Budna-Contract", "external-ids-v1")
@@ -542,7 +578,7 @@ impl PublicApiClient {
             let attempt_request = request
                 .try_clone()
                 .ok_or(ClientError::RetryInvariant { operation })?;
-            let result = self.send_once::<T>(operation, attempt_request).await;
+            let result = self.send_once::<B>(operation, attempt_request).await;
             let elapsed_ms = elapsed_millis(started);
 
             match result {
@@ -609,13 +645,13 @@ impl PublicApiClient {
         Err(ClientError::RetryInvariant { operation })
     }
 
-    async fn send_once<T>(
+    async fn send_once<B>(
         &self,
         operation: &'static str,
         request: reqwest::Request,
-    ) -> Result<Option<T>, ClientError>
+    ) -> Result<B, ClientError>
     where
-        T: DeserializeOwned,
+        B: DeserializeOwned,
     {
         let mut response = self
             .http
@@ -669,13 +705,8 @@ impl PublicApiClient {
             });
         }
 
-        let envelope = serde_json::from_slice::<ApiEnvelope<T>>(&body)
-            .map_err(|source| ClientError::Decode { operation, source })?;
-        if !envelope.success {
-            return Err(ClientError::UnsuccessfulEnvelope { operation });
-        }
-
-        Ok(envelope.data)
+        serde_json::from_slice::<B>(&body)
+            .map_err(|source| ClientError::Decode { operation, source })
     }
 }
 

@@ -483,6 +483,18 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             "get_public_seller_profile",
             "get_listing_bid_summary",
             "get_public_ratings_summary",
+            "browse_collections",
+            "browse_listings",
+            "browse_live_streams",
+            "get_brands",
+            "get_collection",
+            "get_listing_bid_history",
+            "get_listing_questions",
+            "get_live_stream",
+            "get_locations",
+            "get_search_suggestions",
+            "get_seller_ratings",
+            "get_shipping_rates",
         ])
     );
     for tool in tools {
