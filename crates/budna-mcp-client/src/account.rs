@@ -1671,7 +1671,7 @@ mod tests {
             )
             .mount(&mismatch_api)
             .await;
-        let mismatch_client = client(&mismatch_api);
+        let mismatch_client = self::client(&mismatch_api);
         let access = mismatch_client
             .exchange("incoming")
             .await
