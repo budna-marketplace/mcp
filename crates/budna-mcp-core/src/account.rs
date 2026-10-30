@@ -108,6 +108,6 @@ mod tests {
             Err(ConfigError::AccountRequiresHttp)
         );
         assert!(!crate::ToolPolicy::PublicExplore.allows(crate::ToolCapability::AccountRead));
-        assert!(!crate::ToolPolicy::AccountRead.allows(crate::ToolCapability::PublicExplore));
+        assert!(crate::ToolPolicy::AccountRead.allows(crate::ToolCapability::PublicExplore));
     }
 }

@@ -452,6 +452,17 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             "list_my_orders",
             "list_my_notifications",
             "list_my_ratings",
+            "search_listings",
+            "get_listing",
+            "get_listing_attributes",
+            "get_listing_related",
+            "get_seller_listings",
+            "get_categories",
+            "get_category_filters",
+            "get_filter_options",
+            "get_public_seller_profile",
+            "get_listing_bid_summary",
+            "get_public_ratings_summary",
         ])
     );
     for tool in tools {
@@ -530,6 +541,14 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             .to_str()?
             .contains("orders:read")
     );
+    let public_tool = post(
+        &client,
+        &endpoint,
+        "incoming-b",
+        call("get_categories", json!({})),
+    )
+    .await?;
+    assert_eq!(public_tool.status(), StatusCode::OK);
     let listings: Value = post(
         &client,
         &endpoint,

@@ -21,6 +21,11 @@ CORS. The host owns TLS, listener binding and graceful shutdown through the
 supplied cancellation token. The standalone application's listener stays on
 loopback.
 
+`AccountMcpServer::with_public` also serves every public Explore tool and the
+Marketplace Explorer resources on `/account/mcp`, so a connected client reads
+public and own data through one connection. Public tools need no delegated
+permission and still use only the credential-free public client.
+
 Hosts offering both profiles can merge the account router with
 `budna_mcp_server::public_http_router`, which serves anonymous tools at `/mcp`
 using stateless JSON responses without sessions or replica affinity.
