@@ -259,6 +259,7 @@ async fn packaged_binary_serves_stateless_loopback_streamable_http_securely() ->
             "get_filter_options",
             "get_listing",
             "get_listing_attributes",
+            "get_listing_bid_history",
             "get_listing_bid_summary",
             "get_listing_questions",
             "get_listing_related",

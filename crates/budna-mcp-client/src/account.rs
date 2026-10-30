@@ -110,6 +110,11 @@ impl DelegatedAccess {
     pub fn allows(&self, scope: &str) -> bool {
         Instant::now() < self.expires && self.scopes.iter().any(|granted| granted == scope)
     }
+
+    /// The connected account's public user ID.
+    pub fn subject(&self) -> &str {
+        &self.subject
+    }
 }
 
 /// Account requests use explicit delegated credentials, never public-client defaults.
@@ -971,6 +976,39 @@ impl AccountApiClient {
             request.paged(page, limit),
             AccountListingChat::is_valid,
         )
+        .await
+    }
+
+    /// Messages in the account's conversations containing `query`, as short snippets.
+    pub async fn search_messages(
+        &self,
+        access: &DelegatedAccess,
+        query: &str,
+        page: u32,
+        limit: u32,
+    ) -> Result<AccountMessageSearch, ClientError> {
+        const OPERATION: &str = "search_my_messages";
+        let query = query.trim();
+        if !(3..=100).contains(&query.chars().count())
+            || !(1..=10_000).contains(&page)
+            || !(1..=50).contains(&limit)
+        {
+            self.require_scope(access, MESSAGES_READ_SCOPE, OPERATION)?;
+            return Err(invalid_input(
+                OPERATION,
+                "query must be 3..100 characters, page 1..10000 and limit 1..50",
+            ));
+        }
+        let request = ActivityRequest::new(
+            OPERATION,
+            MESSAGES_READ_SCOPE,
+            "mcp/account/messages/search",
+        )
+        .filter("q", query)
+        .paged(page, limit);
+        self.read(access, request, |found: &AccountMessageSearch| {
+            found.is_valid(page, limit)
+        })
         .await
     }
 

@@ -134,6 +134,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `get_public_seller_profile` | Public | Get a seller's public profile |
 | `get_seller_ratings` | Public | Get a seller's rating statistics and the ratings they received, with stars, comment and the rater's public username |
 | `get_listing_bid_summary` | Public | Get a listing's bid count and current price, without bidder identities |
+| `get_listing_bid_history` | Public | Get a listing's auction rounds and bid history, with bidders shown as Bidder 1, Bidder 2 and so on, as in the app. With your account connected and the Bids permission, your own bids show as You |
 | `get_public_ratings_summary` | Public | Get a listing's aggregate public rating signals |
 | `get_listing_questions` | Public | Read a listing's public questions and chat, with authors by public username |
 | `browse_collections` | Public | Browse collections, a seller's listings under one banner: the live ones or one seller's |
@@ -176,6 +177,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `list_my_conversations` | Messages permission | List your conversations with the other person's public username, latest message and unread count |
 | `get_my_conversation` | Messages permission | Read the messages in one of your conversations |
 | `list_my_listing_chats` | Messages permission | List the listing chats you take part in, with the latest message and unread count |
+| `search_my_messages` | Messages permission | Search your messages for a word or phrase |
 | `get_my_seller_insights` | Selling permission | Read views and saves of your listings over 7, 30 or 90 days, your top listings and priority credits |
 | `list_my_boosts` | Selling permission | List the boosts you bought, with status, price and dates |
 | `get_my_listing_promotion` | Selling permission | Read one listing's boosts, search priority, video processing status and, for a company, its VAT treatment |

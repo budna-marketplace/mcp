@@ -261,7 +261,7 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .and(header("x-budna-contract", "external-ids-v1"))
         .and(path(format!("/api/v1/listings/{}", public_listing_id(7))))
         .respond_with(ResponseTemplate::new(200).set_body_json(listing_envelope(7)))
-        .expect(5)
+        .expect(6)
         .mount(api)
         .await;
 
@@ -427,6 +427,72 @@ async fn mount_public_tool_mocks(api: &MockServer) {
                 "most_common_rating": 5,
                 "positive_percentage": 91.67,
                 "server_only_marker": PRIVATE_SENTINEL
+            }
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!(
+            "/api/v1/listings/{}/auctions",
+            public_listing_id(7)
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": [{
+                "id": 3,
+                "listing_id": public_listing_id(7),
+                "round": 1,
+                "status": "active",
+                "outcome": null,
+                "start_time": 1_700_000_000_000_i64,
+                "end_time": 1_800_000_000_000_i64,
+                "bid_count": 2,
+                "highest_amount": {"amount": "120.00", "currency_code": "NOK"},
+                "closed_at": null,
+                "server_only_marker": PRIVATE_SENTINEL
+            }]
+        })))
+        .expect(1)
+        .mount(api)
+        .await;
+
+    let bid = |id: i64, bidder: i64, amount: &str, bid_time: i64| {
+        json!({
+            "id": id,
+            "listing_id": public_listing_id(7),
+            "bidder_id": public_user_id(bidder),
+            "price": {"amount": amount, "currency_code": "NOK"},
+            "bid_time": bid_time,
+            "status": "outbid",
+            "listing_title": PRIVATE_SENTINEL,
+            "listing_image_id": null,
+            "auction_id": 3
+        })
+    };
+    Mock::given(method("GET"))
+        .and(header("x-budna-contract", "external-ids-v1"))
+        .and(path(format!(
+            "/api/v1/bids/listing/{}",
+            public_listing_id(7)
+        )))
+        .and(query_param("page", "1"))
+        .and(query_param("limit", "100"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": true,
+            "data": [
+                bid(2, 77, "120.00", 1_700_000_200_000),
+                bid(1, 55, "110.00", 1_700_000_100_000)
+            ],
+            "pagination": {
+                "page": 1,
+                "per_page": 100,
+                "total": 2,
+                "total_pages": 1,
+                "has_next": false,
+                "has_previous": false
             }
         })))
         .expect(1)
@@ -753,6 +819,7 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
             "get_filter_options",
             "get_listing",
             "get_listing_attributes",
+            "get_listing_bid_history",
             "get_listing_bid_summary",
             "get_listing_questions",
             "get_listing_related",
@@ -1033,6 +1100,12 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
             json!(7),
         ),
         (
+            "get_listing_bid_history",
+            json!({"listing_id": public_listing_id(7)}),
+            "/bids/0/bidder",
+            json!("Bidder 2"),
+        ),
+        (
             "get_search_suggestions",
             json!({"query": " cam "}),
             "/listings/0/image_url",
@@ -1071,6 +1144,18 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         );
         successful_outputs.insert(tool_name, output);
     }
+
+    let bid_history = successful_outputs
+        .get("get_listing_bid_history")
+        .context("bid history output should be retained")?;
+    assert_eq!(
+        bid_history.pointer("/bids/1/bidder"),
+        Some(&json!("Bidder 1"))
+    );
+    assert!(
+        !bid_history.to_string().contains("user_"),
+        "bid history must never name a bidder"
+    );
 
     let search = successful_outputs
         .get("search_listings")

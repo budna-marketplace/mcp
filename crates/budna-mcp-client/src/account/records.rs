@@ -114,6 +114,22 @@ pub struct AccountListingChat {
     pub last_activity_at: i64,
 }
 
+/// Search has no total, so a page says only whether another follows.
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountMessageSearch {
+    pub items: Vec<AccountMessageMatch>,
+    pub next_page: Option<u32>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountMessageMatch {
+    pub conversation_id: i64,
+    pub message_id: i64,
+    pub from: String,
+    pub snippet: String,
+    pub sent_at: i64,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct AccountNotificationPreferences {
     pub push_enabled: bool,
@@ -355,6 +371,20 @@ impl AccountListingChat {
             && self.last_message_preview.len() <= 8192
             && self.unread_count >= 0
             && self.last_activity_at >= 0
+    }
+}
+
+impl AccountMessageSearch {
+    pub(super) fn is_valid(&self, page: u32, limit: u32) -> bool {
+        self.items.len() <= limit as usize
+            && self.next_page.is_none_or(|next| next == page + 1)
+            && self.items.iter().all(|found| {
+                found.conversation_id > 0
+                    && found.message_id > 0
+                    && party(&found.from)
+                    && found.snippet.len() <= 4096
+                    && found.sent_at >= 0
+            })
     }
 }
 

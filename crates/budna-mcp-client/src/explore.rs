@@ -1,33 +1,34 @@
 //! Public reads around listings: collections, live streams, brands, listing
-//! feeds, seller ratings, search suggestions, locations, shipping rates and
-//! listing questions. Every read is an anonymous `GET`.
+//! feeds, bid history, seller ratings, search suggestions, locations, shipping
+//! rates and listing questions. Every read is an anonymous `GET`.
 
 mod models;
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 use reqwest::Url;
 
 pub use models::{
-    Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
-    CollectionItem, CollectionPage, ListingQuestion, ListingQuestions, ListingSuggestion,
-    LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity, LocationRegion,
-    PackagePreset, PublicRating, PublicSeller, RatingStatistics, SearchSuggestions, SellerRatings,
-    ShippingRate, ShippingRates,
+    AuctionRound, Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
+    CollectionItem, CollectionPage, ListingBidHistory, ListingQuestion, ListingQuestions,
+    ListingSuggestion, LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity,
+    LocationRegion, PackagePreset, PublicBid, PublicRating, PublicSeller, RatingStatistics,
+    SearchSuggestions, SellerRatings, ShippingRate, ShippingRates,
 };
 use models::{
-    BrandWire, ChatFeedWire, ChatMessageWire, CollectionDetailWire, CollectionItemsWire,
-    DomesticRatesWire, LiveShopWire, LiveStageWire, LocationsWire, ProfileNameWire, RatingFeedWire,
+    BidWire, BrandWire, ChatFeedWire, ChatMessageWire, CollectionDetailWire, CollectionItemsWire,
+    DomesticRatesWire, LiveShopWire, LiveStageWire, LocationsWire, PagedEnvelope, ProfileNameWire,
+    RatingFeedWire,
 };
 
 use crate::{
     ClientError, ListingPage, ListingResponse, MAX_LISTING_PAGE_RESULTS, Money, PublicApiClient,
     invalid_input, invalid_response, is_collection_id, is_listing_id, is_live_stream_id,
     is_public_listing_status, is_user_id, models::PublicListingWire, money_is_valid,
-    optional_value_is_allowed, public_resource_unavailable, validate_listing, validate_page_input,
-    validate_pagination, validate_public_id_input,
+    normalize_not_found, optional_value_is_allowed, public_resource_unavailable, validate_listing,
+    validate_page_input, validate_pagination, validate_public_id_input,
 };
 
 const BROWSE_COLLECTIONS: &str = "browse_collections";
@@ -41,6 +42,8 @@ const MAX_QUESTION_RESULTS: u32 = 50;
 const MAX_SUGGESTION_QUERY_CHARS: usize = 200;
 const MAX_BRAND_NAME_CHARS: usize = 100;
 const MAX_BRAND_SLUG_BYTES: usize = 100;
+const BID_PAGE_SIZE: u32 = 100;
+const MAX_BID_PAGES: u32 = 5;
 const MARKETS: [&str; 2] = ["norwegian", "swedish"];
 
 impl PublicApiClient {
@@ -395,6 +398,108 @@ impl PublicApiClient {
             .query(&[("page", page), ("limit", limit)]);
         self.get_public_listing_page(BROWSE_LISTINGS, request, page, limit, None)
             .await
+    }
+
+    /// The listing's auction rounds and the bids of one round, bidders numbered; bids whose
+    /// bidder is `viewer`, a public user ID, are marked as the viewer's own.
+    pub async fn get_listing_bid_history(
+        &self,
+        listing_id: &str,
+        round_id: Option<i64>,
+        viewer: Option<&str>,
+    ) -> Result<ListingBidHistory, ClientError> {
+        const OPERATION: &str = "get_listing_bid_history";
+        if round_id.is_some_and(|round_id| round_id < 1) {
+            return Err(invalid_input(OPERATION, "round_id must be at least 1"));
+        }
+        let listing = self.get_public_listing(OPERATION, listing_id).await?;
+        let url = self.endpoint(OPERATION, &format!("listings/{listing_id}/auctions"))?;
+        let rounds: Vec<AuctionRound> = self
+            .get_required_or_unavailable(
+                OPERATION,
+                self.http.get(url),
+                "LISTING_NOT_FOUND",
+                "Listing not found",
+            )
+            .await?;
+        if !rounds.iter().all(|round| round_is_valid(round, listing_id)) {
+            return Err(invalid_response(OPERATION));
+        }
+        if round_id.is_some_and(|round_id| !rounds.iter().any(|round| round.id == round_id)) {
+            return Err(public_resource_unavailable(
+                OPERATION,
+                "AUCTION_ROUND_NOT_FOUND",
+                "Auction round not found",
+            ));
+        }
+
+        let mut bids = Vec::new();
+        let mut seen = HashSet::new();
+        let mut total = 0;
+        for page in 1..=MAX_BID_PAGES {
+            let url = self.endpoint(OPERATION, &format!("bids/listing/{listing_id}"))?;
+            let mut request = self
+                .http
+                .get(url)
+                .query(&[("page", page), ("limit", BID_PAGE_SIZE)]);
+            if let Some(round_id) = round_id {
+                request = request.query(&[("auction_id", round_id)]);
+            }
+            let envelope: PagedEnvelope<BidWire> =
+                self.get_body(OPERATION, request).await.map_err(|error| {
+                    normalize_not_found(error, OPERATION, "LISTING_NOT_FOUND", "Listing not found")
+                })?;
+            if !envelope.success {
+                return Err(ClientError::UnsuccessfulEnvelope {
+                    operation: OPERATION,
+                });
+            }
+            let (Some(items), Some(meta)) = (envelope.data, envelope.pagination) else {
+                return Err(ClientError::MissingData {
+                    operation: OPERATION,
+                });
+            };
+            let page_size = i64::from(BID_PAGE_SIZE);
+            let total_pages = if meta.total == 0 {
+                1
+            } else {
+                (meta.total - 1) / page_size + 1
+            };
+            if meta.page != i64::from(page)
+                || meta.per_page != page_size
+                || meta.total < 0
+                || meta.total_pages != total_pages
+                || items.len() > BID_PAGE_SIZE as usize
+            {
+                return Err(invalid_response(OPERATION));
+            }
+            total = meta.total;
+            let full_page = items.len() == BID_PAGE_SIZE as usize;
+            for bid in items {
+                if !bid_is_valid(&bid, &listing, round_id) {
+                    return Err(invalid_response(OPERATION));
+                }
+                // A bid placed while paging shifts the pages; keep each bid once.
+                if seen.insert(bid.id) {
+                    bids.push(bid);
+                }
+            }
+            if !full_page || bids.len() as i64 >= total {
+                break;
+            }
+        }
+
+        let complete = bids.len() as i64 >= total;
+        let (bids, bidder_count) = number_bidders(bids, viewer);
+        Ok(ListingBidHistory {
+            listing_id: listing.id,
+            rounds,
+            round_id,
+            bid_count: total,
+            bids,
+            bidder_count,
+            complete,
+        })
     }
 
     /// A seller's rating statistics and a page of the ratings they received.
@@ -843,6 +948,56 @@ fn public_cards(
         listings.push(card.listing);
     }
     Ok(listings)
+}
+
+fn round_is_valid(round: &AuctionRound, listing_id: &str) -> bool {
+    round.id >= 1
+        && round.listing_id == listing_id
+        && round.round >= 1
+        && code(&round.status)
+        && round.outcome.as_deref().is_none_or(code)
+        && round.start_time >= 0
+        && round.end_time >= 0
+        && round.bid_count >= 0
+        && round.highest_amount.as_ref().is_none_or(money)
+        && optional_time(round.closed_at)
+}
+
+fn bid_is_valid(bid: &BidWire, listing: &ListingResponse, round_id: Option<i64>) -> bool {
+    bid.id >= 1
+        && bid.listing_id == listing.id
+        && is_user_id(&bid.bidder_id)
+        && money_is_valid(&bid.price, &listing.currency)
+        && bid.bid_time >= 0
+        && code(&bid.status)
+        && bid.auction_id.is_none_or(|auction_id| auction_id >= 1)
+        && round_id.is_none_or(|round_id| bid.auction_id == Some(round_id))
+}
+
+/// Numbers bidders 1, 2… by each one's first bid among the bids loaded, as the Budna app does:
+/// a stable sort by bid time keeps the loaded order of bids placed at the same moment.
+fn number_bidders(bids: Vec<BidWire>, viewer: Option<&str>) -> (Vec<PublicBid>, usize) {
+    let mut by_time: Vec<&BidWire> = bids.iter().collect();
+    by_time.sort_by_key(|bid| bid.bid_time);
+    let mut numbers: HashMap<&str, usize> = HashMap::new();
+    for bid in by_time {
+        let next = numbers.len() + 1;
+        numbers.entry(bid.bidder_id.as_str()).or_insert(next);
+    }
+    let public = bids
+        .iter()
+        .map(|bid| PublicBid {
+            bidder_number: numbers
+                .get(bid.bidder_id.as_str())
+                .copied()
+                .unwrap_or_default(),
+            own: viewer == Some(bid.bidder_id.as_str()),
+            amount: bid.price.clone(),
+            bid_time: bid.bid_time,
+            status: bid.status.clone(),
+        })
+        .collect();
+    (public, numbers.len())
 }
 
 fn statistics_are_valid(statistics: &RatingStatistics) -> bool {

@@ -627,7 +627,7 @@ mod tests {
         let oversized_options = (0..MAX_FILTER_OPTIONS + 1)
             .map(|id| {
                 let mut option = option(id as i32, 277);
-                option.display_value = "\u{0000}".repeat(MAX_DISPLAY_TEXT_BYTES);
+                option.display_value = "\"".repeat(MAX_DISPLAY_TEXT_BYTES);
                 option
             })
             .collect();

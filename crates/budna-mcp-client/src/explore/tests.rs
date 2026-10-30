@@ -133,6 +133,35 @@ fn collection(id: i64, status: &str) -> Value {
     })
 }
 
+fn bid(id: i64, bidder: i64, amount: &str, bid_time: i64) -> Value {
+    json!({
+        "id": id,
+        "listing_id": listing_id(7),
+        "bidder_id": user_id(bidder),
+        "price": {"amount": amount, "currency_code": "SEK"},
+        "bid_time": bid_time,
+        "status": "outbid",
+        "listing_title": "Camera",
+        "listing_image_id": null,
+        "auction_id": 3
+    })
+}
+
+fn bid_page(bids: Vec<Value>, page: i64, total: i64) -> ResponseTemplate {
+    ResponseTemplate::new(200).set_body_json(json!({
+        "success": true,
+        "data": bids,
+        "pagination": {
+            "page": page,
+            "per_page": 100,
+            "total": total,
+            "total_pages": (total - 1) / 100 + 1,
+            "has_next": false,
+            "has_previous": page > 1
+        }
+    }))
+}
+
 async fn mount_public_listing(server: &MockServer) {
     Mock::given(method("GET"))
         .and(path(format!("/api/v1/listings/{}", listing_id(7))))
@@ -366,6 +395,157 @@ async fn live_streams_leave_out_unlisted_items_and_check_rounds() {
         "a draft stream must stay hidden",
     );
     assert_eq!(error.public_code(), Some("LIVE_STREAM_NOT_FOUND"));
+}
+
+#[tokio::test]
+async fn bid_history_numbers_bidders_by_first_bid_and_marks_the_viewers_own() {
+    let server = MockServer::start().await;
+    mount_public_listing(&server).await;
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/listings/{}/auctions", listing_id(7))))
+        .respond_with(ok(json!([{
+            "id": 3,
+            "listing_id": listing_id(7),
+            "round": 2,
+            "status": "active",
+            "outcome": null,
+            "start_time": 1_700_000_000_000_i64,
+            "end_time": 1_800_000_000_000_i64,
+            "bid_count": 4,
+            "highest_amount": {"amount": "140", "currency_code": "SEK"},
+            "closed_at": null
+        }])))
+        .mount(&server)
+        .await;
+    // Newest first, as the API pages them: 77 bid first, then 55, then both again.
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/bids/listing/{}", listing_id(7))))
+        .and(query_param("page", "1"))
+        .and(query_param("limit", "100"))
+        .and(query_param("auction_id", "3"))
+        .respond_with(bid_page(
+            vec![
+                bid(4, 55, "140", 4_000),
+                bid(3, 77, "130", 3_000),
+                bid(2, 55, "120", 2_000),
+                bid(1, 77, "110", 1_000),
+            ],
+            1,
+            4,
+        ))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let viewer = user_id(55);
+    let history = client(&server)
+        .get_listing_bid_history(&listing_id(7), Some(3), Some(&viewer))
+        .await
+        .unwrap_or_else(|error| panic!("bid history should decode: {error}"));
+    assert_eq!(
+        history
+            .bids
+            .iter()
+            .map(|bid| (bid.bidder_number, bid.own))
+            .collect::<Vec<_>>(),
+        [(2, true), (1, false), (2, true), (1, false)],
+        "the viewer keeps their number, as in the app"
+    );
+    assert_eq!(history.bidder_count, 2);
+    assert_eq!(history.bid_count, 4);
+    assert!(history.complete);
+    assert_eq!(history.rounds[0].round, 2);
+    let rendered = format!("{history:?}");
+    assert!(!rendered.contains("user_"));
+
+    let error = client_error(
+        client(&server)
+            .get_listing_bid_history(&listing_id(7), Some(99), None)
+            .await,
+        "an unknown round must not be read",
+    );
+    assert_eq!(error.public_code(), Some("AUCTION_ROUND_NOT_FOUND"));
+}
+
+#[tokio::test]
+async fn bid_history_pages_through_a_round_and_keeps_each_bid_once() {
+    let server = MockServer::start().await;
+    mount_public_listing(&server).await;
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/listings/{}/auctions", listing_id(7))))
+        .respond_with(ok(json!([])))
+        .mount(&server)
+        .await;
+    let first_page = (2..=101)
+        .rev()
+        .map(|id| bid(id, 1_000 + id % 3, "100", id * 1_000))
+        .collect();
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/bids/listing/{}", listing_id(7))))
+        .and(query_param("page", "1"))
+        .respond_with(bid_page(first_page, 1, 101))
+        .expect(1)
+        .mount(&server)
+        .await;
+    // A bid placed between the two reads repeats bid 2 on the next page.
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/bids/listing/{}", listing_id(7))))
+        .and(query_param("page", "2"))
+        .respond_with(bid_page(
+            vec![bid(2, 1_002, "100", 2_000), bid(1, 1_001, "100", 1_000)],
+            2,
+            101,
+        ))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let history = client(&server)
+        .get_listing_bid_history(&listing_id(7), None, None)
+        .await
+        .unwrap_or_else(|error| panic!("both pages should decode: {error}"));
+    assert_eq!(history.bids.len(), 101);
+    assert!(history.complete);
+    assert_eq!(history.bidder_count, 3);
+    assert_eq!(
+        history.bids.last().map(|bid| bid.bidder_number),
+        Some(1),
+        "the earliest bid's bidder is Bidder 1"
+    );
+    assert!(history.bids.iter().all(|bid| !bid.own));
+}
+
+#[tokio::test]
+async fn bidders_who_bid_at_the_same_moment_keep_the_loaded_order() {
+    let server = MockServer::start().await;
+    mount_public_listing(&server).await;
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/listings/{}/auctions", listing_id(7))))
+        .respond_with(ok(json!([])))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/bids/listing/{}", listing_id(7))))
+        .respond_with(bid_page(
+            vec![bid(5, 900, "100", 1_000), bid(4, 901, "90", 1_000)],
+            1,
+            2,
+        ))
+        .mount(&server)
+        .await;
+
+    let history = client(&server)
+        .get_listing_bid_history(&listing_id(7), None, None)
+        .await
+        .unwrap_or_else(|error| panic!("bid history should decode: {error}"));
+    assert_eq!(
+        history
+            .bids
+            .iter()
+            .map(|bid| bid.bidder_number)
+            .collect::<Vec<_>>(),
+        [1, 2]
+    );
 }
 
 fn statistics(user: &str, distribution: [i64; 5]) -> Value {
@@ -710,6 +890,11 @@ async fn invalid_inputs_never_reach_the_network() {
         client_error(api.live_streams(false, 21).await, "oversized list"),
         client_error(api.get_brand("Rolex").await, "uppercase slug"),
         client_error(api.brand_listings("\u{0}", 1, 10).await, "control brand"),
+        client_error(
+            api.get_listing_bid_history(&listing_id(7), Some(0), None)
+                .await,
+            "zero round",
+        ),
         client_error(
             api.get_seller_ratings(&listing_id(7), 1, 10).await,
             "wrong seller id kind",

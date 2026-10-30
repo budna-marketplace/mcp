@@ -265,10 +265,10 @@ fn fixed_price_and_typed_attributes_preserve_their_customer_values() {
 #[test]
 fn detail_projection_bounds_text_collections_and_the_complete_tool_envelope() {
     let mut input = fixture();
-    input["title"] = json!("\u{0000}".repeat(40000));
+    input["title"] = json!("\"".repeat(40000));
     input["description"] = input["title"].clone();
     input["images"] = json!(vec![input["images"][0].clone(); 200]);
-    input["tags"] = json!(vec!["\u{0000}".repeat(40000); 200]);
+    input["tags"] = json!(vec!["\"".repeat(40000); 200]);
     let mut attribute = input["attributes"][0].clone();
     attribute["display_value"] = input["title"].clone();
     input["attributes"] = json!(vec![attribute; 200]);

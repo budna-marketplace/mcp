@@ -73,7 +73,7 @@ async fn account_tool_timeout_cancels_work_and_releases_its_slot() {
 #[test]
 fn every_account_tool_requires_a_delegated_permission() {
     let tools = AccountMcpServer::tool_router().list_all();
-    assert_eq!(tools.len(), 46);
+    assert_eq!(tools.len(), 47);
     for tool in tools {
         assert!(
             crate::http_transport::account_tool_scope(&tool.name).is_some(),
@@ -98,6 +98,7 @@ fn remaining_account_reads_require_their_matching_permission() {
         ("list_my_saved_search_matches", WATCHLIST_READ_SCOPE),
         ("list_my_live_reminders", WATCHLIST_READ_SCOPE),
         ("list_my_listing_chats", MESSAGES_READ_SCOPE),
+        ("search_my_messages", MESSAGES_READ_SCOPE),
         ("get_my_notification_preferences", NOTIFICATIONS_READ_SCOPE),
         ("get_my_credits", PAYMENTS_READ_SCOPE),
         ("get_my_payout_setup", PAYMENTS_READ_SCOPE),

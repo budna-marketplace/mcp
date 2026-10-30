@@ -27,7 +27,7 @@ pub(crate) use collections::{
 pub(crate) use discovery::{
     BrandsOutput, LocationsOutput, SearchSuggestionsOutput, ShippingRatesOutput,
 };
-pub(crate) use listing_activity::ListingQuestionsOutput;
+pub(crate) use listing_activity::{BidHistoryOutput, ListingQuestionsOutput};
 pub(crate) use listings::{
     ListingAttributesOutput, ListingBidSummaryOutput, ListingCollectionOutput, ListingDetailOutput,
     ListingSearchOutput,
@@ -36,9 +36,9 @@ pub(crate) use profiles::{RatingSummaryOutput, SellerProfileOutput, SellerRating
 pub(crate) use records::{
     AccountAchievementsOutput, AccountCreditsOutput, AccountDisputeDetailOutput,
     AccountLegalDocumentsOutput, AccountListingChatOutput, AccountLiveReminderOutput,
-    AccountNotificationPreferencesOutput, AccountOfferHistoryOutput, AccountOrderGroupDetailOutput,
-    AccountOrderGroupOutput, AccountOwnDisputeOutput, AccountPayoutSetupOutput,
-    AccountReferralOutput, AccountSavedSearchMatchOutput,
+    AccountMessageSearchOutput, AccountNotificationPreferencesOutput, AccountOfferHistoryOutput,
+    AccountOrderGroupDetailOutput, AccountOrderGroupOutput, AccountOwnDisputeOutput,
+    AccountPayoutSetupOutput, AccountReferralOutput, AccountSavedSearchMatchOutput,
 };
 pub(crate) use selling::{
     AccountListingPromotionOutput, AccountListingTagOutput, AccountLiveSessionOutput,
@@ -83,6 +83,7 @@ impl Default for ProjectionBudget {
 
 impl ProjectionBudget {
     fn text(&mut self, mut value: String, field_limit: usize) -> String {
+        value.retain(|character| !is_hidden_character(character));
         let original_len = value.len();
         let encoded_bytes = truncate_json_text(&mut value, field_limit, self.remaining_text_bytes);
         if value.len() < original_len {
@@ -173,6 +174,21 @@ fn truncate_json_text(value: &mut String, max_raw_bytes: usize, max_encoded_byte
     encoded_bytes
 }
 
+/// Controls other than line breaks and tabs, zero-width, bidirectional and tag characters: text
+/// that renders invisibly or reorders what a reader sees.
+fn is_hidden_character(character: char) -> bool {
+    (character.is_control() && !matches!(character, '\n' | '\t'))
+        || matches!(
+            character,
+            '\u{200B}'..='\u{200F}'
+                | '\u{202A}'..='\u{202E}'
+                | '\u{2060}'..='\u{2064}'
+                | '\u{2066}'..='\u{2069}'
+                | '\u{FEFF}'
+                | '\u{E0000}'..='\u{E007F}'
+        )
+}
+
 const fn json_encoded_character_len(character: char) -> usize {
     match character {
         '"' | '\\' | '\u{0008}' | '\u{000c}' | '\n' | '\r' | '\t' => 2,
@@ -227,6 +243,24 @@ mod tests {
         let serialized = serde_json::to_string(&value)
             .unwrap_or_else(|error| panic!("test string should serialize: {error}"));
         assert_eq!(serialized.len() - 2, encoded);
+    }
+
+    #[test]
+    fn text_drops_hidden_characters_but_keeps_line_breaks_and_tabs() {
+        let mut budget = ProjectionBudget::default();
+        let hidden = "a\u{0000}b\u{0007}\r\u{007F}\u{0085}c\u{200B}\u{200D}d\u{2060}\u{FEFF}e\u{202E}f\u{2066}g\u{E0041}h";
+        assert_eq!(budget.text(hidden.to_owned(), 256), "abcdefgh");
+        assert_eq!(
+            budget.text("line\none\ttab".to_owned(), 256),
+            "line\none\ttab"
+        );
+        assert_eq!(
+            budget
+                .optional_text(Some("é💡\u{2069}".to_owned()), 256)
+                .as_deref(),
+            Some("é💡")
+        );
+        assert!(!budget.truncated());
     }
 
     #[test]

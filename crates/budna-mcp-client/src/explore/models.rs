@@ -117,6 +117,46 @@ pub struct Brand {
     pub listing_count: i64,
 }
 
+/// One sales attempt of an auction listing.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+pub struct AuctionRound {
+    pub id: i64,
+    pub listing_id: String,
+    pub round: i32,
+    pub status: String,
+    pub outcome: Option<String>,
+    pub start_time: i64,
+    pub end_time: i64,
+    pub bid_count: i64,
+    pub highest_amount: Option<Money>,
+    pub closed_at: Option<i64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ListingBidHistory {
+    pub listing_id: String,
+    pub rounds: Vec<AuctionRound>,
+    /// The round the bids belong to; `None` is the listing's current round.
+    pub round_id: Option<i64>,
+    pub bid_count: i64,
+    /// Newest first.
+    pub bids: Vec<PublicBid>,
+    pub bidder_count: usize,
+    /// Every bid of the round was loaded.
+    pub complete: bool,
+}
+
+/// A bid without its bidder: only the bidder's number on this listing.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PublicBid {
+    pub bidder_number: usize,
+    /// The viewer placed this bid.
+    pub own: bool,
+    pub amount: Money,
+    pub bid_time: i64,
+    pub status: String,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct RatingStatistics {
     pub user_id: String,
@@ -285,6 +325,33 @@ pub(crate) struct LiveStageWire {
 #[derive(Debug, Deserialize)]
 pub(crate) struct BrandWire {
     pub brand: Brand,
+}
+
+/// A paginated response that carries its page metadata beside `data`.
+#[derive(Debug, Deserialize)]
+pub(crate) struct PagedEnvelope<T> {
+    pub success: bool,
+    pub data: Option<Vec<T>>,
+    pub pagination: Option<PageMeta>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct PageMeta {
+    pub page: i64,
+    pub per_page: i64,
+    pub total: i64,
+    pub total_pages: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct BidWire {
+    pub id: i64,
+    pub listing_id: String,
+    pub bidder_id: String,
+    pub price: Money,
+    pub bid_time: i64,
+    pub status: String,
+    pub auction_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -12,7 +12,8 @@ discovery, listing details and attributes, related listing discovery, public
 seller listing discovery, listing feeds, category, filter, brand and location
 browsing, search suggestions, collections, live streams, public seller profiles
 and ratings, public rating summaries, listing questions, domestic shipping
-rates, and privacy-safe bid summaries. Do not add
+rates, and privacy-safe bid summaries and bid histories that number bidders
+instead of naming them. Do not add
 credentials, protected endpoints, mutations, view recording, contact
 submission, bidding, buying, messaging, or account actions to this profile.
 
@@ -24,7 +25,8 @@ profile.
 
 ## Repository Constraints
 
-- Never edit `README.md` unless the user explicitly reverses this rule.
+- Keep `README.md` current with what the MCP can do: its tool tables, permissions and roadmap.
+  Client setup detail belongs in `docs/account-access.md`.
 - Keep transport/config/error handling, exact Budna wire DTOs, MCP-facing
   projections, capability policy, and tool routing in separate modules.
 - Never pass raw backend JSON directly through an MCP tool.

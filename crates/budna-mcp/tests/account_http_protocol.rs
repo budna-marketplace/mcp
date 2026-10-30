@@ -22,6 +22,7 @@ const USER_B: &str = "user_00000000-0000-4000-8000-000000000002";
 const LISTING_A: &str = "listing_00000000-0000-4000-8000-000000000007";
 const LISTING_B: &str = "listing_00000000-0000-4000-8000-000000000008";
 const SENTINEL: &str = "ignored-upstream-protocol-sentinel";
+const AUCTION: &str = "listing_00000000-0000-4000-8000-000000000009";
 
 fn owned_listing_fixture() -> Value {
     json!({
@@ -480,6 +481,7 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             "list_my_saved_search_matches",
             "list_my_live_reminders",
             "list_my_listing_chats",
+            "search_my_messages",
             "get_my_notification_preferences",
             "get_my_credits",
             "get_my_payout_setup",
@@ -490,6 +492,7 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             "search_listings",
             "get_listing",
             "get_listing_attributes",
+            "get_listing_bid_history",
             "get_listing_related",
             "get_seller_listings",
             "get_categories",
@@ -742,5 +745,144 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
         .read_to_string(&mut stdout)
         .await?;
     assert!(stdout.is_empty());
+    Ok(())
+}
+
+fn public_auction_fixture() -> Value {
+    json!({
+        "id": AUCTION,
+        "seller": {
+            "id": "user_00000000-0000-4000-8000-00000000002a",
+            "name": "Public seller",
+            "username": "seller42"
+        },
+        "title": "Camera",
+        "description": "A public listing",
+        "category_id": 12,
+        "condition": "good",
+        "listing_type": "auction",
+        "currency": "NOK",
+        "market": "norwegian",
+        "auction": {
+            "starting_price": {"amount": "100.00", "currency_code": "NOK"},
+            "bid_increment": {"amount": "10.00", "currency_code": "NOK"},
+            "current_bid": {"amount": "120.00", "currency_code": "NOK"},
+            "reserve": {"met": false},
+            "buy_now_price": null,
+            "start_time": 1_700_000_000_000_i64,
+            "end_time": 1_800_000_000_000_i64,
+            "bid_count": 2
+        },
+        "fixed_price": null,
+        "quantity": 1,
+        "status": "active",
+        "views_count": 20,
+        "approved": true,
+        "featured": false,
+        "tags": ["camera"],
+        "images": [{"id": "123e4567-e89b-12d3-a456-426614174000"}],
+        "created_at": 1_700_000_000_000_i64,
+        "updated_at": 1_700_000_000_100_i64,
+        "shipping": {
+            "custom_price": {"amount": "49.00", "currency_code": "NOK"},
+            "package_size": "medium",
+            "package_weight_grams": 900,
+            "provider_codes": ["postnord"],
+            "location": {"city": "Oslo", "region": "Oslo", "country": "NO"},
+            "allow_pickup": true
+        },
+        "buyer_protection": {
+            "rate_percent": "5.0",
+            "flat_fee": "10.00",
+            "mandatory_threshold": "100.00",
+            "cap": "500.00",
+            "enabled": true
+        }
+    })
+}
+
+#[tokio::test]
+async fn account_bid_history_shows_own_bids_as_you_only_with_the_bids_permission() -> Result<()> {
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "incoming-bids",
+        "downstream-bids",
+        USER_A,
+        "account:read bids:read",
+    )
+    .await;
+    exchange(
+        &api,
+        "incoming-plain",
+        "downstream-plain",
+        USER_A,
+        "account:read",
+    )
+    .await;
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/listings/{AUCTION}")))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"success":true,"data":public_auction_fixture()})),
+        )
+        .mount(&api)
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/listings/{AUCTION}/auctions")))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":[{
+                "id":3,"listing_id":AUCTION,"round":1,"status":"active","outcome":null,
+                "start_time":1_700_000_000_000_i64,"end_time":1_800_000_000_000_i64,"bid_count":2,
+                "highest_amount":{"amount":"120.00","currency_code":"NOK"},"closed_at":null
+            }]})),
+        )
+        .mount(&api)
+        .await;
+    let bid = |id: i64, bidder: &str, amount: &str, bid_time: i64| {
+        json!({"id":id,"listing_id":AUCTION,"bidder_id":bidder,
+            "price":{"amount":amount,"currency_code":"NOK"},"bid_time":bid_time,
+            "status":"outbid","listing_title":"Camera","listing_image_id":null,"auction_id":3})
+    };
+    Mock::given(method("GET"))
+        .and(path(format!("/api/v1/bids/listing/{AUCTION}")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success":true,
+            "data":[
+                bid(2, USER_A, "120.00", 1_700_000_200_000),
+                bid(1, USER_B, "110.00", 1_700_000_100_000)
+            ],
+            "pagination":{"page":1,"per_page":100,"total":2,"total_pages":1,
+                "has_next":false,"has_previous":false}
+        })))
+        .mount(&api)
+        .await;
+
+    let mut server = start_account_server(&api.uri(), 30).await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .no_proxy()
+        .build()?;
+    for (token, own) in [("incoming-bids", "You"), ("incoming-plain", "Bidder 2")] {
+        let history: Value = post(
+            &client,
+            &endpoint,
+            token,
+            call("get_listing_bid_history", json!({"listing_id":AUCTION})),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        let bids = history
+            .pointer("/result/structuredContent/bids")
+            .context("bid history")?;
+        assert_eq!(bids[0]["bidder"], json!(own), "{token}");
+        assert_eq!(bids[1]["bidder"], json!("Bidder 1"), "{token}");
+        assert!(!history.to_string().contains("user_"));
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
     Ok(())
 }
