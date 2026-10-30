@@ -104,6 +104,16 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | `list_my_debts` | `payments:read` | Debts to Budna with amount, status, reason and related order |
 | `list_my_conversations` | `messages:read` | Conversations with the other participant's public username, related listing or order, latest message preview and counts |
 | `get_my_conversation` | `messages:read` | Messages in one own conversation: sender (`me` or `other_party`), text, type, related offer, image count, time and read state |
+| `get_my_seller_insights` | `selling:read` | Engagement for `range` 7d, 30d (default) or 90d: status, live and period counts, a daily series, up to 10 top listings and the priority-credit balance |
+| `list_my_boosts` | `selling:read` | Bought boosts with the boosted listing or collection, title, type, status, price, start and expiry |
+| `get_my_listing_promotion` | `selling:read` | One own listing's current, queued and recent boosts, search priority with quoted price, and video processing status without links |
+| `get_my_shipping_settings` | `selling:read` | Default carriers and the combined-shipping choice; never addresses |
+| `list_my_showcases` | `selling:read` | Own collections including drafts: title, kind, status, dates, public item count and boost flag |
+| `list_my_live_sessions` | `selling:read` | Own live streams: status, title, times, peak viewers, reminders, items, items sold and revenue |
+| `list_my_following` | `following:read` | Accounts the user follows, by public username and follow time |
+| `list_my_followers` | `following:read` | Accounts following the user, by public username and follow time |
+| `list_my_companies` | `company:read` | Company memberships with role and permissions, plus pending invitations addressed to the user |
+| `get_my_company` | `company:read` | One own company: details, members by public username and role for managers, invoicing status for the company account |
 | `list_my_notifications` | `notifications:read` | Notifications with type, priority, read state, time and related listing, order, offer or saved search |
 | `list_my_ratings` | `ratings:read` | Ratings received or given with listing, 1–5 star value, comment and time |
 

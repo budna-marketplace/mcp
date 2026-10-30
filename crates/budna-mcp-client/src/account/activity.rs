@@ -387,18 +387,18 @@ pub struct AccountOnboardingStep {
 }
 
 /// Status values are backend vocabulary that may grow, so they are checked by shape.
-fn code(value: &str) -> bool {
+pub(super) fn code(value: &str) -> bool {
     let mut bytes = value.bytes();
     value.len() <= 64
         && bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
-fn optional_text(value: Option<&str>, max: usize) -> bool {
+pub(super) fn optional_text(value: Option<&str>, max: usize) -> bool {
     value.is_none_or(|value| value.len() <= max)
 }
 
-fn optional_time(value: Option<i64>) -> bool {
+pub(super) fn optional_time(value: Option<i64>) -> bool {
     value.is_none_or(|value| value >= 0)
 }
 
@@ -406,7 +406,7 @@ fn optional_id(value: Option<i64>) -> bool {
     value.is_none_or(|value| value > 0)
 }
 
-fn money(value: &Money) -> bool {
+pub(super) fn money(value: &Money) -> bool {
     is_currency_code(&value.currency_code) && is_exact_decimal(&value.amount)
 }
 
@@ -783,5 +783,112 @@ impl AccountProfile {
             })
             && self.onboarding_steps.len() <= 50
             && self.onboarding_steps.iter().all(|step| code(&step.kind))
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountFollow {
+    pub username: Option<String>,
+    pub followed_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanies {
+    pub companies: Vec<AccountCompany>,
+    pub invitations: Vec<AccountCompanyInvitation>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompany {
+    pub company_id: i64,
+    pub name: String,
+    pub legal_name: Option<String>,
+    pub organization_number: Option<String>,
+    pub organization_verified: bool,
+    pub is_company_account: bool,
+    pub role: String,
+    pub permissions: Vec<String>,
+    pub joined_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyInvitation {
+    pub company_id: i64,
+    pub company_name: String,
+    pub role: String,
+    pub expires_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyDetail {
+    pub company: AccountCompany,
+    pub members: Option<Vec<AccountCompanyMember>>,
+    pub invoicing: Option<AccountCompanyInvoicing>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyMember {
+    pub username: Option<String>,
+    pub role: String,
+    pub joined_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountCompanyInvoicing {
+    pub ready: bool,
+    pub vat_registered: Option<bool>,
+    pub default_vat_treatment: Option<String>,
+    pub agreement_accepted_at: Option<i64>,
+    pub agreement_current: bool,
+}
+
+impl AccountFollow {
+    pub(super) fn is_valid(&self) -> bool {
+        optional_text(self.username.as_deref(), 256) && self.followed_at >= 0
+    }
+}
+
+impl AccountCompanies {
+    pub(super) fn is_valid(&self) -> bool {
+        self.companies.len() <= 50
+            && self.invitations.len() <= 50
+            && self.companies.iter().all(AccountCompany::is_valid)
+            && self.invitations.iter().all(|invitation| {
+                invitation.company_id > 0
+                    && invitation.company_name.len() <= 4096
+                    && code(&invitation.role)
+                    && invitation.expires_at >= 0
+            })
+    }
+}
+
+impl AccountCompany {
+    fn is_valid(&self) -> bool {
+        self.company_id > 0
+            && self.name.len() <= 4096
+            && optional_text(self.legal_name.as_deref(), 4096)
+            && optional_text(self.organization_number.as_deref(), 64)
+            && code(&self.role)
+            && self.permissions.len() <= 32
+            && self.permissions.iter().all(|permission| code(permission))
+            && self.joined_at >= 0
+    }
+}
+
+impl AccountCompanyDetail {
+    pub(super) fn is_valid(&self) -> bool {
+        self.company.is_valid()
+            && self.members.as_ref().is_none_or(|members| {
+                members.len() <= 50
+                    && members.iter().all(|member| {
+                        optional_text(member.username.as_deref(), 256)
+                            && code(&member.role)
+                            && member.joined_at >= 0
+                    })
+            })
+            && self.invoicing.as_ref().is_none_or(|invoicing| {
+                invoicing.default_vat_treatment.as_deref().is_none_or(code)
+                    && optional_time(invoicing.agreement_accepted_at)
+            })
     }
 }

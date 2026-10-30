@@ -185,6 +185,52 @@ impl AccountCursorParams {
     }
 }
 
+/// The period seller insights cover.
+#[derive(Clone, Copy, Debug, Default, Deserialize, schemars::JsonSchema)]
+pub enum InsightsRangeParam {
+    #[serde(rename = "7d")]
+    SevenDays,
+    #[default]
+    #[serde(rename = "30d")]
+    ThirtyDays,
+    #[serde(rename = "90d")]
+    NinetyDays,
+}
+
+impl InsightsRangeParam {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SevenDays => "7d",
+            Self::ThirtyDays => "30d",
+            Self::NinetyDays => "90d",
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountInsightsParams {
+    /// 7d, 30d or 90d; defaults to 30d.
+    pub range: Option<InsightsRangeParam>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountCompanyIdParams {
+    /// Company ID returned by list_my_companies.
+    #[schemars(range(min = 1))]
+    pub company_id: i64,
+}
+
+impl AccountCompanyIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        if self.company_id < 1 {
+            return Err(InputError::new("company_id must be at least 1"));
+        }
+        Ok(self.company_id)
+    }
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AccountLimitParams {

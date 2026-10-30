@@ -1,5 +1,6 @@
 use budna_mcp_client::{
-    AccountAutoBid, AccountBid, AccountConversation, AccountConversationMessages, AccountDebt,
+    AccountAutoBid, AccountBid, AccountCompanies, AccountCompany, AccountCompanyDetail,
+    AccountConversation, AccountConversationMessages, AccountDebt, AccountFollow,
     AccountMoneySummary, AccountNotification, AccountOffer, AccountOrder, AccountOrderDetail,
     AccountPage, AccountPaymentActivity, AccountPayouts, AccountProfile, AccountRating,
     AccountSavedSearch, AccountSecondChanceOffer, AccountWatchedListing, AccountWatchlist,
@@ -25,7 +26,7 @@ pub struct AccountPageOutput<T> {
     pub untrusted_content_notice: &'static str,
 }
 
-fn project<T, O>(
+pub(super) fn project<T, O>(
     page: AccountPage<T>,
     mut item: impl FnMut(T, &mut ProjectionBudget) -> O,
 ) -> AccountPageOutput<O> {
@@ -1017,6 +1018,169 @@ impl From<AccountProfile> for AccountProfileOutput {
             },
             subscription,
             onboarding_steps,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountFollowOutput {
+    /// Public username; null for closed or private accounts.
+    #[schemars(length(max = 256))]
+    pub username: Option<String>,
+    pub followed_at: i64,
+}
+
+impl From<AccountPage<AccountFollow>> for AccountPageOutput<AccountFollowOutput> {
+    fn from(page: AccountPage<AccountFollow>) -> Self {
+        project(page, |follow, budget| AccountFollowOutput {
+            username: budget.optional_text(follow.username, MAX_NAME_BYTES),
+            followed_at: follow.followed_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyOutput {
+    pub company_id: i64,
+    #[schemars(length(max = 256))]
+    pub name: String,
+    /// Shown only to the company account itself.
+    #[schemars(length(max = 256))]
+    pub legal_name: Option<String>,
+    /// Shown only to the company account itself.
+    #[schemars(length(max = 64))]
+    pub organization_number: Option<String>,
+    pub organization_verified: bool,
+    pub is_company_account: bool,
+    /// admin, manager or lister.
+    #[schemars(length(max = 64))]
+    pub role: String,
+    #[schemars(length(max = 32), inner(length(max = 64)))]
+    pub permissions: Vec<String>,
+    pub joined_at: i64,
+}
+
+fn project_company(company: AccountCompany, budget: &mut ProjectionBudget) -> AccountCompanyOutput {
+    AccountCompanyOutput {
+        company_id: company.company_id,
+        name: budget.text(company.name, MAX_NAME_BYTES),
+        legal_name: budget.optional_text(company.legal_name, MAX_NAME_BYTES),
+        organization_number: company.organization_number,
+        organization_verified: company.organization_verified,
+        is_company_account: company.is_company_account,
+        role: company.role,
+        permissions: company.permissions,
+        joined_at: company.joined_at,
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyInvitationOutput {
+    pub company_id: i64,
+    #[schemars(length(max = 256))]
+    pub company_name: String,
+    #[schemars(length(max = 64))]
+    pub role: String,
+    pub expires_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompaniesOutput {
+    #[schemars(length(max = 50))]
+    pub companies: Vec<AccountCompanyOutput>,
+    /// Pending invitations addressed to the account.
+    #[schemars(length(max = 50))]
+    pub invitations: Vec<AccountCompanyInvitationOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+impl From<AccountCompanies> for AccountCompaniesOutput {
+    fn from(companies: AccountCompanies) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let invitations = budget
+            .objects(companies.invitations, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|invitation| AccountCompanyInvitationOutput {
+                company_id: invitation.company_id,
+                company_name: budget.text(invitation.company_name, MAX_NAME_BYTES),
+                role: invitation.role,
+                expires_at: invitation.expires_at,
+            })
+            .collect();
+        Self {
+            companies: budget
+                .objects(companies.companies, MAX_PAGE_ITEMS)
+                .into_iter()
+                .map(|company| project_company(company, &mut budget))
+                .collect(),
+            invitations,
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyMemberOutput {
+    #[schemars(length(max = 256))]
+    pub username: Option<String>,
+    #[schemars(length(max = 64))]
+    pub role: String,
+    pub joined_at: i64,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyInvoicingOutput {
+    pub ready: bool,
+    pub vat_registered: Option<bool>,
+    #[schemars(length(max = 64))]
+    pub default_vat_treatment: Option<String>,
+    pub agreement_accepted_at: Option<i64>,
+    pub agreement_current: bool,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountCompanyDetailOutput {
+    pub company: AccountCompanyOutput,
+    /// Members by public username; null unless the account may manage the company.
+    #[schemars(length(max = 50))]
+    pub members: Option<Vec<AccountCompanyMemberOutput>>,
+    /// Null unless the account is the company account itself.
+    pub invoicing: Option<AccountCompanyInvoicingOutput>,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+impl From<AccountCompanyDetail> for AccountCompanyDetailOutput {
+    fn from(detail: AccountCompanyDetail) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let company = project_company(detail.company, &mut budget);
+        let members = detail.members.map(|members| {
+            budget
+                .objects(members, MAX_PAGE_ITEMS)
+                .into_iter()
+                .map(|member| AccountCompanyMemberOutput {
+                    username: budget.optional_text(member.username, MAX_NAME_BYTES),
+                    role: member.role,
+                    joined_at: member.joined_at,
+                })
+                .collect()
+        });
+        Self {
+            company,
+            members,
+            invoicing: detail
+                .invoicing
+                .map(|invoicing| AccountCompanyInvoicingOutput {
+                    ready: invoicing.ready,
+                    vat_registered: invoicing.vat_registered,
+                    default_vat_treatment: invoicing.default_vat_treatment,
+                    agreement_accepted_at: invoicing.agreement_accepted_at,
+                    agreement_current: invoicing.agreement_current,
+                }),
             truncated: budget.truncated(),
             untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
         }

@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use budna_mcp_client::{
-    AccountBadge, AccountInvoice, AccountLocation, AccountOnboardingStep, AccountOrderDetail,
+    AccountBadge, AccountCompanyInvitation, AccountCompanyInvoicing, AccountCompanyMember,
+    AccountInvoice, AccountLocation, AccountOnboardingStep, AccountOrderDetail,
     AccountOrderTracking, AccountRefund, AccountSavedSearchQuery, AccountStanding,
     AccountSubscription, AccountTrackingEvent, AccountVerification, Money, Pagination,
 };
@@ -373,4 +374,72 @@ fn profile_projection_is_an_exact_allowlist_with_bounded_text() {
         "49.00"
     );
     assert_within_mcp_result_budget(&output);
+}
+
+fn company() -> AccountCompany {
+    AccountCompany {
+        company_id: 7,
+        name: "n".repeat(4096),
+        legal_name: Some("Synthetic AB".to_owned()),
+        organization_number: Some("556000-0000".to_owned()),
+        organization_verified: true,
+        is_company_account: true,
+        role: "admin".to_owned(),
+        permissions: vec!["company_manage".to_owned()],
+        joined_at: 1,
+    }
+}
+
+#[test]
+fn company_and_follow_projections_name_people_only_by_username() {
+    let detail = AccountCompanyDetail {
+        company: company(),
+        members: Some(
+            (0..60)
+                .map(|_| AccountCompanyMember {
+                    username: Some("u".repeat(300)),
+                    role: "lister".to_owned(),
+                    joined_at: 1,
+                })
+                .collect(),
+        ),
+        invoicing: Some(AccountCompanyInvoicing {
+            ready: true,
+            vat_registered: Some(true),
+            default_vat_treatment: Some("vmb_used_goods".to_owned()),
+            agreement_accepted_at: Some(1),
+            agreement_current: true,
+        }),
+    };
+    let output = AccountCompanyDetailOutput::from(detail);
+    assert_eq!(output.members.as_ref().map(Vec::len), Some(50));
+    assert!(output.truncated);
+    let value = json_value(&output);
+    assert_eq!(
+        keys(&value["members"][0]),
+        BTreeSet::from(["joined_at", "role", "username"])
+    );
+    assert_eq!(value["company"]["name"].as_str().map(str::len), Some(256));
+    assert_within_mcp_result_budget(&output);
+    let companies = AccountCompaniesOutput::from(AccountCompanies {
+        companies: vec![company()],
+        invitations: vec![AccountCompanyInvitation {
+            company_id: 8,
+            company_name: "Other AB".to_owned(),
+            role: "manager".to_owned(),
+            expires_at: 9,
+        }],
+    });
+    assert_eq!(
+        keys(&json_value(&companies)["invitations"][0]),
+        BTreeSet::from(["company_id", "company_name", "expires_at", "role"])
+    );
+    let follows = AccountPageOutput::<AccountFollowOutput>::from(page(vec![AccountFollow {
+        username: None,
+        followed_at: 1,
+    }]));
+    assert_eq!(
+        keys(&json_value(&follows)["items"][0]),
+        BTreeSet::from(["followed_at", "username"])
+    );
 }

@@ -151,6 +151,16 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `list_my_debts` | Payments permission | List your debts to Budna, such as fees for unpaid orders |
 | `list_my_conversations` | Messages permission | List your conversations with the other person's public username, latest message and unread count |
 | `get_my_conversation` | Messages permission | Read the messages in one of your conversations |
+| `get_my_seller_insights` | Selling permission | Read views and saves of your listings over 7, 30 or 90 days, your top listings and priority credits |
+| `list_my_boosts` | Selling permission | List the boosts you bought, with status, price and dates |
+| `get_my_listing_promotion` | Selling permission | Read one listing's boosts, search priority and video processing status |
+| `get_my_shipping_settings` | Selling permission | Read your default carriers and combined-shipping choice |
+| `list_my_showcases` | Selling permission | List your collections, including drafts |
+| `list_my_live_sessions` | Selling permission | List your live streams with items sold and revenue |
+| `list_my_following` | Following permission | List who you follow, by public username |
+| `list_my_followers` | Following permission | List who follows you, by public username |
+| `list_my_companies` | Company permission | List your companies, your role in each and invitations sent to you |
+| `get_my_company` | Company permission | Read one of your companies, its members by public username and its invoicing status |
 
 In compatible MCP Apps clients you can also browse interactive listing cards and explicitly ask the AI to compare two to four selected listings.
 
@@ -158,7 +168,7 @@ Budna MCP cannot currently bid, make offers, buy, message, record views, change 
 
 ### Permissions you control
 
-- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`), **Listings** (`listings:read`), **Bids** (`bids:read`), **Offers** (`offers:read`), **Watchlists and saved searches** (`watchlist:read`), **Orders** (`orders:read`), **Notifications** (`notifications:read`), **Ratings** (`ratings:read`), **Payments** (`payments:read`), **Messages** (`messages:read`) and **Profile** (`profile:read`).
+- When you connect an app, Budna shows exactly what it asks for and you choose which permissions to grant: **Account** (`account:read`), **Listings** (`listings:read`), **Bids** (`bids:read`), **Offers** (`offers:read`), **Watchlists and saved searches** (`watchlist:read`), **Orders** (`orders:read`), **Notifications** (`notifications:read`), **Ratings** (`ratings:read`), **Payments** (`payments:read`), **Messages** (`messages:read`), **Profile** (`profile:read`), **Selling** (`selling:read`), **Following** (`following:read`) and **Company** (`company:read`).
 - Account tools name the other buyer or seller only by the public username the app shows, and never reveal who bid on a listing. Addresses, contact details and notification text are never included; message text is shared only with the Messages permission.
 - Under Account → Security → Connected apps you can remove a permission or disconnect an app at any time. Removing a permission takes effect immediately, including for access the app already holds; restoring it requires approving the app again.
 - A connection lasts at most seven days before you approve it again.

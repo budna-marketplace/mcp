@@ -9,10 +9,10 @@ use axum::{
     routing::get,
 };
 use budna_mcp_client::{
-    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, BIDS_READ_SCOPE, ClientError,
-    LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE,
-    ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE,
-    WATCHLIST_READ_SCOPE,
+    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE,
+    ClientError, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE,
+    NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
+    PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -172,6 +172,14 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
         "get_my_account" => ACCOUNT_READ_SCOPE,
         "get_my_profile" => PROFILE_READ_SCOPE,
+        "get_my_seller_insights"
+        | "list_my_boosts"
+        | "get_my_listing_promotion"
+        | "get_my_shipping_settings"
+        | "list_my_showcases"
+        | "list_my_live_sessions" => SELLING_READ_SCOPE,
+        "list_my_following" | "list_my_followers" => FOLLOWING_READ_SCOPE,
+        "list_my_companies" | "get_my_company" => COMPANY_READ_SCOPE,
         "list_my_listings" | "get_my_listing" => LISTINGS_READ_SCOPE,
         "list_my_bids" | "list_my_auto_bids" => BIDS_READ_SCOPE,
         "list_my_offers" | "list_my_second_chance_offers" => OFFERS_READ_SCOPE,
