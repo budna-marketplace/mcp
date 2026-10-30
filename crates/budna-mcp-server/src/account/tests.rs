@@ -73,12 +73,47 @@ async fn account_tool_timeout_cancels_work_and_releases_its_slot() {
 #[test]
 fn every_account_tool_requires_a_delegated_permission() {
     let tools = AccountMcpServer::tool_router().list_all();
-    assert_eq!(tools.len(), 31);
+    assert_eq!(tools.len(), 46);
     for tool in tools {
         assert!(
             crate::http_transport::account_tool_scope(&tool.name).is_some(),
             "{} has no permission",
             tool.name
+        );
+    }
+}
+
+#[test]
+fn remaining_account_reads_require_their_matching_permission() {
+    use budna_mcp_client::{
+        MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE,
+        PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
+    };
+    for (tool, scope) in [
+        ("list_my_disputes", ORDERS_READ_SCOPE),
+        ("get_my_dispute", ORDERS_READ_SCOPE),
+        ("list_my_order_groups", ORDERS_READ_SCOPE),
+        ("get_my_order_group", ORDERS_READ_SCOPE),
+        ("get_my_offer_history", OFFERS_READ_SCOPE),
+        ("list_my_saved_search_matches", WATCHLIST_READ_SCOPE),
+        ("list_my_live_reminders", WATCHLIST_READ_SCOPE),
+        ("list_my_listing_chats", MESSAGES_READ_SCOPE),
+        ("get_my_notification_preferences", NOTIFICATIONS_READ_SCOPE),
+        ("get_my_credits", PAYMENTS_READ_SCOPE),
+        ("get_my_payout_setup", PAYMENTS_READ_SCOPE),
+        ("get_my_achievements", PROFILE_READ_SCOPE),
+        ("get_my_referral", PROFILE_READ_SCOPE),
+        ("get_my_legal_documents", PROFILE_READ_SCOPE),
+        ("list_my_listing_tags", SELLING_READ_SCOPE),
+    ] {
+        assert!(
+            AccountMcpServer::tool_router().has_route(tool),
+            "{tool} is not routed"
+        );
+        assert_eq!(
+            crate::http_transport::account_tool_scope(tool),
+            Some(scope),
+            "{tool} has the wrong permission"
         );
     }
 }

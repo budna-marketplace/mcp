@@ -12,8 +12,7 @@ discovery, listing details and attributes, related listing discovery, public
 seller listing discovery, listing feeds, category, filter, brand and location
 browsing, search suggestions, collections, live streams, public seller profiles
 and ratings, public rating summaries, listing questions, domestic shipping
-rates, and privacy-safe bid summaries and bid histories that number bidders
-instead of naming them. Do not add
+rates, and privacy-safe bid summaries. Do not add
 credentials, protected endpoints, mutations, view recording, contact
 submission, bidding, buying, messaging, or account actions to this profile.
 

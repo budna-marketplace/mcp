@@ -24,37 +24,43 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 pub use account::{
-    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, AccountAutoBid, AccountBadge, AccountBid,
-    AccountBoost, AccountBuyerProtection, AccountCompanies, AccountCompany, AccountCompanyDetail,
-    AccountCompanyInvitation, AccountCompanyInvoicing, AccountCompanyMember, AccountConversation,
-    AccountConversationMessages, AccountCurrencyTotals, AccountDebt, AccountDispute,
+    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountAchievement, AccountAchievements, AccountApiClient,
+    AccountAutoBid, AccountBadge, AccountBid, AccountBoost, AccountBuyerProtection,
+    AccountCompanies, AccountCompany, AccountCompanyDetail, AccountCompanyInvitation,
+    AccountCompanyInvoicing, AccountCompanyMember, AccountConversation,
+    AccountConversationMessages, AccountCreditBalance, AccountCredits, AccountCurrencyTotals,
+    AccountDebt, AccountDispute, AccountDisputeDetail, AccountDisputeStatement,
     AccountEngagementDay, AccountEngagementLive, AccountEngagementPeriod, AccountFollow,
-    AccountInvoice, AccountListingAttribute, AccountListingAttributeValue, AccountListingAuction,
-    AccountListingDetail, AccountListingFixedPrice, AccountListingImage, AccountListingLive,
-    AccountListingLiveRound, AccountListingLiveStream, AccountListingPage, AccountListingPromotion,
-    AccountListingReserve, AccountListingRound, AccountListingShipping, AccountListingShowcase,
-    AccountListingSummary, AccountListingVideo, AccountLiveSession, AccountLocation,
-    AccountMessage, AccountMoneySummary, AccountNotification, AccountOffer, AccountOnboardingStep,
-    AccountOrder, AccountOrderDetail, AccountOrderReturn, AccountOrderTracking, AccountOwnBoost,
-    AccountPage, AccountPaymentActivity, AccountPaymentActivityEntry, AccountPayout,
-    AccountPayouts, AccountPriorityCredits, AccountProfile, AccountRating, AccountRefund,
-    AccountSavedSearch, AccountSavedSearchQuery, AccountSearchPriority, AccountSecondChanceOffer,
-    AccountSellerInsights, AccountShippingSettings, AccountShowcase, AccountStanding,
-    AccountSubscription, AccountSummary, AccountTopListing, AccountTrackingEvent,
-    AccountVerification, AccountVideo, AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE,
-    COMPANY_READ_SCOPE, DelegatedAccess, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE,
-    MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE,
-    PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE,
-    WATCHLIST_READ_SCOPE,
+    AccountInvoice, AccountLegalDocument, AccountLegalDocuments, AccountListingAttribute,
+    AccountListingAttributeValue, AccountListingAuction, AccountListingChat, AccountListingDetail,
+    AccountListingFixedPrice, AccountListingImage, AccountListingLive, AccountListingLiveRound,
+    AccountListingLiveStream, AccountListingPage, AccountListingPromotion, AccountListingReserve,
+    AccountListingRound, AccountListingShipping, AccountListingShowcase, AccountListingSummary,
+    AccountListingTag, AccountListingVat, AccountListingVideo, AccountLiveReminder,
+    AccountLiveSession, AccountLocation, AccountMessage, AccountMoneySummary, AccountNotification,
+    AccountNotificationPreferences, AccountOffer, AccountOfferHistory, AccountOfferStep,
+    AccountOnboardingStep, AccountOrder, AccountOrderDetail, AccountOrderGroup, AccountOrderReturn,
+    AccountOrderTracking, AccountOwnBoost, AccountOwnDispute, AccountPage, AccountPaymentActivity,
+    AccountPaymentActivityEntry, AccountPayout, AccountPayoutMethod, AccountPayoutSetup,
+    AccountPayouts, AccountPriorityCredits, AccountProfile, AccountRating, AccountReferral,
+    AccountReferralRewards, AccountReferralStep, AccountRefund, AccountSavedSearch,
+    AccountSavedSearchMatch, AccountSavedSearchQuery, AccountSearchPriority,
+    AccountSecondChanceOffer, AccountSellerInsights, AccountSettlementOffer,
+    AccountShippingSettings, AccountShowcase, AccountStanding, AccountSubscription, AccountSummary,
+    AccountTopListing, AccountTrackingEvent, AccountVerification, AccountVideo,
+    AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, DelegatedAccess,
+    FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE,
+    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE,
+    RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
 pub use explore::{
-    AuctionRound, Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
-    CollectionItem, CollectionPage, ListingBidHistory, ListingQuestion, ListingQuestions,
-    ListingSuggestion, LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity,
-    LocationRegion, PackagePreset, PopularSearch, PublicBid, PublicRating, PublicSeller,
-    RatingStatistics, SearchSuggestions, SellerRatings, ShippingRate, ShippingRates,
+    Brand, CategorySuggestion, ChatMessage, ChatReply, Collection, CollectionDetail,
+    CollectionItem, CollectionPage, ListingQuestion, ListingQuestions, ListingSuggestion,
+    LiveRound, LiveSession, LiveShop, LiveStage, LiveStream, LocationCity, LocationRegion,
+    PackagePreset, PublicRating, PublicSeller, RatingStatistics, SearchSuggestions, SellerRatings,
+    ShippingRate, ShippingRates,
 };
 pub use models::{
     AttributeValue, BuyerProtectionConfig, CategoryFilters, CategoryListRequest, CategoryPage,
@@ -550,22 +556,6 @@ impl PublicApiClient {
     where
         T: DeserializeOwned,
     {
-        let envelope: ApiEnvelope<T> = self.get_body(operation, request).await?;
-        if !envelope.success {
-            return Err(ClientError::UnsuccessfulEnvelope { operation });
-        }
-        Ok(envelope.data)
-    }
-
-    /// Sends a public GET with bounded retries and decodes the whole response body.
-    async fn get_body<B>(
-        &self,
-        operation: &'static str,
-        request: RequestBuilder,
-    ) -> Result<B, ClientError>
-    where
-        B: DeserializeOwned,
-    {
         let request = request
             .header(ACCEPT, ACCEPTED_RESPONSE_MEDIA_TYPES)
             .header("X-Budna-Contract", "external-ids-v1")
@@ -578,7 +568,7 @@ impl PublicApiClient {
             let attempt_request = request
                 .try_clone()
                 .ok_or(ClientError::RetryInvariant { operation })?;
-            let result = self.send_once::<B>(operation, attempt_request).await;
+            let result = self.send_once::<T>(operation, attempt_request).await;
             let elapsed_ms = elapsed_millis(started);
 
             match result {
@@ -645,13 +635,13 @@ impl PublicApiClient {
         Err(ClientError::RetryInvariant { operation })
     }
 
-    async fn send_once<B>(
+    async fn send_once<T>(
         &self,
         operation: &'static str,
         request: reqwest::Request,
-    ) -> Result<B, ClientError>
+    ) -> Result<Option<T>, ClientError>
     where
-        B: DeserializeOwned,
+        T: DeserializeOwned,
     {
         let mut response = self
             .http
@@ -705,8 +695,13 @@ impl PublicApiClient {
             });
         }
 
-        serde_json::from_slice::<B>(&body)
-            .map_err(|source| ClientError::Decode { operation, source })
+        let envelope = serde_json::from_slice::<ApiEnvelope<T>>(&body)
+            .map_err(|source| ClientError::Decode { operation, source })?;
+        if !envelope.success {
+            return Err(ClientError::UnsuccessfulEnvelope { operation });
+        }
+
+        Ok(envelope.data)
     }
 }
 

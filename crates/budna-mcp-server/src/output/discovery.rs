@@ -15,7 +15,6 @@ use super::{
 const MAX_BRAND_RESULTS: usize = 100;
 const MAX_SUGGESTED_LISTINGS: usize = 50;
 const MAX_SUGGESTED_CATEGORIES: usize = 20;
-const MAX_POPULAR_SEARCHES: usize = 20;
 const MAX_REGIONS: usize = 50;
 const MAX_PACKAGE_SIZES: usize = 20;
 const MAX_SHIPPING_RATES: usize = 50;
@@ -88,13 +87,6 @@ pub struct CategorySuggestionOutput {
 }
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
-pub struct PopularSearchOutput {
-    #[schemars(length(max = 256))]
-    pub term: String,
-    pub count: i64,
-}
-
-#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct SearchSuggestionsOutput {
     pub content_notice: String,
     pub truncated: bool,
@@ -102,9 +94,6 @@ pub struct SearchSuggestionsOutput {
     pub listings: Vec<ListingSuggestionOutput>,
     #[schemars(length(max = 20))]
     pub categories: Vec<CategorySuggestionOutput>,
-    /// What buyers search for most.
-    #[schemars(length(max = 20))]
-    pub popular_searches: Vec<PopularSearchOutput>,
 }
 
 impl SearchSuggestionsOutput {
@@ -137,14 +126,6 @@ impl SearchSuggestionsOutput {
                 }),
             })
             .collect();
-        let popular_searches = budget
-            .objects(suggestions.popular_searches, MAX_POPULAR_SEARCHES)
-            .into_iter()
-            .map(|search| PopularSearchOutput {
-                term: budget.text(search.term, MAX_NAME_BYTES),
-                count: search.count,
-            })
-            .collect();
         let truncated = budget.truncated();
 
         Self {
@@ -152,7 +133,6 @@ impl SearchSuggestionsOutput {
             truncated,
             listings,
             categories,
-            popular_searches,
         }
     }
 }
@@ -302,7 +282,7 @@ mod tests {
 
     use budna_mcp_client::{
         CategorySuggestion, CategoryTranslations, ListingSuggestion, LocationCity, Money,
-        PackagePreset, PopularSearch, ShippingRate, TranslationMap,
+        PackagePreset, ShippingRate, TranslationMap,
     };
 
     use super::*;
@@ -376,12 +356,6 @@ mod tests {
                     translations: Some(translations()),
                 })
                 .collect(),
-            popular_searches: (0..30)
-                .map(|count| PopularSearch {
-                    term: text.clone(),
-                    count,
-                })
-                .collect(),
         };
         let output = SearchSuggestionsOutput::from_with_public_urls(
             suggestions,
@@ -396,13 +370,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("suggestions should serialize: {error}"));
         assert_eq!(
             keys(&value),
-            BTreeSet::from([
-                "categories",
-                "content_notice",
-                "listings",
-                "popular_searches",
-                "truncated"
-            ])
+            BTreeSet::from(["categories", "content_notice", "listings", "truncated"])
         );
         assert_eq!(
             keys(first(&value, "/listings/0")),
@@ -411,10 +379,6 @@ mod tests {
         assert_eq!(
             keys(first(&value, "/categories/0")),
             BTreeSet::from(["id", "name", "translations"])
-        );
-        assert_eq!(
-            keys(first(&value, "/popular_searches/0")),
-            BTreeSet::from(["count", "term"])
         );
     }
 

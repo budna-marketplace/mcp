@@ -1,6 +1,6 @@
 use budna_mcp_client::{
-    AccountBoost, AccountListingPromotion, AccountLiveSession, AccountOwnBoost, AccountPage,
-    AccountSellerInsights, AccountShippingSettings, AccountShowcase,
+    AccountBoost, AccountListingPromotion, AccountListingTag, AccountLiveSession, AccountOwnBoost,
+    AccountPage, AccountSellerInsights, AccountShippingSettings, AccountShowcase,
 };
 use rmcp::schemars;
 use serde::Serialize;
@@ -196,6 +196,20 @@ pub struct AccountListingPromotionOutput {
     pub boost_history: Vec<AccountBoostOutput>,
     pub search_priority: Option<AccountSearchPriorityOutput>,
     pub video: Option<AccountListingVideoOutput>,
+    /// Set only for a company's listing.
+    pub vat: Option<AccountListingVatOutput>,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountListingVatOutput {
+    /// False for a company that is not VAT-registered, whose listings are all exempt.
+    pub vat_registered: bool,
+    /// The listing's own treatment, such as vmb_used_goods, standard_25, reduced_12, reduced_6 or exempt.
+    #[schemars(length(max = 64))]
+    pub vat_treatment: Option<String>,
+    /// The company's default, used when the listing has no treatment of its own.
+    #[schemars(length(max = 64))]
+    pub default_vat_treatment: Option<String>,
 }
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
@@ -264,6 +278,11 @@ impl From<AccountListingPromotion> for AccountListingPromotionOutput {
                     })
                     .collect(),
             }),
+            vat: promotion.vat.map(|vat| AccountListingVatOutput {
+                vat_registered: vat.vat_registered,
+                vat_treatment: vat.vat_treatment,
+                default_vat_treatment: vat.default_vat_treatment,
+            }),
         }
     }
 }
@@ -322,6 +341,35 @@ impl From<AccountPage<AccountShowcase>> for AccountPageOutput<AccountShowcaseOut
     }
 }
 
+/// An in-store tag's activity; the printed tag code is never included.
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountListingTagOutput {
+    #[schemars(length(max = 64))]
+    pub listing_id: String,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub scans: i64,
+    pub scans_last_7_days: i64,
+    /// UTC calendar day, YYYY-MM-DD.
+    #[schemars(length(min = 10, max = 10))]
+    pub last_scanned_on: Option<String>,
+    /// Saves of the listing.
+    pub saves: i64,
+}
+
+impl From<AccountPage<AccountListingTag>> for AccountPageOutput<AccountListingTagOutput> {
+    fn from(page: AccountPage<AccountListingTag>) -> Self {
+        project(page, |tag, budget| AccountListingTagOutput {
+            listing_id: tag.listing_id,
+            listing_title: budget.optional_text(tag.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            scans: tag.scans,
+            scans_last_7_days: tag.scans_last_7_days,
+            last_scanned_on: tag.last_scanned_on,
+            saves: tag.saves,
+        })
+    }
+}
+
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AccountLiveSessionOutput {
     #[schemars(length(max = 64))]
@@ -363,9 +411,9 @@ mod tests {
     use std::collections::BTreeSet;
 
     use budna_mcp_client::{
-        AccountEngagementDay, AccountEngagementLive, AccountEngagementPeriod, AccountListingVideo,
-        AccountPriorityCredits, AccountSearchPriority, AccountTopListing, AccountVideo, Money,
-        Pagination,
+        AccountEngagementDay, AccountEngagementLive, AccountEngagementPeriod, AccountListingVat,
+        AccountListingVideo, AccountPriorityCredits, AccountSearchPriority, AccountTopListing,
+        AccountVideo, Money, Pagination,
     };
 
     use super::*;
@@ -460,6 +508,11 @@ mod tests {
                     updated_at: 1,
                 }],
             }),
+            vat: Some(AccountListingVat {
+                vat_registered: true,
+                vat_treatment: None,
+                default_vat_treatment: Some("standard_25".to_owned()),
+            }),
         };
         let value = serde_json::to_value(AccountListingPromotionOutput::from(promotion))
             .unwrap_or_else(|error| panic!("promotion should serialize: {error}"));
@@ -474,6 +527,10 @@ mod tests {
                 "status",
                 "updated_at"
             ]))
+        );
+        assert_eq!(
+            value["vat"],
+            serde_json::json!({"vat_registered":true,"vat_treatment":null,"default_vat_treatment":"standard_25"})
         );
         let page = AccountPage {
             items: (0..60)
@@ -494,6 +551,47 @@ mod tests {
         let output = AccountPageOutput::<AccountOwnBoostOutput>::from(page);
         assert_eq!(output.items.len(), 50);
         assert_eq!(output.items[0].boost_type, "rocket");
+        assert_within_mcp_result_budget(&output);
+    }
+
+    #[test]
+    fn listing_tags_carry_activity_without_the_tag_code() {
+        let page = AccountPage {
+            items: (0..60)
+                .map(|_| AccountListingTag {
+                    listing_id: LISTING.to_owned(),
+                    listing_title: Some("\u{0000}".repeat(4096)),
+                    scans: 12,
+                    scans_last_7_days: 3,
+                    last_scanned_on: Some("2026-10-29".to_owned()),
+                    saves: 1,
+                })
+                .collect(),
+            pagination: Pagination {
+                page: 1,
+                limit: 50,
+                total: 60,
+                total_pages: 2,
+            },
+        };
+        let output = AccountPageOutput::<AccountListingTagOutput>::from(page);
+        assert_eq!(output.items.len(), 50);
+        assert!(output.truncated);
+        let value = serde_json::to_value(&output)
+            .unwrap_or_else(|error| panic!("tags should serialize: {error}"));
+        assert_eq!(
+            value["items"][0]
+                .as_object()
+                .map(|tag| tag.keys().map(String::as_str).collect::<BTreeSet<_>>()),
+            Some(BTreeSet::from([
+                "last_scanned_on",
+                "listing_id",
+                "listing_title",
+                "saves",
+                "scans",
+                "scans_last_7_days"
+            ]))
+        );
         assert_within_mcp_result_budget(&output);
     }
 }

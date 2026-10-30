@@ -331,6 +331,75 @@ impl AccountRatingsParams {
     }
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountDisputeIdParams {
+    /// Dispute ID returned by list_my_disputes.
+    #[schemars(range(min = 1))]
+    pub dispute_id: i64,
+}
+
+impl AccountDisputeIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        positive_id("dispute_id", self.dispute_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOrderGroupIdParams {
+    /// Combined-shipping group ID returned by list_my_order_groups.
+    #[schemars(range(min = 1))]
+    pub group_id: i64,
+}
+
+impl AccountOrderGroupIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        positive_id("group_id", self.group_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountOfferIdParams {
+    /// Offer ID returned by list_my_offers or a notification.
+    #[schemars(range(min = 1))]
+    pub offer_id: i64,
+}
+
+impl AccountOfferIdParams {
+    pub fn validate(&self) -> Result<i64, InputError> {
+        positive_id("offer_id", self.offer_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountSavedSearchMatchesParams {
+    /// Saved search ID returned by list_my_saved_searches.
+    #[schemars(range(min = 1))]
+    pub saved_search_id: i64,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountSavedSearchMatchesParams {
+    pub fn validate(&self) -> Result<(i64, u32, u32), InputError> {
+        let saved_search_id = positive_id("saved_search_id", self.saved_search_id)?;
+        let (page, limit) = validate_listing_page(self.page, self.limit)?;
+        Ok((saved_search_id, page, limit))
+    }
+}
+
+fn positive_id(field: &str, value: i64) -> Result<i64, InputError> {
+    if value < 1 {
+        return Err(InputError::new(format!("{field} must be at least 1")));
+    }
+    Ok(value)
+}
+
 struct BoundedSizeSink {
     remaining: usize,
 }
@@ -975,28 +1044,6 @@ impl BrowseListingsParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub struct BidHistoryParams {
-    /// Public Budna listing ID, prefixed with listing_.
-    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
-    pub listing_id: String,
-
-    /// An auction round from the returned rounds. Defaults to the current round.
-    #[schemars(range(min = 1))]
-    pub round_id: Option<i64>,
-}
-
-impl BidHistoryParams {
-    pub fn validate(&self) -> Result<(), InputError> {
-        validate_listing_id(&self.listing_id)?;
-        if self.round_id.is_some_and(|round_id| round_id < 1) {
-            return Err(InputError::new("round_id must be at least 1"));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct SellerRatingsParams {
     /// Public Budna seller user ID, prefixed with user_.
     #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
@@ -1029,9 +1076,9 @@ impl SellerRatingsParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SearchSuggestionsParams {
-    /// What the buyer has typed so far. Without it, only popular searches return.
-    #[schemars(length(max = 200))]
-    pub query: Option<String>,
+    /// What the buyer has typed so far.
+    #[schemars(length(min = 1, max = 200))]
+    pub query: String,
 
     pub market: Option<MarketParam>,
 
@@ -1042,7 +1089,8 @@ pub struct SearchSuggestionsParams {
 
 impl SearchSuggestionsParams {
     pub fn validate(&self) -> Result<(String, Option<&'static str>, u32), InputError> {
-        let query = trimmed(self.query.clone()).unwrap_or_default();
+        let query = trimmed(Some(self.query.clone()))
+            .ok_or_else(|| InputError::new("query must not be empty"))?;
         validate_max_chars("query", Some(query.as_str()), 200)?;
         let limit = self.limit.unwrap_or(10);
         if !(1..=MAX_SUGGESTION_RESULTS).contains(&limit) {
@@ -1424,6 +1472,30 @@ fn is_valid_filter_name(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn account_record_ids_must_be_positive() {
+        assert!(
+            AccountSavedSearchMatchesParams {
+                saved_search_id: 0,
+                page: None,
+                limit: None,
+            }
+            .validate()
+            .is_err()
+        );
+        assert!(
+            AccountDisputeIdParams { dispute_id: -1 }
+                .validate()
+                .is_err()
+        );
+        assert_eq!(
+            AccountOfferIdParams { offer_id: 11 }
+                .validate()
+                .unwrap_or_else(|error| panic!("a positive ID is valid: {}", error.message())),
+            11
+        );
+    }
 
     #[test]
     fn search_defaults_are_bounded() {
