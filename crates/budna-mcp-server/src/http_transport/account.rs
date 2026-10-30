@@ -10,8 +10,8 @@ use axum::{
 };
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, BIDS_READ_SCOPE, ClientError,
-    LISTINGS_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE,
-    PAYMENTS_READ_SCOPE, RATINGS_READ_SCOPE, WATCHLIST_READ_SCOPE,
+    LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE,
+    ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, RATINGS_READ_SCOPE, WATCHLIST_READ_SCOPE,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -179,6 +179,7 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "list_my_orders" | "get_my_order" => ORDERS_READ_SCOPE,
         "list_my_notifications" => NOTIFICATIONS_READ_SCOPE,
         "list_my_ratings" => RATINGS_READ_SCOPE,
+        "list_my_conversations" | "get_my_conversation" => MESSAGES_READ_SCOPE,
         "get_my_money_summary"
         | "list_my_payment_activity"
         | "list_my_payouts"

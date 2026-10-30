@@ -1,8 +1,8 @@
 use budna_mcp_client::{
-    AccountAutoBid, AccountBid, AccountDebt, AccountMoneySummary, AccountNotification,
-    AccountOffer, AccountOrder, AccountOrderDetail, AccountPage, AccountPaymentActivity,
-    AccountPayouts, AccountRating, AccountSavedSearch, AccountSecondChanceOffer,
-    AccountWatchedListing, AccountWatchlist,
+    AccountAutoBid, AccountBid, AccountConversation, AccountConversationMessages, AccountDebt,
+    AccountMoneySummary, AccountNotification, AccountOffer, AccountOrder, AccountOrderDetail,
+    AccountPage, AccountPaymentActivity, AccountPayouts, AccountRating, AccountSavedSearch,
+    AccountSecondChanceOffer, AccountWatchedListing, AccountWatchlist,
 };
 use rmcp::schemars;
 use serde::Serialize;
@@ -746,6 +746,107 @@ impl From<AccountPage<AccountDebt>> for AccountPageOutput<AccountDebtOutput> {
             resolved_at: debt.resolved_at,
             waived_at: debt.waived_at,
         })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountConversationOutput {
+    pub id: i64,
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
+    #[schemars(length(max = 64))]
+    pub listing_id: Option<String>,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    #[schemars(length(max = 512))]
+    pub last_message_preview: Option<String>,
+    pub unread_count: i64,
+    pub total_messages: i64,
+    pub is_archived: bool,
+    pub last_activity_at: i64,
+}
+
+impl From<AccountPage<AccountConversation>> for AccountPageOutput<AccountConversationOutput> {
+    fn from(page: AccountPage<AccountConversation>) -> Self {
+        project(page, |conversation, budget| AccountConversationOutput {
+            id: conversation.id,
+            counterparty_username: budget
+                .optional_text(conversation.counterparty_username, MAX_NAME_BYTES),
+            listing_id: conversation.listing_id,
+            listing_title: budget.optional_text(conversation.listing_title, MAX_DISPLAY_TEXT_BYTES),
+            order_id: conversation.order_id,
+            last_message_preview: budget
+                .optional_text(conversation.last_message_preview, MAX_DISPLAY_TEXT_BYTES),
+            unread_count: conversation.unread_count,
+            total_messages: conversation.total_messages,
+            is_archived: conversation.is_archived,
+            last_activity_at: conversation.last_activity_at,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountConversationMessagesOutput {
+    #[schemars(length(max = 256))]
+    pub counterparty_username: Option<String>,
+    #[schemars(length(max = 64))]
+    pub listing_id: Option<String>,
+    #[schemars(length(max = 512))]
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    #[schemars(length(max = 50))]
+    pub items: Vec<AccountMessageOutput>,
+    pub pagination: PaginationOutput,
+    pub truncated: bool,
+    pub untrusted_content_notice: &'static str,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct AccountMessageOutput {
+    pub id: i64,
+    #[schemars(length(max = 16))]
+    pub from: String,
+    #[schemars(length(max = 4096))]
+    pub content: String,
+    #[schemars(length(max = 64))]
+    pub message_type: String,
+    pub offer_id: Option<i64>,
+    pub image_count: u32,
+    pub sent_at: i64,
+    pub read: bool,
+}
+
+impl From<AccountConversationMessages> for AccountConversationMessagesOutput {
+    fn from(thread: AccountConversationMessages) -> Self {
+        let mut budget = ProjectionBudget::default();
+        let counterparty_username =
+            budget.optional_text(thread.counterparty_username, MAX_NAME_BYTES);
+        let listing_title = budget.optional_text(thread.listing_title, MAX_DISPLAY_TEXT_BYTES);
+        let items = budget
+            .objects(thread.items, MAX_PAGE_ITEMS)
+            .into_iter()
+            .map(|message| AccountMessageOutput {
+                id: message.id,
+                from: message.from,
+                content: budget.text(message.content, MAX_LONG_TEXT_BYTES),
+                message_type: budget.text(message.message_type, 64),
+                offer_id: message.offer_id,
+                image_count: message.image_count,
+                sent_at: message.sent_at,
+                read: message.read,
+            })
+            .collect();
+        Self {
+            counterparty_username,
+            listing_id: thread.listing_id,
+            listing_title,
+            order_id: thread.order_id,
+            items,
+            pagination: thread.pagination.into(),
+            truncated: budget.truncated(),
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
     }
 }
 

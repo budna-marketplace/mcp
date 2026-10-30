@@ -101,6 +101,8 @@ sign-in, explicit consent, token rotation and per-application revocation.
 | `list_my_payment_activity` | `payments:read` | Newest-first payment activity with direction, kind, status, amount and related order or listing; continue with `cursor` |
 | `list_my_payouts` | `payments:read` | Recent payouts with amount, status and timestamps |
 | `list_my_debts` | `payments:read` | Debts to Budna with amount, status, reason and related order |
+| `list_my_conversations` | `messages:read` | Conversations with the other participant's public username, related listing or order, latest message preview and counts |
+| `get_my_conversation` | `messages:read` | Messages in one own conversation: sender (`me` or `other_party`), text, type, related offer, image count, time and read state |
 | `list_my_notifications` | `notifications:read` | Notifications with type, priority, read state, time and related listing, order, offer or saved search |
 | `list_my_ratings` | `ratings:read` | Ratings received or given with listing, 1–5 star value, comment and time |
 

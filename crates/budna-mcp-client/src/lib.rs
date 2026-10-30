@@ -24,18 +24,20 @@ use thiserror::Error;
 
 pub use account::{
     ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, AccountAutoBid, AccountBid,
-    AccountBuyerProtection, AccountCurrencyTotals, AccountDebt, AccountDispute, AccountInvoice,
-    AccountListingAttribute, AccountListingAttributeValue, AccountListingAuction,
-    AccountListingDetail, AccountListingFixedPrice, AccountListingImage, AccountListingLive,
-    AccountListingLiveRound, AccountListingLiveStream, AccountListingPage, AccountListingReserve,
-    AccountListingRound, AccountListingShipping, AccountListingShowcase, AccountListingSummary,
+    AccountBuyerProtection, AccountConversation, AccountConversationMessages,
+    AccountCurrencyTotals, AccountDebt, AccountDispute, AccountInvoice, AccountListingAttribute,
+    AccountListingAttributeValue, AccountListingAuction, AccountListingDetail,
+    AccountListingFixedPrice, AccountListingImage, AccountListingLive, AccountListingLiveRound,
+    AccountListingLiveStream, AccountListingPage, AccountListingReserve, AccountListingRound,
+    AccountListingShipping, AccountListingShowcase, AccountListingSummary, AccountMessage,
     AccountMoneySummary, AccountNotification, AccountOffer, AccountOrder, AccountOrderDetail,
     AccountOrderReturn, AccountOrderTracking, AccountPage, AccountPaymentActivity,
     AccountPaymentActivityEntry, AccountPayout, AccountPayouts, AccountRating, AccountRefund,
     AccountSavedSearch, AccountSavedSearchQuery, AccountSecondChanceOffer, AccountSummary,
     AccountTrackingEvent, AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE,
-    DelegatedAccess, LISTINGS_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE,
-    ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, RATINGS_READ_SCOPE, WATCHLIST_READ_SCOPE,
+    DelegatedAccess, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE,
+    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, RATINGS_READ_SCOPE,
+    WATCHLIST_READ_SCOPE,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};

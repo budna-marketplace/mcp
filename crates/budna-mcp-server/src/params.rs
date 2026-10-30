@@ -122,6 +122,45 @@ impl AccountWatchlistListingsParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct AccountConversationsParams {
+    /// Return only conversations with unread messages.
+    pub unread_only: Option<bool>,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountConversationsParams {
+    pub fn validate(&self) -> Result<(u32, u32), InputError> {
+        validate_listing_page(self.page, self.limit)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountConversationParams {
+    /// Conversation ID returned by list_my_conversations.
+    #[schemars(range(min = 1))]
+    pub conversation_id: i64,
+    #[schemars(range(min = 1, max = 10000))]
+    pub page: Option<u32>,
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+}
+
+impl AccountConversationParams {
+    pub fn validate(&self) -> Result<(i64, u32, u32), InputError> {
+        if self.conversation_id < 1 {
+            return Err(InputError::new("conversation_id must be at least 1"));
+        }
+        let (page, limit) = validate_listing_page(self.page, self.limit)?;
+        Ok((self.conversation_id, page, limit))
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AccountCursorParams {
     /// Cursor returned by the previous page; omit for the newest entries.
     #[schemars(length(min = 1, max = 128))]

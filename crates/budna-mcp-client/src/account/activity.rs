@@ -278,6 +278,42 @@ pub struct AccountDebt {
     pub waived_at: Option<i64>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountConversation {
+    pub id: i64,
+    pub counterparty_username: Option<String>,
+    pub listing_id: Option<String>,
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    pub last_message_preview: Option<String>,
+    pub unread_count: i64,
+    pub total_messages: i64,
+    pub is_archived: bool,
+    pub last_activity_at: i64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountConversationMessages {
+    pub counterparty_username: Option<String>,
+    pub listing_id: Option<String>,
+    pub listing_title: Option<String>,
+    pub order_id: Option<i64>,
+    pub items: Vec<AccountMessage>,
+    pub pagination: crate::Pagination,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct AccountMessage {
+    pub id: i64,
+    pub from: String,
+    pub content: String,
+    pub message_type: String,
+    pub offer_id: Option<i64>,
+    pub image_count: u32,
+    pub sent_at: i64,
+    pub read: bool,
+}
+
 /// Status values are backend vocabulary that may grow, so they are checked by shape.
 fn code(value: &str) -> bool {
     let mut bytes = value.bytes();
@@ -589,5 +625,42 @@ impl AccountDebt {
             && self.created_at >= 0
             && optional_time(self.resolved_at)
             && optional_time(self.waived_at)
+    }
+}
+
+impl AccountConversation {
+    pub(super) fn is_valid(&self) -> bool {
+        self.id > 0
+            && optional_text(self.counterparty_username.as_deref(), 256)
+            && self.listing_id.as_deref().is_none_or(is_listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && optional_id(self.order_id)
+            && optional_text(self.last_message_preview.as_deref(), 8192)
+            && self.unread_count >= 0
+            && self.total_messages >= 0
+            && self.last_activity_at >= 0
+    }
+}
+
+impl AccountConversationMessages {
+    pub(super) fn is_valid(&self) -> bool {
+        optional_text(self.counterparty_username.as_deref(), 256)
+            && self.listing_id.as_deref().is_none_or(is_listing_id)
+            && optional_text(self.listing_title.as_deref(), 4096)
+            && optional_id(self.order_id)
+            && self.items.iter().all(AccountMessage::is_valid)
+    }
+}
+
+impl AccountMessage {
+    pub(super) fn is_valid(&self) -> bool {
+        self.id > 0
+            && matches!(self.from.as_str(), "me" | "other_party")
+            && self.content.len() <= 20_000
+            && !self.message_type.is_empty()
+            && self.message_type.len() <= 64
+            && optional_id(self.offer_id)
+            && self.image_count <= 100
+            && self.sent_at >= 0
     }
 }

@@ -9,7 +9,8 @@ mod taxonomy;
 pub(crate) use account::{AccountListingsOutput, AccountOutput};
 pub(crate) use account_detail::AccountListingDetailOutput;
 pub(crate) use activity::{
-    AccountAutoBidOutput, AccountBidOutput, AccountDebtOutput, AccountMoneySummaryOutput,
+    AccountAutoBidOutput, AccountBidOutput, AccountConversationMessagesOutput,
+    AccountConversationOutput, AccountDebtOutput, AccountMoneySummaryOutput,
     AccountNotificationOutput, AccountOfferOutput, AccountOrderDetailOutput, AccountOrderOutput,
     AccountPageOutput, AccountPaymentActivityOutput, AccountPayoutsOutput, AccountRatingOutput,
     AccountSavedSearchOutput, AccountSecondChanceOfferOutput, AccountWatchedListingOutput,

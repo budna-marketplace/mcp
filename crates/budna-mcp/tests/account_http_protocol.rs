@@ -459,6 +459,8 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
             "list_my_payment_activity",
             "list_my_payouts",
             "list_my_debts",
+            "list_my_conversations",
+            "get_my_conversation",
             "search_listings",
             "get_listing",
             "get_listing_attributes",
