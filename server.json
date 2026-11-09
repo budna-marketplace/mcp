@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.budna-marketplace/mcp",
   "title": "Budna MCP",
-  "description": "Budna marketplace discovery and account access for AI assistants, with permissions you control.",
+  "description": "Find and compare new and pre-owned items",
   "repository": {
     "url": "https://github.com/budna-marketplace/mcp",
     "source": "github"
   },
-  "version": "0.8.1",
+  "version": "0.8.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@budna-marketplace/mcp",
-      "version": "0.8.1",
+      "version": "0.8.2",
       "transport": {
         "type": "stdio"
       }

@@ -79,10 +79,9 @@ The account profile fails startup when required configuration is missing.
 
 The operator must register supported OAuth clients and their exact HTTPS
 redirects with the authorization service. Discovery is published at
-`/.well-known/oauth-protected-resource/account/mcp`; the root well-known path
-also returns the resource metadata. The authorization service must advertise
-its authorization-code/PKCE S256 flow and support the customer's browser
-sign-in, explicit consent, token rotation and per-application revocation.
+`/.well-known/oauth-protected-resource/account/mcp`. The authorization service
+must advertise its authorization-code/PKCE S256 flow and support the customer's
+browser sign-in, explicit consent, token rotation and per-application revocation.
 
 ## Permissions and tools
 

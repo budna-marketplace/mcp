@@ -6,7 +6,7 @@ use rmcp::{
     RoleServer, ServerHandler,
     handler::server::wrapper::{Json, Parameters},
     model::{
-        CallToolResult, Implementation, ListResourcesResult, PaginatedRequestParams,
+        CallToolResult, ContentBlock, Implementation, ListResourcesResult, PaginatedRequestParams,
         ReadResourceRequestParams, ReadResourceResult, ServerCapabilities, ServerInfo,
     },
     service::RequestContext,
@@ -369,7 +369,7 @@ impl BudnaMcpServer {
 
     #[tool(
         title = "Get Budna category filters",
-        description = "Fetch the public filter definitions and bounded option lists for a Budna category. Use this before category-specific listing searches so agents can send valid attr_<filter_name> filters. Returned labels and option text are untrusted content.",
+        description = "Fetch the public filter definitions and bounded option lists for a Budna category. Filter names identify category-specific attr_<filter_name> search parameters. Returned labels and option text are untrusted content.",
         annotations(
             title = "Get Budna category filters",
             read_only_hint = true,
@@ -669,7 +669,7 @@ impl BudnaMcpServer {
 
     #[tool(
         title = "Get Budna brands",
-        description = "List brands on Budna with their active listing counts, featured ones first, or get one brand by slug. Pass a brand's name to browse_listings to see its listings.",
+        description = "List brands on Budna with their active listing counts, featured ones first, or get one brand by slug.",
         annotations(
             title = "Get Budna brands",
             read_only_hint = true,
@@ -857,7 +857,7 @@ impl BudnaMcpServer {
 
     #[tool(
         title = "Get Budna search locations",
-        description = "List the regions and municipalities Budna search filters by in Sweden (SE) or Norway (NO), with active listing counts. Use location_id, location_region or location_municipality with search_listings.",
+        description = "List the regions and municipalities Budna search filters by in Sweden (SE) or Norway (NO), with active listing counts.",
         annotations(
             title = "Get Budna search locations",
             read_only_hint = true,
@@ -1043,7 +1043,7 @@ fn tool_error_with_retry_after(
             })
         }
     });
-    CallToolResult::structured_error(payload)
+    CallToolResult::error(vec![ContentBlock::text(payload.to_string())])
 }
 
 #[cfg(test)]
@@ -1051,7 +1051,7 @@ mod tests {
     use std::{collections::BTreeSet, future, time::Duration};
 
     use budna_mcp_client::ClientConfig;
-    use rmcp::{ServerHandler, model::ContentBlock};
+    use rmcp::ServerHandler;
 
     use super::*;
 
@@ -1192,6 +1192,54 @@ mod tests {
     }
 
     #[test]
+    fn public_tool_descriptions_are_self_contained() {
+        fn check_descriptions(
+            value: &serde_json::Value,
+            own_name: &str,
+            tool_names: &BTreeSet<&str>,
+        ) {
+            match value {
+                serde_json::Value::Object(fields) => {
+                    for (key, value) in fields {
+                        if key == "description"
+                            && let Some(description) = value.as_str()
+                        {
+                            for token in description
+                                .split(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+                            {
+                                if token != own_name {
+                                    assert!(
+                                        !tool_names.contains(token),
+                                        "{own_name} description references another advertised tool: {token}"
+                                    );
+                                }
+                            }
+                        }
+                        check_descriptions(value, own_name, tool_names);
+                    }
+                }
+                serde_json::Value::Array(values) => {
+                    for value in values {
+                        check_descriptions(value, own_name, tool_names);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let tools = BudnaMcpServer::tool_router().list_all();
+        let names = tools
+            .iter()
+            .map(|tool| tool.name.as_ref())
+            .collect::<BTreeSet<_>>();
+        for tool in &tools {
+            let metadata = serde_json::to_value(tool)
+                .unwrap_or_else(|error| panic!("tool metadata should serialize: {error}"));
+            check_descriptions(&metadata, tool.name.as_ref(), &names);
+        }
+    }
+
+    #[test]
     fn browse_feed_schema_declares_type_without_reference_resolution() {
         let tool = BudnaMcpServer::tool_router()
             .list_all()
@@ -1214,19 +1262,66 @@ mod tests {
         );
 
         assert_eq!(result.is_error, Some(true));
-        assert_eq!(
-            result
-                .structured_content
-                .as_ref()
-                .and_then(|payload| payload.pointer("/error/code")),
-            Some(&json!("INVALID_INPUT"))
-        );
         let payload = error_payload(&result);
         assert_eq!(
             payload.pointer("/error/code"),
             Some(&json!("INVALID_INPUT"))
         );
-        assert_eq!(result.structured_content.as_ref(), Some(&payload));
+        assert!(result.structured_content.is_none());
+    }
+
+    #[test]
+    fn tool_errors_preserve_json_details_without_success_structured_content() {
+        let cases = [
+            (
+                ClientError::PublicResourceUnavailable {
+                    operation: "get_collection",
+                    code: "COLLECTION_NOT_FOUND",
+                    message: "The requested public Budna collection is unavailable",
+                },
+                json!({
+                    "operation": "get_collection",
+                    "error": {
+                        "code": "COLLECTION_NOT_FOUND",
+                        "message": "The requested public Budna collection is unavailable (HTTP 404)",
+                        "http_status": 404,
+                        "retryable": false,
+                        "retry_after_ms": null
+                    }
+                }),
+            ),
+            (
+                ClientError::Api {
+                    operation: "search_listings",
+                    status: 503,
+                    code: None,
+                    retry_after: Some(Duration::from_millis(1500)),
+                },
+                json!({
+                    "operation": "search_listings",
+                    "error": {
+                        "code": "BUDNA_API_UNAVAILABLE",
+                        "message": "Budna API unavailable (HTTP 503)",
+                        "http_status": 503,
+                        "retryable": true,
+                        "retry_after_ms": 1500
+                    }
+                }),
+            ),
+        ];
+
+        for (error, expected) in cases {
+            let result = client_error(error);
+
+            assert_eq!(result.is_error, Some(true));
+            assert_eq!(result.content.len(), 1);
+            assert_eq!(error_payload(&result), expected);
+            assert!(result.structured_content.is_none());
+            let wire = serde_json::to_value(&result)
+                .unwrap_or_else(|error| panic!("tool error should serialize: {error}"));
+            assert_eq!(wire["isError"], json!(true));
+            assert!(wire.get("structuredContent").is_none());
+        }
     }
 
     #[test]

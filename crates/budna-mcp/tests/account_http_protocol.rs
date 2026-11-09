@@ -701,11 +701,14 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
         .json()
         .await?;
         assert_eq!(error.pointer("/result/isError"), Some(&json!(true)));
-        assert!(
+        let payload: Value = serde_json::from_str(
             error
-                .pointer("/result/structuredContent/error/code")
-                .is_some()
-        );
+                .pointer("/result/content/0/text")
+                .and_then(Value::as_str)
+                .context("account tool error should contain JSON text")?,
+        )?;
+        assert!(payload.pointer("/error/code").is_some());
+        assert!(error.pointer("/result/structuredContent").is_none());
     }
     let invalid: Value = post(
         &client,

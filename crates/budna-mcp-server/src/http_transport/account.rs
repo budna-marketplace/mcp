@@ -75,13 +75,6 @@ pub fn account_http_router(
         .route_layer(middleware::from_fn_with_state(auth, authenticate))
         .route(
             "/.well-known/oauth-protected-resource/account/mcp",
-            get({
-                let metadata = metadata.clone();
-                move || async move { Json(metadata.clone()) }
-            }),
-        )
-        .route(
-            "/.well-known/oauth-protected-resource",
             get(move || async move { Json(metadata.clone()) }),
         );
     super::secure_router(router, settings, true)
@@ -221,4 +214,155 @@ fn unauthorized(auth: &AccountAuth) -> Response {
         .headers_mut()
         .insert(WWW_AUTHENTICATE, auth.challenge.clone());
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use budna_mcp_client::{ClientConfig, PublicApiClient};
+    use serde_json::{Value, json};
+    use tower::ServiceExt;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_json, header, method, path},
+    };
+
+    use super::*;
+    use crate::BudnaMcpServer;
+
+    async fn request(
+        router: &Router,
+        uri: &str,
+        body: Option<Value>,
+        token: Option<&str>,
+    ) -> Response {
+        let mut request = Request::builder()
+            .uri(uri)
+            .header(http::header::HOST, "mcp.example.test")
+            .header(http::header::ACCEPT, "application/json, text/event-stream");
+        if body.is_some() {
+            request = request
+                .method(http::Method::POST)
+                .header(http::header::CONTENT_TYPE, "application/json");
+        }
+        if let Some(token) = token {
+            request = request.header(AUTHORIZATION, format!("Bearer {token}"));
+        }
+        router
+            .clone()
+            .oneshot(
+                request
+                    .body(Body::from(
+                        body.map_or_else(String::new, |body| body.to_string()),
+                    ))
+                    .unwrap_or_else(|error| panic!("synthetic request should build: {error}")),
+            )
+            .await
+            .unwrap_or_else(|error| panic!("router request should be infallible: {error}"))
+    }
+
+    #[tokio::test]
+    async fn account_discovery_is_scoped_without_advertising_public_authentication()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let api = MockServer::start().await;
+        let resource = "https://mcp.example.test/account/mcp";
+        let service_secret = "synthetic-unit-service-credential";
+        Mock::given(method("POST"))
+            .and(path("/api/v1/mcp/oauth/exchange"))
+            .and(header("authorization", format!("Bearer {service_secret}")))
+            .and(body_json(
+                json!({"subject_token":"invalid","resource":resource}),
+            ))
+            .respond_with(ResponseTemplate::new(401))
+            .expect(1)
+            .mount(&api)
+            .await;
+        let config = ClientConfig::new(format!("{}/api/v1", api.uri()))?;
+        let account = AccountSettings::new(&api.uri(), resource)?;
+        let client = AccountApiClient::new(
+            config.clone(),
+            &api.uri(),
+            resource,
+            service_secret.to_owned(),
+        )?;
+        let public = BudnaMcpServer::new(PublicApiClient::new(config)?);
+        let server = AccountMcpServer::new(client.clone(), Duration::from_secs(10))
+            .with_public(public.clone());
+        let settings = HttpServerSettings::new(
+            0,
+            vec!["mcp.example.test".to_owned()],
+            vec!["https://app.example.test".to_owned()],
+        )?;
+        let cancellation = CancellationToken::new();
+        let router =
+            account_http_router(server, client, &settings, &account, cancellation.clone())?.merge(
+                super::super::public_http_router(public, &settings, cancellation)?,
+            );
+
+        for uri in [
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-protected-resource/mcp",
+        ] {
+            let response = request(&router, uri, None, None).await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND);
+            assert!(response.headers().get(WWW_AUTHENTICATE).is_none());
+            assert!(to_bytes(response.into_body(), 1024).await?.is_empty());
+        }
+
+        let response = request(
+            &router,
+            "/.well-known/oauth-protected-resource/account/mcp",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response.headers().get(WWW_AUTHENTICATE).is_none());
+        let metadata: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 16 * 1024).await?)?;
+        assert_eq!(
+            metadata,
+            json!({
+                "resource": resource,
+                "authorization_servers": [api.uri()],
+                "scopes_supported": ACCOUNT_SCOPES,
+                "bearer_methods_supported": ["header"],
+                "resource_name": "Budna account reads"
+            })
+        );
+
+        for body in [
+            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+                "protocolVersion":"2025-11-25","capabilities":{},
+                "clientInfo":{"name":"synthetic-unit-client","version":"1"}
+            }}),
+            json!({"jsonrpc":"2.0","id":2,"method":"tools/list"}),
+        ] {
+            let response = request(&router, "/mcp", Some(body), None).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            assert!(response.headers().get(WWW_AUTHENTICATE).is_none());
+            let result: Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await?)?;
+            assert!(result.get("error").is_none());
+            assert!(result.get("result").is_some());
+        }
+
+        let challenge = format!(
+            "Bearer resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/account/mcp\", scope=\"{}\"",
+            ACCOUNT_SCOPES.join(" ")
+        );
+        for token in [None, Some("invalid")] {
+            let response = request(
+                &router,
+                "/account/mcp",
+                Some(json!({"jsonrpc":"2.0","id":3,"method":"tools/list"})),
+                token,
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+            assert_eq!(response.headers()[WWW_AUTHENTICATE], challenge);
+            assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+        }
+        api.verify().await;
+        Ok(())
+    }
 }

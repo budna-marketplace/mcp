@@ -5,6 +5,16 @@ use serde_json::json;
 
 use super::*;
 
+fn error_payload(result: &CallToolResult) -> serde_json::Value {
+    assert!(result.structured_content.is_none());
+    result
+        .content
+        .first()
+        .and_then(rmcp::model::ContentBlock::as_text)
+        .and_then(|content| serde_json::from_str(&content.text).ok())
+        .unwrap_or_else(|| panic!("tool error should contain a JSON error payload"))
+}
+
 fn server(timeout: Duration) -> AccountMcpServer {
     let config = ClientConfig::new("https://api.example.test/api/v1")
         .unwrap_or_else(|error| panic!("synthetic account URL: {error}"));
@@ -37,10 +47,7 @@ async fn account_tool_admission_is_bounded_and_recovers_after_release() {
     };
     assert_eq!(error.is_error, Some(true));
     assert_eq!(
-        error
-            .structured_content
-            .as_ref()
-            .and_then(|payload| payload.pointer("/error/code")),
+        error_payload(&error).pointer("/error/code"),
         Some(&json!("SERVER_BUSY"))
     );
     drop(permits);
@@ -61,10 +68,7 @@ async fn account_tool_timeout_cancels_work_and_releases_its_slot() {
     };
     assert_eq!(error.is_error, Some(true));
     assert_eq!(
-        error
-            .structured_content
-            .as_ref()
-            .and_then(|payload| payload.pointer("/error/code")),
+        error_payload(&error).pointer("/error/code"),
         Some(&json!("OPERATION_TIMEOUT"))
     );
     assert_eq!(server.slots.available_permits(), 8);
