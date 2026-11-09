@@ -11,7 +11,7 @@ resolver = "3"
 authors = ["Marcus Cvjeticanin <mjovanc@icloud.com>"]
 version = "0.8.2"
 edition = "2024"
-description = "Budna marketplace and account integration for MCP clients"
+description = "Find and compare new and pre-owned items"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/budna-marketplace/mcp"
@@ -46,6 +46,7 @@ serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "time"] }
 tokio-util = "0.7"
+tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["cors", "limit"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

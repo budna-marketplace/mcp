@@ -10,7 +10,7 @@ use clap::{Parser, ValueEnum};
 #[command(
     name = "budna-mcp",
     version,
-    about = "Budna marketplace tools for AI agents."
+    about = "Find and compare new and pre-owned items"
 )]
 pub struct Cli {
     #[arg(long, value_enum, default_value_t = CliProfile::PublicExplore, env = "BUDNA_MCP_PROFILE")]

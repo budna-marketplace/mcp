@@ -27,6 +27,7 @@ tower-http.workspace = true
 http.workspace = true
 
 [dev-dependencies]
+tower.workspace = true
 wiremock.workspace = true
 
 [lints]

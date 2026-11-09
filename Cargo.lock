@@ -256,6 +256,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-util",
+ "tower",
  "tower-http",
  "tracing",
  "wiremock",
