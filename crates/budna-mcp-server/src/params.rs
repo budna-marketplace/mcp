@@ -1035,7 +1035,7 @@ pub struct BrowseListingsParams {
     /// featured: listings Budna features; recent: newest first; brand: one brand's listings.
     pub feed: ListingFeedParam,
 
-    /// The brand name, as get_brands returns it. Required for the brand feed only.
+    /// Brand name for the brand-specific listing feed. Required for the brand feed only.
     #[schemars(length(min = 1, max = 100))]
     pub brand: Option<String>,
 

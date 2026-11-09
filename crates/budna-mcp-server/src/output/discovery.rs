@@ -21,7 +21,7 @@ const MAX_SHIPPING_RATES: usize = 50;
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct BrandOutput {
-    /// Pass as brand to browse_listings.
+    /// Brand name for brand-specific listing feeds.
     #[schemars(length(max = 256))]
     pub name: String,
     #[schemars(length(max = 128))]
@@ -139,9 +139,9 @@ impl SearchSuggestionsOutput {
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct MunicipalityOutput {
-    /// Pass as location_id to search_listings.
+    /// Municipality identifier for location-based listing searches.
     pub location_id: i32,
-    /// Pass as location_municipality to search_listings.
+    /// Municipality name for location-based listing searches.
     #[schemars(length(max = 256))]
     pub name: String,
     pub listing_count: i64,
@@ -149,7 +149,7 @@ pub struct MunicipalityOutput {
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct RegionOutput {
-    /// Pass as location_region to search_listings.
+    /// Region name for location-based listing searches.
     #[schemars(length(max = 256))]
     pub name: String,
     pub listing_count: i64,

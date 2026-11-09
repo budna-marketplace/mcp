@@ -53,10 +53,9 @@ fn error_payload(result: &rmcp::model::CallToolResult) -> Result<serde_json::Val
         .context("tool error should contain text content")?;
     let payload: serde_json::Value =
         serde_json::from_str(&content.text).context("tool error content should be JSON")?;
-    assert_eq!(
-        result.structured_content.as_ref(),
-        Some(&payload),
-        "tool error text and structured representations must agree"
+    assert!(
+        result.structured_content.is_none(),
+        "tool errors must not be validated against the successful output schema"
     );
     Ok(payload)
 }
