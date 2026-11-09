@@ -1022,6 +1022,7 @@ impl BrandsParams {
 
 #[derive(Clone, Copy, Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
+#[schemars(inline)]
 pub enum ListingFeedParam {
     Featured,
     Recent,

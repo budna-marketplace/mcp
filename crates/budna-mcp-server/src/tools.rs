@@ -1192,6 +1192,21 @@ mod tests {
     }
 
     #[test]
+    fn browse_feed_schema_declares_type_without_reference_resolution() {
+        let tool = BudnaMcpServer::tool_router()
+            .list_all()
+            .into_iter()
+            .find(|tool| tool.name == "browse_listings")
+            .unwrap_or_else(|| panic!("browse_listings should be advertised"));
+        let feed = &tool.input_schema["properties"]["feed"];
+
+        assert_eq!(feed["type"], json!("string"));
+        assert_eq!(feed["enum"], json!(["featured", "recent", "brand"]));
+        assert!(feed.get("$ref").is_none());
+        assert_eq!(tool.input_schema["required"], json!(["feed"]));
+    }
+
+    #[test]
     fn input_failures_are_marked_as_tool_errors() {
         let result = input_error(
             "get_listing",
