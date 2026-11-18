@@ -189,7 +189,13 @@ async fn packaged_binary_serves_stateless_loopback_streamable_http_securely() ->
     let server_info = client
         .peer_info()
         .context("MCP initialization should return server information")?;
-    assert_eq!(server_info.server_info.name, "budna-mcp");
+    assert_eq!(
+        server_info
+            .server_info
+            .as_ref()
+            .map(|info| info.name.as_str()),
+        Some("budna-mcp")
+    );
     let tools_capability = server_info
         .capabilities
         .tools
