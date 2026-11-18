@@ -90,11 +90,13 @@ const MAX_SEARCH_PRICE_MAJOR_UNITS: &str = "1000000000000";
 const MAX_CUSTOM_FILTERS: usize = 20;
 const MAX_CUSTOM_FILTER_VALUE_CHARS: usize = 200;
 const ACCEPTED_RESPONSE_MEDIA_TYPES: &str = "application/json, application/problem+json";
+const GET_PUBLIC_SELLER_PROFILE: &str = "get_public_seller_profile";
 
 pub const LISTING_ID_PATTERN: &str =
     "^listing_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 pub const USER_ID_PATTERN: &str =
     "^user_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+pub const PUBLIC_USERNAME_PATTERN: &str = "^[a-z][a-z0-9_]{3,14}$";
 pub const COLLECTION_ID_PATTERN: &str =
     "^showcase_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 pub const LIVE_STREAM_ID_PATTERN: &str =
@@ -106,6 +108,14 @@ pub fn is_listing_id(value: &str) -> bool {
 
 pub fn is_user_id(value: &str) -> bool {
     is_public_id(value, "user_")
+}
+
+pub fn is_public_username(value: &str) -> bool {
+    (4..=15).contains(&value.len())
+        && value.as_bytes()[0].is_ascii_lowercase()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 pub fn is_collection_id(value: &str) -> bool {
@@ -185,7 +195,15 @@ impl PublicApiClient {
 
     pub async fn get_listing(&self, listing_id: &str) -> Result<ListingResponse, ClientError> {
         const OPERATION: &str = "get_listing";
-        self.get_public_listing(OPERATION, listing_id).await
+        let mut listing = self.get_public_listing(OPERATION, listing_id).await?;
+        listing.next_min_bid = listing.next_min_bid.filter(|_| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .and_then(|elapsed| i64::try_from(elapsed.as_millis()).ok())
+                .is_some_and(|now| (listing.start_time..listing.end_time).contains(&now))
+        });
+        Ok(listing)
     }
 
     pub async fn get_listing_attributes(
@@ -362,29 +380,55 @@ impl PublicApiClient {
         &self,
         seller_id: &str,
     ) -> Result<SellerProfileSummary, ClientError> {
-        const OPERATION: &str = "get_public_seller_profile";
         validate_public_id_input(
-            OPERATION,
+            GET_PUBLIC_SELLER_PROFILE,
             seller_id,
             is_user_id,
             "seller_id must be a public user ID",
         )?;
-        let url = self.endpoint(OPERATION, &format!("profiles/{seller_id}"))?;
+        self.read_public_seller_profile(&format!("profiles/{seller_id}"), |profile| {
+            profile.user_id == seller_id
+        })
+        .await
+    }
+
+    pub async fn get_public_seller_profile_by_username(
+        &self,
+        username: &str,
+    ) -> Result<SellerProfileSummary, ClientError> {
+        if !is_public_username(username) {
+            return Err(invalid_input(
+                GET_PUBLIC_SELLER_PROFILE,
+                "username must be a canonical public Budna username",
+            ));
+        }
+        self.read_public_seller_profile(&format!("profiles/public/{username}"), |profile| {
+            profile.username.as_deref() == Some(username)
+        })
+        .await
+    }
+
+    async fn read_public_seller_profile(
+        &self,
+        path: &str,
+        matches_selector: impl FnOnce(&SellerProfileSummary) -> bool,
+    ) -> Result<SellerProfileSummary, ClientError> {
+        let url = self.endpoint(GET_PUBLIC_SELLER_PROFILE, path)?;
         let profile: SellerProfileSummary = self
             .get_required_or_unavailable(
-                OPERATION,
+                GET_PUBLIC_SELLER_PROFILE,
                 self.http.get(url),
                 "SELLER_PROFILE_NOT_FOUND",
                 "Seller profile not found",
             )
             .await?;
 
-        if profile.user_id == seller_id {
-            validate_seller_profile(OPERATION, &profile)?;
+        if matches_selector(&profile) {
+            validate_seller_profile(GET_PUBLIC_SELLER_PROFILE, &profile)?;
             Ok(profile)
         } else {
             Err(public_resource_unavailable(
-                OPERATION,
+                GET_PUBLIC_SELLER_PROFILE,
                 "SELLER_PROFILE_NOT_FOUND",
                 "Seller profile not found",
             ))
@@ -971,6 +1015,7 @@ fn validate_listing(operation: &'static str, listing: &ListingResponse) -> Resul
         || !money_is_valid(&listing.starting_price, &listing.currency)
         || !optional_money_is_valid(listing.bid_increment.as_ref(), &listing.currency)
         || !optional_money_is_valid(listing.current_bid.as_ref(), &listing.currency)
+        || !optional_money_is_valid(listing.next_min_bid.as_ref(), &listing.currency)
         || !optional_money_is_valid(listing.buy_now_price.as_ref(), &listing.currency)
         || !optional_money_is_valid(listing.shipping_cost.as_ref(), &listing.currency)
     {
@@ -1710,6 +1755,7 @@ mod tests {
         assert_eq!(listing.start_time, 1_700_000_000_000);
         assert_eq!(listing.end_time, 1_800_000_000_000);
         assert_eq!(listing.current_bid, None);
+        assert_eq!(listing.next_min_bid, None);
         assert_eq!(listing.bid_count, None);
         assert_eq!(
             listing
@@ -2044,6 +2090,7 @@ mod tests {
             .get_listing(&listing_id(7))
             .await
             .unwrap_or_else(|error| panic!("public listing should decode: {error}"));
+        assert_eq!(listing.next_min_bid, None);
         assert_eq!(
             listing
                 .location
@@ -2063,6 +2110,40 @@ mod tests {
             summary.current_bid.map(|money| money.amount).as_deref(),
             Some("120.00")
         );
+    }
+
+    #[tokio::test]
+    async fn next_min_bid_is_only_returned_for_open_auctions() {
+        let server = MockServer::start().await;
+        let quoted = json!({"amount": "137.50", "currency_code": "NOK"});
+        let future = 4_102_444_800_000_i64;
+        for (id, status, round, end, expected) in [
+            (7, "active", "active", future, Some("137.50")),
+            (8, "sold", "active", future, None),
+            (9, "active", "closed", future, None),
+            (10, "active", "active", 1_700_000_000_001, None),
+        ] {
+            let mut fixture = listing_envelope(id, true, status, None);
+            let auction = &mut fixture["data"]["auction"];
+            auction["next_min_bid"] = quoted.clone();
+            auction["round"] = json!({"status": round});
+            auction["end_time"] = json!(end);
+            Mock::given(method("GET"))
+                .and(path(format!("/api/v1/listings/{}", listing_id(id))))
+                .respond_with(ResponseTemplate::new(200).set_body_json(fixture))
+                .expect(1)
+                .mount(&server)
+                .await;
+
+            let listing = client(&server)
+                .get_listing(&listing_id(id))
+                .await
+                .unwrap_or_else(|error| panic!("public listing should decode: {error}"));
+            assert_eq!(
+                listing.next_min_bid.map(|money| money.amount).as_deref(),
+                expected
+            );
+        }
     }
 
     #[tokio::test]
@@ -2135,21 +2216,24 @@ mod tests {
         );
         assert_eq!(error.public_code(), Some("BUDNA_API_INVALID_RESPONSE"));
 
-        let server = MockServer::start().await;
-        let mut mismatched_currency = listing_envelope(8, true, "active", None);
-        mismatched_currency["data"]["auction"]["current_bid"]["currency_code"] = json!("SEK");
-        Mock::given(method("GET"))
-            .and(path(format!("/api/v1/listings/{}", listing_id(8))))
-            .respond_with(ResponseTemplate::new(200).set_body_json(mismatched_currency))
-            .expect(1)
-            .mount(&server)
-            .await;
+        for field in ["current_bid", "next_min_bid"] {
+            let server = MockServer::start().await;
+            let mut mismatched_currency = listing_envelope(8, true, "active", None);
+            mismatched_currency["data"]["auction"][field] =
+                json!({"amount": "137.50", "currency_code": "SEK"});
+            Mock::given(method("GET"))
+                .and(path(format!("/api/v1/listings/{}", listing_id(8))))
+                .respond_with(ResponseTemplate::new(200).set_body_json(mismatched_currency))
+                .expect(1)
+                .mount(&server)
+                .await;
 
-        let error = client_error(
-            client(&server).get_listing(&listing_id(8)).await,
-            "mixed listing currencies must be rejected",
-        );
-        assert_eq!(error.public_code(), Some("BUDNA_API_INVALID_RESPONSE"));
+            let error = client_error(
+                client(&server).get_listing(&listing_id(8)).await,
+                "mixed listing currencies must be rejected",
+            );
+            assert_eq!(error.public_code(), Some("BUDNA_API_INVALID_RESPONSE"));
+        }
     }
 
     #[tokio::test]
