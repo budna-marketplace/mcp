@@ -117,7 +117,7 @@ For JSON-config clients:
 
 ## What you can do
 
-Budna MCP is read-only today. Public tools work with no account in the local `budna-mcp` binary and at `https://api.budna.se/mcp`. Account tools are available only on the hosted account resource, after you connect your Budna account and grant the permission they need. The account resource also serves every public tool, so one connection covers both the public marketplace and your own data.
+Budna MCP is read-only today. Public tools work with no account in the local `budna-mcp` binary and at `https://api.budna.se/mcp`. Account tools are available only on the hosted account resource, after you connect your Budna account and grant the permission they need. By default the account connection includes both the public marketplace and your own data. Self-hosted deployments can serve account tools alone. [Account configuration](docs/account-access.md#deployment-configuration)
 
 | Tool | Access | What it does |
 | --- | --- | --- |

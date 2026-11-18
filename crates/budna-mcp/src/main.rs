@@ -23,20 +23,28 @@ async fn main() -> Result<()> {
         .try_init()
         .map_err(|error| anyhow::anyhow!("failed to initialize stderr logging: {error}"))?;
 
-    let settings = Cli::parse().into_settings()?;
+    let cli = Cli::parse();
+    let account_public_explore = cli.account_public_explore();
+    let settings = cli.into_settings()?;
     let client_config =
         ClientConfig::new(settings.api_url())?.with_request_timeout(settings.request_timeout())?;
     if let Some(account) = settings.account() {
         let secret = std::env::var("BUDNA_MCP_SERVICE_SECRET").map_err(|_| {
             anyhow::anyhow!("the account profile requires BUDNA_MCP_SERVICE_SECRET")
         })?;
-        let public = BudnaMcpServer::new(PublicApiClient::new(client_config.clone())?)
-            .with_public_urls(settings.public_urls().clone())
-            .with_operation_timeout(settings.request_timeout());
-        let client =
-            AccountApiClient::new(client_config, account.issuer(), account.resource(), secret)?;
-        let server =
-            AccountMcpServer::new(client.clone(), settings.request_timeout()).with_public(public);
+        let client = AccountApiClient::new(
+            client_config.clone(),
+            account.issuer(),
+            account.resource(),
+            secret,
+        )?;
+        let mut server = AccountMcpServer::new(client.clone(), settings.request_timeout());
+        if account_public_explore {
+            let public = BudnaMcpServer::new(PublicApiClient::new(client_config)?)
+                .with_public_urls(settings.public_urls().clone())
+                .with_operation_timeout(settings.request_timeout());
+            server = server.with_public(public);
+        }
         return account_http_transport::serve(
             server,
             client,

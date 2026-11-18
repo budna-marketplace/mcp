@@ -22,6 +22,10 @@ pub struct Cli {
     #[arg(long, env = "BUDNA_MCP_ACCOUNT_RESOURCE")]
     account_resource: Option<String>,
 
+    /// Include public Explore tools and their UI on the account resource (account-read defaults to true).
+    #[arg(long, env = "BUDNA_MCP_ACCOUNT_PUBLIC_EXPLORE")]
+    account_public_explore: Option<bool>,
+
     #[arg(long, env = "BUDNA_API_URL")]
     api_url: Option<String>,
 
@@ -68,11 +72,17 @@ pub struct Cli {
 }
 
 impl Cli {
+    pub fn account_public_explore(&self) -> bool {
+        self.account_public_explore
+            .unwrap_or(self.profile == CliProfile::AccountRead)
+    }
+
     pub fn into_settings(self) -> Result<Settings, ConfigError> {
         let Self {
             profile,
             account_issuer,
             account_resource,
+            account_public_explore,
             api_url,
             public_listing_origin,
             image_origin,
@@ -96,7 +106,11 @@ impl Cli {
             .with_http_server(http_server)
             .with_public_urls(public_urls);
         match profile {
-            CliProfile::PublicExplore if account_issuer.is_some() || account_resource.is_some() => {
+            CliProfile::PublicExplore
+                if account_issuer.is_some()
+                    || account_resource.is_some()
+                    || account_public_explore.is_some() =>
+            {
                 Err(ConfigError::InvalidAccountSettings)
             }
             CliProfile::PublicExplore => Ok(settings),
@@ -175,6 +189,7 @@ mod tests {
         for args in [
             vec!["budna-mcp", "--profile", "account-read"],
             vec!["budna-mcp", "--account-issuer", "https://api.example.test"],
+            vec!["budna-mcp", "--account-public-explore", "false"],
             vec![
                 "budna-mcp",
                 "--profile",

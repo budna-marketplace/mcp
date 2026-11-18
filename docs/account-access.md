@@ -21,13 +21,13 @@ CORS. The host owns TLS, listener binding and graceful shutdown through the
 supplied cancellation token. The standalone application's listener stays on
 loopback.
 
-`AccountMcpServer::with_public` also serves every public Explore tool and the
-Marketplace Explorer resources on `/account/mcp`, so a connected client reads
-public and own data through one connection. Public tools need no delegated
-permission and still use only the credential-free public client. As in the
-app, `get_listing_bid_history` there labels the connected account's own bids
-`You` when the grant includes `bids:read`; other bidders stay `Bidder N`, and
-the public resource never labels a bid `You`.
+`AccountMcpServer::new` serves account reads. Adding `with_public` also serves
+the public Explore tools and Marketplace Explorer resources on `/account/mcp`,
+so a connected client reads public and own data through one connection. Public
+tools need no delegated permission and use the credential-free public client.
+With the `bids:read` permission, `get_listing_bid_history` on the account
+resource labels the connected account's own bids `You`. Other bidders retain
+their numbered labels. On the public resource every bidder has a numbered label.
 
 Hosts offering both profiles can merge the account router with
 `budna_mcp_server::public_http_router`, which serves anonymous tools at `/mcp`
@@ -71,6 +71,11 @@ Set `BUDNA_MCP_PROFILE=account-read` and
 have the same origin as the issuer. Configure exact HTTP Host/Origin
 allowlists for the deployment. The listener remains on loopback behind the
 operator's HTTPS reverse proxy.
+
+The standalone Account Read profile includes public Explore by default. Set
+`BUDNA_MCP_ACCOUNT_PUBLIC_EXPLORE=false` or pass
+`--account-public-explore false` to serve only account tools on that resource.
+This also removes the embedded Marketplace Explorer from that connection.
 
 Provision `BUDNA_MCP_SERVICE_SECRET` separately through the deployment's secret
 store. It is a dedicated service credential, never a customer password,
@@ -202,8 +207,10 @@ Every request presents an MCP-audience bearer token in `Authorization`.
 Credentials in cookies, query strings, tool arguments or MCP session IDs do
 not authenticate an account. The transport uses stateless requests and checks
 each request independently. Invalid credentials receive HTTP 401 with OAuth
-discovery information; missing tool permissions receive HTTP 403 and a scope
-challenge.
+discovery information. When an authenticated caller lacks the permission for a
+tool, HTTP 403 names the specific scope it needs. For example, calling
+`list_my_watchlists` requests `watchlist:read`. Discovery still lists all
+supported scopes.
 
 The resource exchanges an inbound token at the configured authorization
 service using the dedicated service credential. The request is JSON

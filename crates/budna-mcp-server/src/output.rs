@@ -180,7 +180,8 @@ fn is_hidden_character(character: char) -> bool {
     (character.is_control() && !matches!(character, '\n' | '\t'))
         || matches!(
             character,
-            '\u{200B}'..='\u{200F}'
+            '\u{061C}'
+                | '\u{200B}'..='\u{200F}'
                 | '\u{202A}'..='\u{202E}'
                 | '\u{2060}'..='\u{2064}'
                 | '\u{2066}'..='\u{2069}'
@@ -248,6 +249,7 @@ mod tests {
     #[test]
     fn text_drops_hidden_characters_but_keeps_line_breaks_and_tabs() {
         let mut budget = ProjectionBudget::default();
+        assert_eq!(budget.text("سعر\u{061C} 12".to_owned(), 256), "سعر 12");
         let hidden = "a\u{0000}b\u{0007}\r\u{007F}\u{0085}c\u{200B}\u{200D}d\u{2060}\u{FEFF}e\u{202E}f\u{2066}g\u{E0041}h";
         assert_eq!(budget.text(hidden.to_owned(), 256), "abcdefgh");
         assert_eq!(

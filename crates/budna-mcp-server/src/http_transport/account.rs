@@ -31,6 +31,7 @@ use crate::AccountMcpServer;
 struct AccountAuth {
     client: AccountApiClient,
     challenge: HeaderValue,
+    metadata_url: Arc<str>,
     slots: Arc<Semaphore>,
 }
 
@@ -53,14 +54,15 @@ pub fn account_http_router(
             .with_allowed_origins(settings.allowed_origins().iter().cloned())
             .with_cancellation_token(cancellation.child_token()),
     );
+    let metadata_url = account.metadata_url();
     let challenge = HeaderValue::from_str(&format!(
-        "Bearer resource_metadata=\"{}\", scope=\"{}\"",
-        account.metadata_url(),
+        "Bearer resource_metadata=\"{metadata_url}\", scope=\"{}\"",
         ACCOUNT_SCOPES.join(" ")
     ))?;
     let auth = AccountAuth {
         client,
         challenge,
+        metadata_url: metadata_url.into(),
         slots: Arc::new(Semaphore::new(8)),
     };
     let metadata = serde_json::json!({
@@ -124,16 +126,13 @@ async fn authenticate(
                         } else {
                             None
                         };
-                        if scope.is_some_and(|scope| !access.allows(scope)) {
-                            let mut response = StatusCode::FORBIDDEN.into_response();
+                        if let Some(required) = scope.filter(|scope| !access.allows(scope)) {
                             let challenge = format!(
-                                "{}, error=\"insufficient_scope\"",
-                                auth.challenge.to_str().unwrap_or("Bearer")
+                                "Bearer resource_metadata=\"{}\", scope=\"{required}\", error=\"insufficient_scope\"",
+                                auth.metadata_url
                             );
-                            if let Ok(value) = HeaderValue::from_str(&challenge) {
-                                response.headers_mut().insert(WWW_AUTHENTICATE, value);
-                            }
-                            return response;
+                            return (StatusCode::FORBIDDEN, [(WWW_AUTHENTICATE, challenge)])
+                                .into_response();
                         }
                     }
                     request = Request::from_parts(parts, Body::from(body));
@@ -360,6 +359,41 @@ mod tests {
             .await;
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
             assert_eq!(response.headers()[WWW_AUTHENTICATE], challenge);
+            assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+        }
+        Mock::given(method("POST"))
+            .and(path("/api/v1/mcp/oauth/exchange"))
+            .and(header("authorization", format!("Bearer {service_secret}")))
+            .and(body_json(
+                json!({"subject_token":"account-only","resource":resource}),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token":"synthetic-api-token","token_type":"Bearer","expires_in":60,
+                "scope":ACCOUNT_READ_SCOPE,"subject":"user_00000000-0000-4000-8000-000000000001",
+                "grant_id":"synthetic-grant","client_id":"synthetic-client","resource":resource
+            })))
+            .expect(2)
+            .mount(&api)
+            .await;
+        for (tool, scope) in [
+            ("list_my_watchlists", WATCHLIST_READ_SCOPE),
+            ("list_my_orders", ORDERS_READ_SCOPE),
+        ] {
+            let response = request(
+                &router,
+                ACCOUNT_MCP_PATH,
+                Some(json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":tool,"arguments":{}}})),
+                Some("account-only"),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            assert_eq!(
+                response.headers()[WWW_AUTHENTICATE],
+                format!(
+                    "Bearer resource_metadata=\"{}\", scope=\"{scope}\", error=\"insufficient_scope\"",
+                    account.metadata_url()
+                )
+            );
             assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
         }
         api.verify().await;

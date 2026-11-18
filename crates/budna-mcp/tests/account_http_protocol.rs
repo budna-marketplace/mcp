@@ -79,9 +79,17 @@ struct AccountServer {
     address: SocketAddr,
 }
 
-async fn start_account_server(api_url: &str, request_timeout_secs: u64) -> Result<AccountServer> {
-    let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp"))
-        .env_clear()
+async fn start_account_server(
+    api_url: &str,
+    request_timeout_secs: u64,
+    public_explore: Option<bool>,
+) -> Result<AccountServer> {
+    let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp"));
+    command.env_clear();
+    if let Some(enabled) = public_explore {
+        command.env("BUDNA_MCP_ACCOUNT_PUBLIC_EXPLORE", enabled.to_string());
+    }
+    let mut child = command
         .env("BUDNA_MCP_SERVICE_SECRET", SERVICE)
         .arg("--request-timeout-secs")
         .arg(request_timeout_secs.to_string())
@@ -230,7 +238,7 @@ async fn assert_request_statuses(
 #[tokio::test]
 async fn account_auth_rejects_ninth_exchange_and_recovers_after_release() -> Result<()> {
     let api = GatedExchangeApi::start().await?;
-    let mut server = start_account_server(&api.url, 30).await?;
+    let mut server = start_account_server(&api.url, 30, None).await?;
     let endpoint = format!("http://{}/account/mcp", server.address);
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
@@ -264,7 +272,7 @@ async fn account_auth_rejects_ninth_exchange_and_recovers_after_release() -> Res
 #[tokio::test]
 async fn account_auth_exchange_timeouts_release_every_request_slot() -> Result<()> {
     let api = GatedExchangeApi::start().await?;
-    let mut server = start_account_server(&api.url, 1).await?;
+    let mut server = start_account_server(&api.url, 1, None).await?;
     let endpoint = format!("http://{}/account/mcp", server.address);
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
@@ -278,6 +286,78 @@ async fn account_auth_exchange_timeouts_release_every_request_slot() -> Result<(
     api.wait_for_eight_exchanges().await?;
     api.release.add_permits(16);
     assert_request_statuses(recovered, StatusCode::OK).await?;
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn account_profile_can_omit_public_explore_tools_and_resources() -> Result<()> {
+    let api = MockServer::start().await;
+    exchange(&api, "incoming-a", "downstream-a", USER_A, "account:read").await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/mcp/account"))
+        .and(matches_header("authorization", "Bearer downstream-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success":true,"data":{"id":USER_A,"account_type":"personal","display_name":null}
+        })))
+        .expect(1)
+        .mount(&api)
+        .await;
+    let mut server = start_account_server(&api.uri(), 30, Some(false)).await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let request = async |message: Value| -> Result<Value> {
+        Ok(post(&client, &endpoint, "incoming-a", message)
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
+    };
+
+    let initialized = request(json!({
+        "jsonrpc":"2.0","id":1,"method":"initialize","params":{
+            "protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"synthetic","version":"1"}
+        }
+    })).await?;
+    assert_eq!(
+        initialized.pointer("/result/capabilities"),
+        Some(&json!({"tools":{}}))
+    );
+
+    let tools = request(json!({"jsonrpc":"2.0","id":2,"method":"tools/list"})).await?;
+    let names = tools
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .context("tools/list")?;
+    assert!(names.iter().any(|tool| tool["name"] == "get_my_account"));
+    assert!(!names.iter().any(|tool| tool["name"] == "get_categories"));
+    let own = request(call("get_my_account", json!({}))).await?;
+    assert_eq!(
+        own.pointer("/result/structuredContent/id"),
+        Some(&json!(USER_A))
+    );
+
+    let public_tool = request(call("get_categories", json!({}))).await?;
+    assert!(public_tool.get("error").is_some());
+    let resource = request(json!({"jsonrpc":"2.0","id":4,"method":"resources/read",
+        "params":{"uri":"ui://budna/marketplace-explorer-v1.html"}}))
+    .await?;
+    assert!(resource.get("error").is_some());
+    assert!(
+        api.received_requests()
+            .await
+            .context("recorded requests")?
+            .iter()
+            .all(|r| matches!(
+                r.url.path(),
+                "/api/v1/mcp/oauth/exchange" | "/api/v1/mcp/account"
+            ))
+    );
+
     server.child.kill().await?;
     server.child.wait().await?;
     Ok(())
@@ -335,7 +415,7 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
         mut stderr,
         mut logs,
         address,
-    } = start_account_server(&api.uri(), 30).await?;
+    } = start_account_server(&api.uri(), 30, None).await?;
     let endpoint = format!("http://{address}/account/mcp");
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
@@ -861,7 +941,7 @@ async fn account_bid_history_shows_own_bids_as_you_only_with_the_bids_permission
         .mount(&api)
         .await;
 
-    let mut server = start_account_server(&api.uri(), 30).await?;
+    let mut server = start_account_server(&api.uri(), 30, Some(true)).await?;
     let endpoint = format!("http://{}/account/mcp", server.address);
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
