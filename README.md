@@ -122,7 +122,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | Tool | Access | What it does |
 | --- | --- | --- |
 | `search_listings` | Public | Search and filter public marketplace listings |
-| `get_listing` | Public | Get one public listing |
+| `get_listing` | Public | Get one public listing, including Budna's next minimum bid when available for an active auction |
 | `get_listing_attributes` | Public | Get a listing's structured public attributes |
 | `get_listing_related` | Public | Find public listings related to a listing |
 | `get_seller_listings` | Public | List a seller's public listings |
@@ -133,7 +133,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `get_brands` | Public | List brands with their listing counts, or get one brand |
 | `get_locations` | Public | List the regions and municipalities search can filter by in Sweden or Norway, with listing counts |
 | `get_search_suggestions` | Public | Get listing and category suggestions for partly typed text |
-| `get_public_seller_profile` | Public | Get a seller's public profile |
+| `get_public_seller_profile` | Public | Get a seller's public profile by public seller ID or exact lowercase public username |
 | `get_seller_ratings` | Public | Get a seller's rating statistics and the ratings they received, with stars, comment and the rater's public username |
 | `get_listing_bid_summary` | Public | Get a listing's bid count and current price, without bidder identities |
 | `get_listing_bid_history` | Public | Get a listing's auction rounds and bid history, with bidders shown as Bidder 1, Bidder 2 and so on, as in the app. With your account connected and the Bids permission, your own bids show as You |

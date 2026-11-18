@@ -92,10 +92,11 @@ fn listing_data(
             "starting_price": {"amount": "100.00", "currency_code": "NOK"},
             "bid_increment": {"amount": "10.00", "currency_code": "NOK"},
             "current_bid": {"amount": "120.00", "currency_code": "NOK"},
+            "next_min_bid": {"amount": "137.50", "currency_code": "NOK"},
             "reserve": {"met": false},
             "buy_now_price": null,
             "start_time": 1_700_000_000_000_i64,
-            "end_time": 1_800_000_000_000_i64,
+            "end_time": 4_102_444_800_000_i64,
             "bid_count": 2
         },
         "fixed_price": null,
@@ -372,40 +373,47 @@ async fn mount_public_tool_mocks(api: &MockServer) {
         .mount(api)
         .await;
 
-    Mock::given(method("GET"))
-        .and(header("x-budna-contract", "external-ids-v1"))
-        .and(path(format!("/api/v1/profiles/{}", public_user_id(42))))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "success": true,
-            "data": {
-                "id": public_user_id(42),
-                "user_id": public_user_id(42),
-                "username": "seller42",
-                "display_name": "Public seller",
-                "bio": "Camera enthusiast",
-                "language": "norwegian",
-                "currency": "NOK",
-                "auction_history": {"won_auctions_count": 4, "sold_items_count": 5},
-                "verification_status": {"id_verified": true},
-                "rating": "4.9",
-                "total_ratings": 12,
-                "image_id": null,
-                "categories": ["Cameras"],
-                "is_company": false,
-                "created_at": 1_700_000_000_000_i64,
-                "followers_count": 8,
-                "following_count": 2,
-                "city": "Oslo",
-                "country": "NO",
-                "level": 3,
-                "level_name": "Trusted",
-                "unlocked_badges": [],
-                "server_only_marker": PRIVATE_SENTINEL
-            }
-        })))
-        .expect(1)
-        .mount(api)
-        .await;
+    let public_profile = ResponseTemplate::new(200).set_body_json(json!({
+        "success": true,
+        "data": {
+            "id": public_user_id(42),
+            "user_id": public_user_id(42),
+            "username": "seller42",
+            "display_name": "Public seller",
+            "bio": "Camera enthusiast",
+            "language": "norwegian",
+            "currency": "NOK",
+            "auction_history": {"won_auctions_count": 4, "sold_items_count": 5},
+            "verification_status": {"id_verified": true},
+            "rating": "4.9",
+            "total_ratings": 12,
+            "image_id": null,
+            "categories": ["Cameras"],
+            "is_company": false,
+            "created_at": 1_700_000_000_000_i64,
+            "followers_count": 8,
+            "following_count": 2,
+            "city": "Oslo",
+            "country": "NO",
+            "level": 3,
+            "level_name": "Trusted",
+            "unlocked_badges": [],
+            "server_only_marker": PRIVATE_SENTINEL
+        }
+    }));
+    for selector in [
+        public_user_id(42),
+        "public/seller42".into(),
+        "public/seller99".into(),
+    ] {
+        Mock::given(method("GET"))
+            .and(header("x-budna-contract", "external-ids-v1"))
+            .and(path(format!("/api/v1/profiles/{selector}")))
+            .respond_with(public_profile.clone())
+            .expect(1)
+            .mount(api)
+            .await;
+    }
 
     Mock::given(method("GET"))
         .and(header("x-budna-contract", "external-ids-v1"))
@@ -878,6 +886,14 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
                 ))
             );
         }
+        if tool.name == "get_public_seller_profile" {
+            assert_eq!(input_schema.get("minProperties"), Some(&json!(1)));
+            assert_eq!(input_schema.get("maxProperties"), Some(&json!(1)));
+            assert_eq!(
+                input_schema.pointer("/properties/username/pattern"),
+                Some(&json!("^[a-z][a-z0-9_]{3,14}$"))
+            );
+        }
         let output_schema = tool
             .output_schema
             .as_ref()
@@ -1093,6 +1109,12 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
             json!(public_user_id(42)),
         ),
         (
+            "get_public_seller_profile",
+            json!({"username": "seller42"}),
+            "/seller_id",
+            json!(public_user_id(42)),
+        ),
+        (
             "get_listing_bid_summary",
             json!({"listing_id": public_listing_id(7)}),
             "/bid_count",
@@ -1150,6 +1172,14 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
         successful_outputs.insert(tool_name, output);
     }
 
+    let listing = successful_outputs
+        .get("get_listing")
+        .context("listing detail output should be retained")?;
+    assert_eq!(
+        listing.pointer("/next_min_bid"),
+        Some(&json!({"amount": "137.50", "currency_code": "NOK"}))
+    );
+
     let bid_history = successful_outputs
         .get("get_listing_bid_history")
         .context("bid history output should be retained")?;
@@ -1192,6 +1222,46 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
     .context("tools/call timed out")??;
 
     assert_tool_error(&result, "get_listing", "INVALID_INPUT", Some(400), false)?;
+
+    for (arguments, code, status) in [
+        (json!({}), "INVALID_INPUT", 400),
+        (
+            json!({"seller_id": public_user_id(42), "username": "seller42"}),
+            "INVALID_INPUT",
+            400,
+        ),
+        (
+            json!({"username": "seller42", "unexpected": true}),
+            "INVALID_INPUT",
+            400,
+        ),
+        (json!({"username": "seller42/extra"}), "INVALID_INPUT", 400),
+        (
+            json!({"username": "seller99"}),
+            "SELLER_PROFILE_NOT_FOUND",
+            404,
+        ),
+    ] {
+        let arguments = arguments
+            .as_object()
+            .cloned()
+            .context("seller profile arguments should be an object")?;
+        let result = tokio::time::timeout(
+            PROTOCOL_TIMEOUT,
+            client.call_tool(
+                CallToolRequestParams::new("get_public_seller_profile").with_arguments(arguments),
+            ),
+        )
+        .await
+        .context("seller profile tools/call timed out")??;
+        assert_tool_error(
+            &result,
+            "get_public_seller_profile",
+            code,
+            Some(status),
+            false,
+        )?;
+    }
 
     let unknown_arguments = json!({"listing_id": public_listing_id(7), "unexpected": true})
         .as_object()
