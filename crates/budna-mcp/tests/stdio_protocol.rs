@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use rmcp::{
     ServiceExt,
     model::{
-        CallToolRequestParams, ClientCapabilities, ClientInfo, ExtensionCapabilities,
+        CallToolRequestParams, ClientCapabilities, ClientConfig, ExtensionCapabilities,
         Implementation, ReadResourceRequestParams, ResourceContents,
     },
     transport::{ConfigureCommandExt, TokioChildProcess},
@@ -29,7 +29,7 @@ const CONFIGURED_IMAGE_ORIGIN: &str = "https://images.example.test";
 const CONFIGURED_LISTING_ORIGIN: &str = "https://listings.example.test";
 const PRIVATE_SENTINEL: &str = "private-contract-sentinel";
 
-fn apps_client_info() -> Result<ClientInfo> {
+fn apps_client_info() -> Result<ClientConfig> {
     let settings = json!({"mimeTypes": [APP_MIME_TYPE]})
         .as_object()
         .cloned()
@@ -37,7 +37,7 @@ fn apps_client_info() -> Result<ClientInfo> {
     let mut extensions = ExtensionCapabilities::new();
     extensions.insert(APP_EXTENSION_ID.to_owned(), settings);
 
-    Ok(ClientInfo::new(
+    Ok(ClientConfig::new(
         ClientCapabilities::builder()
             .enable_extensions_with(extensions)
             .build(),
@@ -781,7 +781,13 @@ async fn packaged_binary_serves_the_public_explore_profile_over_stdio() -> Resul
     let server_info = client
         .peer_info()
         .context("MCP initialization should return server information")?;
-    assert_eq!(server_info.server_info.name, "budna-mcp");
+    assert_eq!(
+        server_info
+            .server_info
+            .as_ref()
+            .map(|info| info.name.as_str()),
+        Some("budna-mcp")
+    );
     assert!(server_info.capabilities.tools.is_some());
     assert!(server_info.capabilities.resources.is_some());
     assert!(
