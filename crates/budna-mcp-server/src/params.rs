@@ -7,8 +7,8 @@ use std::{
 
 use budna_mcp_client::{
     COLLECTION_ID_PATTERN, CategoryListRequest, LISTING_ID_PATTERN, LIVE_STREAM_ID_PATTERN,
-    SearchListingsRequest, USER_ID_PATTERN, is_collection_id, is_listing_id, is_live_stream_id,
-    is_user_id,
+    PUBLIC_USERNAME_PATTERN, SearchListingsRequest, USER_ID_PATTERN, is_collection_id,
+    is_listing_id, is_live_stream_id, is_public_username, is_user_id,
 };
 use rmcp::schemars;
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
@@ -774,17 +774,54 @@ impl ListingIdPageParams {
     }
 }
 
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SellerIdParams {
-    /// Public Budna seller user ID, prefixed with user_.
-    #[schemars(length(min = 41, max = 41), regex(pattern = USER_ID_PATTERN))]
-    pub seller_id: String,
+#[derive(Debug, Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum SellerProfileParams {
+    Id { seller_id: String },
+    Username { username: String },
 }
 
-impl SellerIdParams {
+impl SellerProfileParams {
     pub fn validate(&self) -> Result<(), InputError> {
-        validate_seller_id(&self.seller_id)
+        match self {
+            Self::Id { seller_id } => validate_seller_id(seller_id),
+            Self::Username { username } => {
+                is_public_username(username).then_some(()).ok_or_else(|| {
+                    InputError::new("username must be a canonical public Budna username")
+                })
+            }
+        }
+    }
+}
+
+impl schemars::JsonSchema for SellerProfileParams {
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("SellerProfileParams")
+    }
+
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "maxProperties": 1,
+            "properties": {
+                "seller_id": {
+                    "type": "string",
+                    "description": "Public Budna seller user ID, prefixed with user_.",
+                    "minLength": 41,
+                    "maxLength": 41,
+                    "pattern": USER_ID_PATTERN
+                },
+                "username": {
+                    "type": "string",
+                    "description": "Exact lowercase public Budna username.",
+                    "minLength": 4,
+                    "maxLength": 15,
+                    "pattern": PUBLIC_USERNAME_PATTERN
+                }
+            }
+        })
     }
 }
 
@@ -1622,7 +1659,7 @@ mod tests {
             .is_ok()
         );
         assert!(
-            SellerIdParams {
+            SellerProfileParams::Id {
                 seller_id: seller.to_owned()
             }
             .validate()
@@ -1636,7 +1673,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            SellerIdParams {
+            SellerProfileParams::Id {
                 seller_id: listing.to_owned()
             }
             .validate()

@@ -10,7 +10,9 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+    { id = "RUSTSEC-2026-0543", reason = "rmcp 3.11 requires chrono as a server dependency. Remove this unmaintained-only exception when rmcp replaces chrono." },
+]
 
 [licenses]
 version = 2

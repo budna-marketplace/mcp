@@ -122,7 +122,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | Tool | Access | What it does |
 | --- | --- | --- |
 | `search_listings` | Public | Search and filter public marketplace listings |
-| `get_listing` | Public | Get one public listing |
+| `get_listing` | Public | Get one public listing, including Budna's next minimum bid when available for an active auction |
 | `get_listing_attributes` | Public | Get a listing's structured public attributes |
 | `get_listing_related` | Public | Find public listings related to a listing |
 | `get_seller_listings` | Public | List a seller's public listings |
@@ -133,7 +133,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `get_brands` | Public | List brands with their listing counts, or get one brand |
 | `get_locations` | Public | List the regions and municipalities search can filter by in Sweden or Norway, with listing counts |
 | `get_search_suggestions` | Public | Get listing and category suggestions for partly typed text |
-| `get_public_seller_profile` | Public | Get a seller's public profile |
+| `get_public_seller_profile` | Public | Get a seller's public profile by public seller ID or exact lowercase public username |
 | `get_seller_ratings` | Public | Get a seller's rating statistics and the ratings they received, with stars, comment and the rater's public username |
 | `get_listing_bid_summary` | Public | Get a listing's bid count and current price, without bidder identities |
 | `get_listing_bid_history` | Public | Get a listing's auction rounds and bid history, with bidders shown as Bidder 1, Bidder 2 and so on, as in the app. With your account connected and the Bids permission, your own bids show as You |
@@ -225,28 +225,9 @@ Add `https://api.budna.se/account/mcp` to your AI client as a remote (Streamable
 
 Other clients are not accepted yet. See [Account access](docs/account-access.md) for the full permission model and the data each tool returns.
 
-## Use a non-production environment
+## Deployment configuration
 
-Configure these values together so API requests, public listing links, and images stay in the same environment:
-
-| Setting | Purpose |
-| --- | --- |
-| `BUDNA_API_URL` | Budna API base URL, including `/api/v1` if applicable. |
-| `BUDNA_PUBLIC_LISTING_ORIGIN` | Origin used for returned listing links. |
-| `BUDNA_IMAGE_ORIGIN` | Origin used for returned image URLs and the App CSP. |
-
-Remote API URLs must use HTTPS; HTTP is accepted only for loopback development servers. Listing and image values must be canonical HTTPS origins with no credentials, path, query, fragment, or wildcard host. The binary does not load `.env` files itself; [`.env.example`](.env.example) is reference material.
-
-For example, register a separate Codex server for another environment:
-
-```bash
-codex mcp add budna-nonprod -- /absolute/path/to/budna-mcp \
-  --api-url https://api.your-environment.example/api/v1 \
-  --public-listing-origin https://marketplace.your-environment.example \
-  --image-origin https://images.your-environment.example
-```
-
-Equivalent environment variables are supported when your client can provide them.
+Budna MCP uses production endpoints by default. For local testing or a custom deployment, see the [endpoint configuration guide](docs/mcp-apps.md#environment-endpoints).
 
 ## Interactive cards
 

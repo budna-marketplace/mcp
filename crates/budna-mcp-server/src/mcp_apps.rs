@@ -2,7 +2,7 @@ use budna_mcp_core::PublicUrlSettings;
 use rmcp::{
     ErrorData,
     model::{
-        ExtensionCapabilities, ListResourcesResult, Meta, ReadResourceResult, Resource,
+        ExtensionCapabilities, ListResourcesResult, MetaObject, ReadResourceResult, Resource,
         ResourceContents,
     },
 };
@@ -22,8 +22,8 @@ pub(crate) const APP_HTML: &str = include_str!(concat!(
     "/assets/marketplace-explorer-v1.html"
 ));
 
-pub(crate) fn tool_meta() -> Meta {
-    let mut meta = Meta::new();
+pub(crate) fn tool_meta() -> MetaObject {
+    let mut meta = MetaObject::default();
     meta.0.insert(
         "ui".to_owned(),
         json!({
@@ -73,8 +73,8 @@ fn app_resource(public_urls: &PublicUrlSettings) -> Resource {
         .with_meta(resource_meta(public_urls))
 }
 
-fn resource_meta(public_urls: &PublicUrlSettings) -> Meta {
-    let mut meta = Meta::new();
+fn resource_meta(public_urls: &PublicUrlSettings) -> MetaObject {
+    let mut meta = MetaObject::default();
     meta.0.insert(
         "ui".to_owned(),
         json!({

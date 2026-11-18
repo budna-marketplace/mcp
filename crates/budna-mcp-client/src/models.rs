@@ -160,6 +160,7 @@ pub struct ListingResponse {
     pub starting_price: Money,
     pub bid_increment: Option<Money>,
     pub current_bid: Option<Money>,
+    pub next_min_bid: Option<Money>,
     pub reserve_price_met: bool,
     pub buy_now_price: Option<Money>,
     pub shipping_cost: Option<Money>,
@@ -223,7 +224,14 @@ struct ListingAuctionWire {
     current_bid: Option<Money>,
     bid_count: Option<i64>,
     bid_increment: Option<Money>,
+    next_min_bid: Option<Money>,
+    round: Option<ListingRoundWire>,
     reserve: ListingReserveWire,
+}
+
+#[derive(Debug, Deserialize)]
+struct ListingRoundWire {
+    status: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -262,6 +270,7 @@ impl TryFrom<ListingWire> for ListingResponse {
             starting_price,
             buy_now_price,
             current_bid,
+            next_min_bid,
             bid_increment,
             bid_count,
             reserve_price_met,
@@ -272,6 +281,10 @@ impl TryFrom<ListingWire> for ListingResponse {
                 auction.starting_price,
                 auction.buy_now_price,
                 auction.current_bid,
+                auction.next_min_bid.filter(|_| {
+                    wire.status == "active"
+                        && auction.round.is_none_or(|round| round.status == "active")
+                }),
                 auction.bid_increment,
                 auction.bid_count,
                 auction.reserve.met,
@@ -281,6 +294,7 @@ impl TryFrom<ListingWire> for ListingResponse {
             ("fixed_price" | "in_stock", None, Some(fixed)) => (
                 fixed.price,
                 fixed.buy_now_price,
+                None,
                 None,
                 None,
                 None,
@@ -305,6 +319,7 @@ impl TryFrom<ListingWire> for ListingResponse {
             starting_price,
             bid_increment,
             current_bid,
+            next_min_bid,
             reserve_price_met,
             buy_now_price,
             shipping_cost: wire.shipping.custom_price,
