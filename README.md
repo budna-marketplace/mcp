@@ -8,7 +8,7 @@
 
 Discover new and pre-owned items on Budna that fit your needs and budget. Compare options, check condition and compatibility, and plan pickup or delivery before you decide.
 
-Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account, listings, bids, offers, watchlists, saved searches, purchases, sales, disputes, messages, payments, notifications and ratings, with the permissions you choose. Budna MCP is read-only: it cannot change marketplace data.
+Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account, listings, bids, offers, watchlists, saved searches, purchases, sales, disputes, messages, payments, notifications and ratings, with the permissions you choose. Public Explore and Account Read are read-only. A separately enabled pilot lets a connected app save or remove one listing in one of your private watchlists.
 
 ## Quick start
 
@@ -117,7 +117,7 @@ For JSON-config clients:
 
 ## What you can do
 
-Budna MCP is read-only today. Public tools work with no account in the local `budna-mcp` binary and at `https://api.budna.se/mcp`. Account tools are available only on the hosted account resource, after you connect your Budna account and grant the permission they need. By default the account connection includes both the public marketplace and your own data. Self-hosted deployments can serve account tools alone. [Account configuration](docs/account-access.md#deployment-configuration)
+Public tools work with no account in the local `budna-mcp` binary and at `https://api.budna.se/mcp`. Account tools require an authenticated account resource and the corresponding permission. By default the account connection includes both the public marketplace and your own data. Self-hosted deployments can serve account tools alone. [Account configuration](docs/account-access.md#deployment-configuration)
 
 | Tool | Access | What it does |
 | --- | --- | --- |
@@ -156,7 +156,8 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 | `list_my_offers` | Offers permission | List offers you sent or received, with the other party's public username, amount, counter-offer, status, who acted last and expiry |
 | `list_my_second_chance_offers` | Offers permission | List second-chance offers you received after an auction you bid on |
 | `get_my_offer_history` | Offers permission | Read each step of one offer's negotiation: who acted, the action and the amount |
-| `list_my_watchlists` | Watchlist permission | List your watchlists with their names and item counts |
+| `list_my_watchlists` | Watchlist read permission | List your watchlists with names, item counts and visibility when available |
+| `set_my_watchlist_membership` | Private pilot · `watchlist:write` | Save or remove one listing in one private watchlist you own |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |
 | `list_my_saved_searches` | Watchlist permission | List your saved searches with their criteria, alerts and unseen matches |
 | `list_my_saved_search_matches` | Watchlist permission | List the listings one of your saved searches matches now |
@@ -194,7 +195,7 @@ Budna MCP is read-only today. Public tools work with no account in the local `bu
 
 In compatible MCP Apps clients you can also browse interactive listing cards and explicitly ask the AI to compare two to four selected listings.
 
-Budna MCP cannot currently bid, make offers, buy, message, record views, change account settings, or otherwise change marketplace data.
+The pilot requires an operator-enabled deployment, a supported API and explicit watchlist write consent. The default profiles continue to serve reads. [Private watchlist pilot](docs/account-access.md#private-watchlist-pilot)
 
 ### Permissions you control
 
@@ -206,7 +207,7 @@ Budna MCP cannot currently bid, make offers, buy, message, record views, change 
 
 ### Where Budna MCP is going
 
-Budna MCP is growing toward everything you can do in the Budna app and on the web. Next come actions such as bidding, making offers, buying, selling and managing your listings, and messaging. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. None of these actions are available yet.
+The private watchlist pilot is the first account write. Bidding, making offers, buying, managing listings and messaging are planned separately. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. The pilot does not grant any of those permissions.
 
 ## Connect your Budna account
 

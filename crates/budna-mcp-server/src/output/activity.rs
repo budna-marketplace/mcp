@@ -120,6 +120,9 @@ pub struct AccountWatchlistOutput {
     #[schemars(length(max = 256))]
     pub name: String,
     pub is_default: bool,
+    /// Unknown on servers that do not provide visibility.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_private: Option<bool>,
     pub item_count: i64,
     pub created_at: i64,
     pub updated_at: i64,
@@ -131,6 +134,7 @@ impl From<AccountPage<AccountWatchlist>> for AccountPageOutput<AccountWatchlistO
             id: watchlist.id,
             name: budget.text(watchlist.name, MAX_NAME_BYTES),
             is_default: watchlist.is_default,
+            is_private: watchlist.is_private,
             item_count: watchlist.item_count,
             created_at: watchlist.created_at,
             updated_at: watchlist.updated_at,

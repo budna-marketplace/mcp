@@ -12,7 +12,7 @@ use tokio::{
 };
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{body_json, header as matches_header, method, path},
+    matchers::{body_json, header as matches_header, header_regex, method, path},
 };
 
 const RESOURCE: &str = "https://mcp.example.test/account/mcp";
@@ -22,6 +22,7 @@ const USER_B: &str = "user_00000000-0000-4000-8000-000000000002";
 const LISTING_A: &str = "listing_00000000-0000-4000-8000-000000000007";
 const LISTING_B: &str = "listing_00000000-0000-4000-8000-000000000008";
 const SENTINEL: &str = "ignored-upstream-protocol-sentinel";
+const WATCHLIST_WRITE: &str = "set_my_watchlist_membership";
 const AUCTION: &str = "listing_00000000-0000-4000-8000-000000000009";
 
 fn owned_listing_fixture() -> Value {
@@ -72,6 +73,25 @@ fn call(name: &str, arguments: Value) -> Value {
     json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":name,"arguments":arguments}})
 }
 
+fn watchlist_args(saved: bool) -> Value {
+    json!({"watchlist_id":7,"listing_id":LISTING_A,"saved":saved})
+}
+
+fn assert_write_error(response: &Value, code: &str) -> Result<()> {
+    assert_eq!(response.pointer("/result/isError"), Some(&json!(true)));
+    assert!(response.pointer("/result/structuredContent").is_none());
+    let error: Value = serde_json::from_str(
+        response
+            .pointer("/result/content/0/text")
+            .and_then(Value::as_str)
+            .context("tool error")?,
+    )?;
+    assert_eq!(error["operation"], WATCHLIST_WRITE);
+    assert_eq!(error["error"]["code"], code);
+    assert_eq!(error["error"]["retryable"], false);
+    Ok(())
+}
+
 struct AccountServer {
     child: Child,
     stderr: BufReader<ChildStderr>,
@@ -79,31 +99,35 @@ struct AccountServer {
     address: SocketAddr,
 }
 
-async fn start_account_server(
+async fn start_http_server(
     api_url: &str,
     request_timeout_secs: u64,
+    account_profile: Option<&str>,
     public_explore: Option<bool>,
 ) -> Result<AccountServer> {
     let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp"));
     command.env_clear();
-    if let Some(enabled) = public_explore {
-        command.env("BUDNA_MCP_ACCOUNT_PUBLIC_EXPLORE", enabled.to_string());
-    }
-    let mut child = command
-        .env("BUDNA_MCP_SERVICE_SECRET", SERVICE)
-        .arg("--request-timeout-secs")
-        .arg(request_timeout_secs.to_string())
-        .args([
+    if let Some(profile) = account_profile {
+        command.env("BUDNA_MCP_SERVICE_SECRET", SERVICE).args([
             "--profile",
-            "account-read",
-            "--transport",
-            "streamable-http",
-            "--api-url",
-            api_url,
+            profile,
             "--account-issuer",
             api_url,
             "--account-resource",
             RESOURCE,
+        ]);
+    }
+    if let Some(enabled) = public_explore {
+        command.env("BUDNA_MCP_ACCOUNT_PUBLIC_EXPLORE", enabled.to_string());
+    }
+    let mut child = command
+        .arg("--request-timeout-secs")
+        .arg(request_timeout_secs.to_string())
+        .args([
+            "--transport",
+            "streamable-http",
+            "--api-url",
+            api_url,
             "--http-port",
             "0",
         ])
@@ -238,7 +262,7 @@ async fn assert_request_statuses(
 #[tokio::test]
 async fn account_auth_rejects_ninth_exchange_and_recovers_after_release() -> Result<()> {
     let api = GatedExchangeApi::start().await?;
-    let mut server = start_account_server(&api.url, 30, None).await?;
+    let mut server = start_http_server(&api.url, 30, Some("account-read"), None).await?;
     let endpoint = format!("http://{}/account/mcp", server.address);
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
@@ -272,7 +296,7 @@ async fn account_auth_rejects_ninth_exchange_and_recovers_after_release() -> Res
 #[tokio::test]
 async fn account_auth_exchange_timeouts_release_every_request_slot() -> Result<()> {
     let api = GatedExchangeApi::start().await?;
-    let mut server = start_account_server(&api.url, 1, None).await?;
+    let mut server = start_http_server(&api.url, 1, Some("account-read"), None).await?;
     let endpoint = format!("http://{}/account/mcp", server.address);
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
@@ -304,7 +328,7 @@ async fn account_profile_can_omit_public_explore_tools_and_resources() -> Result
         .expect(1)
         .mount(&api)
         .await;
-    let mut server = start_account_server(&api.uri(), 30, Some(false)).await?;
+    let mut server = start_http_server(&api.uri(), 30, Some("account-read"), Some(false)).await?;
     let endpoint = format!("http://{}/account/mcp", server.address);
     let client = Client::builder()
         .no_proxy()
@@ -335,6 +359,13 @@ async fn account_profile_can_omit_public_explore_tools_and_resources() -> Result
         .context("tools/list")?;
     assert!(names.iter().any(|tool| tool["name"] == "get_my_account"));
     assert!(!names.iter().any(|tool| tool["name"] == "get_categories"));
+    assert!(!names.iter().any(|tool| tool["name"] == WATCHLIST_WRITE));
+    assert!(
+        request(call(WATCHLIST_WRITE, watchlist_args(true)))
+            .await?
+            .get("error")
+            .is_some()
+    );
     let own = request(call("get_my_account", json!({}))).await?;
     assert_eq!(
         own.pointer("/result/structuredContent/id"),
@@ -415,7 +446,7 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
         mut stderr,
         mut logs,
         address,
-    } = start_account_server(&api.uri(), 30, None).await?;
+    } = start_http_server(&api.uri(), 30, Some("account-read"), None).await?;
     let endpoint = format!("http://{address}/account/mcp");
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
@@ -432,6 +463,12 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
         .await?;
     assert_eq!(metadata["resource"], RESOURCE);
     assert_eq!(metadata["authorization_servers"], json!([api.uri()]));
+    assert!(
+        !metadata["scopes_supported"]
+            .as_array()
+            .context("account read scope list")?
+            .contains(&json!("watchlist:write"))
+    );
 
     let response = client
         .post(&endpoint)
@@ -831,6 +868,239 @@ async fn account_profile_authenticates_each_request_and_isolates_accounts() -> R
     Ok(())
 }
 
+#[tokio::test]
+async fn default_profile_does_not_discover_or_dispatch_watchlist_writes() -> Result<()> {
+    let api = MockServer::start().await;
+    let mut server = start_http_server(&api.uri(), 30, None, None).await?;
+    let endpoint = format!("http://{}/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let request = async |message: Value| -> Result<Value> {
+        Ok(client
+            .post(&endpoint)
+            .header(header::ACCEPT, "application/json, text/event-stream")
+            .json(&message)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
+    };
+    let list = request(json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})).await?;
+    let tools = list
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .context("public tools")?;
+    assert!(tools.iter().any(|tool| tool["name"] == "search_listings"));
+    assert!(!tools.iter().any(|tool| tool["name"] == WATCHLIST_WRITE));
+    let denied = request(call(WATCHLIST_WRITE, watchlist_args(true))).await?;
+    assert!(denied.get("error").is_some());
+    assert!(
+        api.received_requests()
+            .await
+            .context("upstream calls")?
+            .is_empty()
+    );
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn pilot_dispatches_private_watchlist_writes_only_with_the_write_grant() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000004";
+    const SCOPE: &str = "watchlist:write";
+    let api = MockServer::start().await;
+    exchange(&api, "incoming-write", "watchlist-writer", USER_A, SCOPE).await;
+    exchange(
+        &api,
+        "incoming-read",
+        "watchlist-reader",
+        USER_B,
+        "watchlist:read",
+    )
+    .await;
+    let mut server =
+        start_http_server(&api.uri(), 30, Some("account-watchlist-pilot"), Some(false)).await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let request = async |message: Value| -> Result<Value> {
+        let response = post(&client, &endpoint, "incoming-write", message)
+            .await?
+            .error_for_status()?;
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        Ok(response.json().await?)
+    };
+    let metadata: Value = client
+        .get(format!(
+            "http://{}/.well-known/oauth-protected-resource/account/mcp",
+            server.address
+        ))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    assert!(
+        metadata["scopes_supported"]
+            .as_array()
+            .context("scope list")?
+            .contains(&json!(SCOPE))
+    );
+    let initialized = request(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+        "protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"synthetic","version":"1"}
+    }})).await?;
+    assert!(
+        initialized
+            .pointer("/result/instructions")
+            .and_then(Value::as_str)
+            .context("instructions")?
+            .contains(WATCHLIST_WRITE)
+    );
+    let list = request(json!({"jsonrpc":"2.0","id":2,"method":"tools/list"})).await?;
+    let tools = list
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .context("pilot tools")?;
+    let writes: Vec<_> = tools
+        .iter()
+        .filter(|tool| tool["annotations"]["readOnlyHint"] != true)
+        .collect();
+    assert_eq!(writes.len(), 1);
+    let tool = writes[0];
+    assert_eq!(tool["name"], WATCHLIST_WRITE);
+    assert_eq!(tool["annotations"]["readOnlyHint"], false);
+    assert_eq!(tool["annotations"]["destructiveHint"], true);
+    assert_eq!(tool["annotations"]["idempotentHint"], false);
+    assert_eq!(tool["annotations"]["openWorldHint"], true);
+    assert_eq!(tool["inputSchema"]["additionalProperties"], false);
+    assert_eq!(
+        tool["inputSchema"]["properties"]
+            .as_object()
+            .context("input schema")?
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["listing_id", "saved", "watchlist_id"]),
+    );
+    assert_eq!(
+        tool["outputSchema"]["properties"]
+            .as_object()
+            .context("receipt schema")?
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["action_id", "watchlist_id", "listing_id", "saved", "status"]),
+    );
+
+    let denied = post(
+        &client,
+        &endpoint,
+        "incoming-read",
+        call(WATCHLIST_WRITE, watchlist_args(true)),
+    )
+    .await?;
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+    assert!(
+        denied.headers()[header::WWW_AUTHENTICATE]
+            .to_str()?
+            .contains(SCOPE)
+    );
+    for arguments in [
+        json!({"watchlist_id":0,"listing_id":LISTING_A,"saved":true}),
+        json!({"watchlist_id":7,"listing_id":"invalid","saved":true}),
+        json!({"watchlist_id":7,"listing_id":LISTING_A}),
+        json!({"watchlist_id":7,"listing_id":LISTING_A,"saved":"true"}),
+        json!({"watchlist_id":7,"listing_id":LISTING_A,"saved":true,"idempotency_key":ACTION}),
+        json!({"watchlist_id":7,"listing_id":LISTING_A,"saved":true,"user_id":USER_B}),
+    ] {
+        assert_write_error(
+            &request(call(WATCHLIST_WRITE, arguments)).await?,
+            "INVALID_INPUT",
+        )?;
+    }
+    let write_route = |saved| {
+        Mock::given(method("PUT"))
+            .and(path(format!(
+                "/api/v1/mcp/account/watchlists/7/listings/{LISTING_A}"
+            )))
+            .and(matches_header("authorization", "Bearer watchlist-writer"))
+            .and(header_regex(
+                "idempotency-key",
+                "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$",
+            ))
+            .and(body_json(json!({"saved":saved})))
+    };
+    for (saved, status) in [
+        (true, "executed"),
+        (false, "executed"),
+        (true, "executing"),
+        (false, "unknown"),
+    ] {
+        let receipt = json!({"action_id":ACTION,"watchlist_id":7,"listing_id":LISTING_A,"saved":saved,"status":status});
+        let mut upstream = receipt.clone();
+        upstream["extra"] = json!(SENTINEL);
+        let _route = write_route(saved)
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":upstream})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result = request(call(WATCHLIST_WRITE, watchlist_args(saved))).await?;
+        assert_eq!(result.pointer("/result/isError"), Some(&json!(false)));
+        assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        let text: Value = serde_json::from_str(
+            result
+                .pointer("/result/content/0/text")
+                .and_then(Value::as_str)
+                .context("receipt text")?,
+        )?;
+        assert_eq!(text, receipt);
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    for (status, code) in [(404, "API_NOT_FOUND"), (503, "ACTION_OUTCOME_UNKNOWN")] {
+        let _route = write_route(true)
+            .respond_with(ResponseTemplate::new(status).set_body_string(SENTINEL))
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result = request(call(WATCHLIST_WRITE, watchlist_args(true))).await?;
+        assert_write_error(&result, code)?;
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    let requests = api.received_requests().await.context("recorded requests")?;
+    let mut keys = BTreeSet::new();
+    for write in requests.iter().filter(|r| r.method == "PUT") {
+        let key = write
+            .headers
+            .get("idempotency-key")
+            .context("generated key")?
+            .to_str()?;
+        assert!(keys.insert(key));
+    }
+    assert_eq!(keys.len(), 6);
+    server.child.kill().await?;
+    server.child.wait().await?;
+    server.stderr.read_to_string(&mut server.logs).await?;
+    for value in keys.into_iter().chain([
+        SERVICE,
+        "incoming-write",
+        "watchlist-writer",
+        USER_A,
+        LISTING_A,
+        SENTINEL,
+    ]) {
+        assert!(!server.logs.contains(value));
+    }
+    Ok(())
+}
+
 fn public_auction_fixture() -> Value {
     json!({
         "id": AUCTION,
@@ -941,7 +1211,7 @@ async fn account_bid_history_shows_own_bids_as_you_only_with_the_bids_permission
         .mount(&api)
         .await;
 
-    let mut server = start_account_server(&api.uri(), 30, Some(true)).await?;
+    let mut server = start_http_server(&api.uri(), 30, Some("account-read"), Some(true)).await?;
     let endpoint = format!("http://{}/account/mcp", server.address);
     let client = Client::builder()
         .timeout(Duration::from_secs(10))

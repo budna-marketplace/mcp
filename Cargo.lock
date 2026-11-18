@@ -274,6 +274,7 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
+ "uuid",
  "wiremock",
 ]
 

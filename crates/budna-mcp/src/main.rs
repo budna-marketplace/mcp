@@ -4,7 +4,7 @@ mod http_transport;
 
 use anyhow::{Context, Result};
 use budna_mcp_client::{AccountApiClient, ClientConfig, PublicApiClient};
-use budna_mcp_core::Transport;
+use budna_mcp_core::{ToolCapability, Transport};
 use budna_mcp_server::{AccountMcpServer, BudnaMcpServer};
 use clap::Parser;
 use rmcp::{ServiceExt, transport::stdio};
@@ -38,6 +38,11 @@ async fn main() -> Result<()> {
             account.resource(),
             secret,
         )?;
+        let client = client.with_private_watchlist_writes(
+            account
+                .policy()
+                .allows(ToolCapability::PrivateWatchlistWrite),
+        );
         let mut server = AccountMcpServer::new(client.clone(), settings.request_timeout());
         if account_public_explore {
             let public = BudnaMcpServer::new(PublicApiClient::new(client_config)?)

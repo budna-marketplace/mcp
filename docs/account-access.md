@@ -1,12 +1,9 @@
-# Account Read profile
+# Account access
 
-Budna MCP is intended to grow into a full integration with the Budna API,
-including the actions available in the app. Account access begins with the
-read-only tools below. Future actions require their own permissions and
-appropriate safeguards, including confirmation for sensitive operations.
-Customers control which capabilities they grant to a connected application
-and can revoke its access. This direction does not make future actions
-available in the current profile.
+Public Explore is the default profile. Account Read adds delegated access to the
+customer’s own data. The private watchlist pilot adds one separately consented
+action on the same account resource. Customers choose which permissions to grant
+and can revoke them in Connected apps.
 
 Account Read is a separate authenticated Streamable HTTP resource at
 `/account/mcp`. Public Explore remains the default profile: its tools need no
@@ -88,7 +85,63 @@ redirects with the authorization service. Discovery is published at
 must advertise its authorization-code/PKCE S256 flow and support the customer's
 browser sign-in, explicit consent, token rotation and per-application revocation.
 
-## Permissions and tools
+## Private watchlist pilot
+
+Run the standalone server with `BUDNA_MCP_PROFILE=account-watchlist-pilot`
+and the same Streamable HTTP, issuer, resource and service credential settings
+as Account Read. The pilot starts with account tools only. Set
+`BUDNA_MCP_ACCOUNT_PUBLIC_EXPLORE=true` to include public Explore. Enable the
+pilot only for designated clients on a private deployment with corresponding
+Budna API support. Deploying the binary alone does not grant write access.
+
+| Tool | Permission | Behavior |
+| --- | --- | --- |
+| `set_my_watchlist_membership` | `watchlist:write` | On the customer's request, set `saved` to true to save a listing or false to remove it from one owned private watchlist. |
+
+Supply a positive integer `watchlist_id`, a canonical `listing_id` and a
+boolean `saved`. When the customer names a list, use `list_my_watchlists`
+with separately granted `watchlist:read` to resolve its ID. A missing
+`is_private` on an older server means visibility is unknown. If several lists
+match, ask the customer which one they mean. Reading the current items also
+requires `watchlist:read`. The write alone can use IDs the customer supplies.
+
+**Delegated API contract.** Send `PUT mcp/account/watchlists/{watchlist_id}/listings/{listing_id}`
+relative to the API base with the delegated bearer token and an
+`Idempotency-Key` header containing a canonical lowercase, non-nil UUID.
+The gateway creates the key for each tool call. The JSON body accepts only
+`{"saved":true}` or `{"saved":false}`. Budna enforces ownership and current
+privacy at execution. An unavailable list, including a public or foreign
+one, returns HTTP 404. Removing a listing affects only the named list.
+
+A synthetic example of the API response follows. The MCP tool returns the
+five fields inside `data` as structured content.
+
+```json
+{
+  "success": true,
+  "data": {
+    "action_id": "00000000-0000-4000-8000-000000000001",
+    "watchlist_id": 7,
+    "listing_id": "listing_00000000-0000-4000-8000-000000000002",
+    "saved": true,
+    "status": "executed"
+  }
+}
+```
+
+`saved` records the requested state. Only `executed` confirms the action
+was applied or already satisfied at execution time. Reusing a key for the
+same request returns the recorded outcome, even if someone later changed
+the list. Reusing it with different inputs produces a conflict. For
+`executing`, `unknown` or a lost response, check the watchlist and action
+history in Budna before requesting another change. The gateway never
+automatically retries a dispatched write.
+
+The pilot grant covers only the action above. Keep general availability
+and any broader watchlist permissions behind separate rollout and consent
+review. Use Account Read or Public Explore to turn off the write tool.
+
+## Read permissions and tools
 
 | Tool | Scope | Output |
 | --- | --- | --- |
@@ -101,7 +154,7 @@ browser sign-in, explicit consent, token rotation and per-application revocation
 | `get_my_listing` | `listings:read` | Owner-visible details for one own listing, including drafts and the owner's reserve price |
 | `list_my_bids` | `bids:read` | Own bids with listing ID and title, amount, placement time and status; optionally only currently winning bids |
 | `list_my_offers` | `offers:read` | Offers sent or received with listing, role, amount, quantity, counter amount, status, last actor (`me` or `other_party`) and expiry |
-| `list_my_watchlists` | `watchlist:read` | Own watchlists with ID, name, default flag, item count and timestamps |
+| `list_my_watchlists` | `watchlist:read` | Own watchlists with ID, name, default flag, item count, timestamps and optional `is_private` |
 | `list_my_watchlist_listings` | `watchlist:read` | Listing IDs and titles in one own watchlist |
 | `list_my_saved_searches` | `watchlist:read` | Saved searches with name, search criteria and filters, alert frequency, active flag and match counts |
 | `list_my_saved_search_matches` | `watchlist:read` | Public listings one own saved search matches now, with ID, title, shown price, type and end time |
@@ -222,8 +275,9 @@ resource. Tokens are never returned as tool output or embedded in resources.
 Only that short-lived delegated API token is used for `GET mcp/account`,
 `GET mcp/listings`, `GET mcp/listings/{listing_id}` and the activity reads
 beneath `mcp/account/` relative to the API base. The API must independently enforce
-grant revocation, expiry, scope, account standing and ownership, and must reject
-these credentials on all other capabilities. The MCP token is never forwarded
+grant revocation, expiry, scope, account standing and ownership, and must limit
+these credentials to explicitly enabled capabilities. The pilot uses the same
+credential boundary for its single documented PUT. The MCP token is never forwarded
 to a marketplace resource endpoint. The connector stores no refresh tokens or
 customer sessions.
 

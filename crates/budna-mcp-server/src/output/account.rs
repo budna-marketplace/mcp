@@ -67,3 +67,39 @@ impl From<AccountListingPage> for AccountListingsOutput {
         }
     }
 }
+
+/// A receipt for the requested state, including actions whose outcome is still unknown.
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct WatchlistMembershipOutput {
+    pub action_id: String,
+    pub watchlist_id: i64,
+    pub listing_id: String,
+    /// The state requested in the original action. Only an executed receipt confirms completion.
+    pub saved: bool,
+    pub status: WatchlistActionStatusOutput,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WatchlistActionStatusOutput {
+    Executed,
+    Executing,
+    Unknown,
+}
+
+impl From<budna_mcp_client::AccountWatchlistMembershipReceipt> for WatchlistMembershipOutput {
+    fn from(receipt: budna_mcp_client::AccountWatchlistMembershipReceipt) -> Self {
+        use budna_mcp_client::AccountWatchlistActionStatus;
+        Self {
+            action_id: receipt.action_id,
+            watchlist_id: receipt.watchlist_id,
+            listing_id: receipt.listing_id,
+            saved: receipt.saved,
+            status: match receipt.status {
+                AccountWatchlistActionStatus::Executed => WatchlistActionStatusOutput::Executed,
+                AccountWatchlistActionStatus::Executing => WatchlistActionStatusOutput::Executing,
+                AccountWatchlistActionStatus::Unknown => WatchlistActionStatusOutput::Unknown,
+            },
+        }
+    }
+}

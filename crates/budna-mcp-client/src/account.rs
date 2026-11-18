@@ -4,6 +4,7 @@ mod listing;
 mod models;
 mod records;
 mod selling;
+mod watchlist;
 
 use models::ExchangeResponse;
 
@@ -26,6 +27,7 @@ pub use listing::*;
 pub use models::{AccountListingPage, AccountListingSummary, AccountPage, AccountSummary};
 pub use records::*;
 pub use selling::*;
+pub use watchlist::{AccountWatchlistActionStatus, AccountWatchlistMembershipReceipt};
 
 use crate::{ClientConfig, ClientError, is_listing_id, is_user_id, models::ApiEnvelope};
 
@@ -43,7 +45,8 @@ pub const PROFILE_READ_SCOPE: &str = "profile:read";
 pub const SELLING_READ_SCOPE: &str = "selling:read";
 pub const FOLLOWING_READ_SCOPE: &str = "following:read";
 pub const COMPANY_READ_SCOPE: &str = "company:read";
-/// Every delegated permission the account tools use, in the order Budna presents them.
+pub const WATCHLIST_WRITE_SCOPE: &str = "watchlist:write";
+/// Delegated permissions supported by the read-only account profile, in consent order.
 pub const ACCOUNT_SCOPES: [&str; 14] = [
     ACCOUNT_READ_SCOPE,
     LISTINGS_READ_SCOPE,
@@ -124,9 +127,28 @@ pub struct AccountApiClient {
     config: ClientConfig,
     resource: String,
     service_credential: Credential,
+    private_watchlist_writes: bool,
 }
 
 impl AccountApiClient {
+    /// Selects whether this instance accepts the private-watchlist pilot scope.
+    pub fn with_private_watchlist_writes(mut self, enabled: bool) -> Self {
+        self.private_watchlist_writes = enabled;
+        self
+    }
+
+    pub fn private_watchlist_writes_enabled(&self) -> bool {
+        self.private_watchlist_writes
+    }
+
+    /// Scope metadata and token validation must describe the same profile.
+    pub fn supported_scopes(&self) -> impl Iterator<Item = &'static str> {
+        ACCOUNT_SCOPES.into_iter().chain(
+            self.private_watchlist_writes
+                .then_some(WATCHLIST_WRITE_SCOPE),
+        )
+    }
+
     pub async fn exchange(&self, token: &str) -> Result<DelegatedAccess, ClientError> {
         const OPERATION: &str = "authorize_account_request";
         if token.len() > 512 || !valid_credential(token) {
@@ -155,10 +177,10 @@ impl AccountApiClient {
             || !valid_credential(result.access_token.0.as_str())
             || result.access_token.0.len() > 512
             || scopes.is_empty()
-            || scopes.len() > ACCOUNT_SCOPES.len()
+            || scopes.len() > self.supported_scopes().count()
             || scopes
                 .iter()
-                .any(|scope| !ACCOUNT_SCOPES.contains(&scope.as_str()))
+                .any(|scope| !self.supported_scopes().any(|allowed| allowed == scope))
             || scopes.iter().collect::<BTreeSet<_>>().len() != scopes.len()
         {
             return Err(invalid_response(OPERATION));
@@ -1156,7 +1178,7 @@ impl AccountApiClient {
         scope: &str,
         operation: &'static str,
     ) -> Result<(), ClientError> {
-        if access.allows(scope) {
+        if access.allows(scope) && self.supported_scopes().any(|allowed| allowed == scope) {
             Ok(())
         } else {
             Err(ClientError::Api {
@@ -1308,6 +1330,18 @@ fn pagination_is_valid(
                 .max(0)
 }
 
+fn is_canonical_uuid(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 36
+        && bytes.iter().enumerate().all(|(index, byte)| {
+            if matches!(index, 8 | 13 | 18 | 23) {
+                *byte == b'-'
+            } else {
+                byte.is_ascii_digit() || (b'a'..=b'f').contains(byte)
+            }
+        })
+}
+
 fn valid_credential(value: &str) -> bool {
     !value.is_empty()
         && value
@@ -1350,6 +1384,7 @@ mod tests {
     };
 
     mod records;
+    mod watchlist;
 
     const RESOURCE: &str = "https://mcp.example.test/account/mcp";
     const SERVICE: &str = "synthetic-service-credential-for-local-tests";

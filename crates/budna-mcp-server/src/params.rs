@@ -127,6 +127,27 @@ impl AccountWatchlistListingsParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct WatchlistMembershipParams {
+    /// One owned private watchlist from list_my_watchlists.
+    #[schemars(range(min = 1))]
+    pub watchlist_id: i64,
+    #[schemars(length(min = 44, max = 44), regex(pattern = LISTING_ID_PATTERN))]
+    pub listing_id: String,
+    /// True saves the listing. False removes it from this list alone.
+    pub saved: bool,
+}
+
+impl WatchlistMembershipParams {
+    pub fn validate(&self) -> Result<(), InputError> {
+        if self.watchlist_id < 1 {
+            return Err(InputError::new("watchlist_id must be at least 1"));
+        }
+        validate_listing_id(&self.listing_id)
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AccountConversationsParams {
     /// Return only conversations with unread messages.
     pub unread_only: Option<bool>,
