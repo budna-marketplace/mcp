@@ -67,7 +67,9 @@ connection.
 
 ## Environment endpoints
 
-Keep these values aligned for the environment being explored:
+The server uses production endpoints by default. For local testing or a custom
+deployment, set the API, listing and image endpoints together in the
+deployment configuration:
 
 ```text
 BUDNA_API_URL=https://api.your-environment.example/api/v1
@@ -85,8 +87,7 @@ Remote API URLs must use HTTPS; HTTP is accepted only for loopback development
 servers. The public listing and image settings must be canonical HTTPS origins:
 no credentials, path, query, fragment, or wildcard host. The same settings are
 available as `--api-url`, `--public-listing-origin`, and `--image-origin`.
-The binary does not load `.env` files itself; the root `.env.example` is
-reference material for launchers that can provide environment variables.
+The binary reads these variables from its launch environment.
 
 ## Local Streamable HTTP use
 
@@ -180,13 +181,11 @@ The embedded view performs no direct API requests and uses no cookies, local
 storage, camera, microphone, geolocation, clipboard permission, or hidden
 telemetry. Images are the only remotely loaded resources and are restricted by
 the declared MCP App content security policy to the configured
-`BUDNA_IMAGE_ORIGIN` (which defaults to `https://images.budna.se`). Image
-requests use `no-referrer`.
+image origin. Image requests use `no-referrer`.
 
 When a user explicitly opens a listing, the view asks the host to open the
 clean public listing URL at `/listing/{listing_id}` on the configured
-`BUDNA_PUBLIC_LISTING_ORIGIN` (which defaults to `https://connect.budna.se`),
-with these fixed parameters:
+listing origin with these fixed parameters:
 
 ```text
 utm_source=budna_mcp

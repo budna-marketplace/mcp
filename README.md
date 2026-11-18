@@ -225,28 +225,9 @@ Add `https://api.budna.se/account/mcp` to your AI client as a remote (Streamable
 
 Other clients are not accepted yet. See [Account access](docs/account-access.md) for the full permission model and the data each tool returns.
 
-## Use a non-production environment
+## Deployment configuration
 
-Configure these values together so API requests, public listing links, and images stay in the same environment:
-
-| Setting | Purpose |
-| --- | --- |
-| `BUDNA_API_URL` | Budna API base URL, including `/api/v1` if applicable. |
-| `BUDNA_PUBLIC_LISTING_ORIGIN` | Origin used for returned listing links. |
-| `BUDNA_IMAGE_ORIGIN` | Origin used for returned image URLs and the App CSP. |
-
-Remote API URLs must use HTTPS; HTTP is accepted only for loopback development servers. Listing and image values must be canonical HTTPS origins with no credentials, path, query, fragment, or wildcard host. The binary does not load `.env` files itself; [`.env.example`](.env.example) is reference material.
-
-For example, register a separate Codex server for another environment:
-
-```bash
-codex mcp add budna-nonprod -- /absolute/path/to/budna-mcp \
-  --api-url https://api.your-environment.example/api/v1 \
-  --public-listing-origin https://marketplace.your-environment.example \
-  --image-origin https://images.your-environment.example
-```
-
-Equivalent environment variables are supported when your client can provide them.
+Budna MCP uses production endpoints by default. For local testing or a custom deployment, see the [endpoint configuration guide](docs/mcp-apps.md#environment-endpoints).
 
 ## Interactive cards
 
