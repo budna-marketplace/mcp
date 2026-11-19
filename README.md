@@ -178,8 +178,11 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `update_my_public_profile` | Account actions · `profile:write` | Change the display name or bio using the current profile revision |
 | `get_my_following_state` | Account actions · `following:read` | Resolve a public handle to a stable account ID and check the follow relationship |
 | `set_my_following` | Account actions · `following:write` | Follow or unfollow the one public account that matches both supplied identifiers |
+| `list_my_personal_blocks` | Account actions · `personalblocks:read` | List public accounts this customer has blocked |
+| `set_my_personal_block` | Account actions · `personalblocks:write` | Set or remove a block on one public account |
 | `set_my_live_reminder` | Account actions · `livereminders:write` | Set or remove a personal reminder for one live session |
-| `get_my_action_status` | Write-enabled profile · original action permission | Check one receipt on the connection that submitted it |
+| `get_budna_account_destination` | Account actions · connected account | Open the Budna web area for verification, media, security, wallet, company or other first-party tasks |
+| `get_my_action_status` | Account actions, management or draft profile · original action permission | Check one receipt on the connection that submitted it |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |
 | `list_my_saved_searches` | Watchlist permission | List your saved searches with their criteria, alerts and unseen matches |
 | `list_my_saved_search_matches` | Watchlist permission | List the listings one of your saved searches matches now |

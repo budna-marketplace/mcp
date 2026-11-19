@@ -987,6 +987,10 @@ async fn pilot_dispatches_private_watchlist_writes_only_with_the_write_grant() -
         .pointer("/result/tools")
         .and_then(Value::as_array)
         .context("pilot tools")?;
+    assert!(!tools.iter().any(|t| matches!(
+        t["name"].as_str(),
+        Some("get_my_action_status" | "get_budna_account_destination")
+    )));
     let writes: Vec<_> = tools
         .iter()
         .filter(|tool| tool["annotations"]["readOnlyHint"] != true)
@@ -1623,6 +1627,39 @@ async fn combined_profile_advertises_only_configured_families_and_requires_each_
             .iter()
             .any(|t| t["name"] == "get_my_listing_draft_eligibility")
     );
+    let destination = "get_budna_account_destination";
+    assert!(
+        tools
+            .iter()
+            .any(|t| t["name"] == destination && t["annotations"]["readOnlyHint"] == true)
+    );
+    let handoff: Value = post(
+        &client,
+        &endpoint,
+        "reminder",
+        call(destination, json!({"task":"verify_identity"})),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    assert_eq!(
+        handoff.pointer("/result/structuredContent"),
+        Some(
+            &json!({"task":"verify_identity","web_url":"https://connect.budna.se/account/verification"})
+        )
+    );
+    for invalid in [
+        json!({"task":"https://example.invalid"}),
+        json!({"task":"verify_identity","web_url":"https://example.invalid"}),
+    ] {
+        let response: Value = post(&client, &endpoint, "reminder", call(destination, invalid))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&response, destination, "INVALID_INPUT")?;
+    }
     for reminded in [true, false] {
         let args = json!({"session_id":SESSION,"reminded":reminded});
         let denied = post(
@@ -2110,5 +2147,139 @@ async fn personal_settings_bind_actor_and_target_and_never_acknowledge_a_read() 
     }
     server.child.kill().await?;
     server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn block_discovery_and_mutations_require_independent_explicit_grants() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000007";
+    const READ: &str = "personalblocks:read";
+    const WRITE: &str = "personalblocks:write";
+    let api = MockServer::start().await;
+    exchange(&api, "reader", "block-reader", USER_A, READ).await;
+    exchange(&api, "writer", "block-writer", USER_A, WRITE).await;
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    for scopes in [READ, "personalblocks:read personalblocks:write"] {
+        let mut server = start_http_server_with_scopes(
+            &api.uri(),
+            30,
+            Some("account-actions"),
+            Some(false),
+            Some(scopes),
+        )
+        .await?;
+        let endpoint = format!("http://{}/account/mcp", server.address);
+        let list: Value = post(
+            &client,
+            &endpoint,
+            "reader",
+            json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        let available = list
+            .pointer("/result/tools")
+            .and_then(Value::as_array)
+            .context("tools")?;
+        assert!(
+            available
+                .iter()
+                .any(|t| t["name"] == "list_my_personal_blocks")
+        );
+        assert_eq!(
+            available
+                .iter()
+                .any(|t| t["name"] == "set_my_personal_block"),
+            scopes != READ
+        );
+        assert_eq!(
+            available
+                .iter()
+                .any(|t| t["name"] == "get_my_action_status"),
+            scopes != READ
+        );
+        let _read=Mock::given(method("GET")).and(path("/api/v1/mcp/account/personal-blocks")).and(matches_header("authorization","Bearer block-reader")).and(wiremock::matchers::query_param("limit","20"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"items":[{"user_id":USER_B,"username":"public_seller","extra":SENTINEL}],"next_after":null}}))).expect(1).mount_as_scoped(&api).await;
+        let page: Value = post(
+            &client,
+            &endpoint,
+            "reader",
+            call("list_my_personal_blocks", json!({})),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        let content = page
+            .pointer("/result/structuredContent")
+            .and_then(Value::as_object)
+            .context("outgoing blocks")?;
+        assert_eq!(
+            content.keys().map(String::as_str).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["items", "next_after", "untrusted_content_notice"])
+        );
+        assert_eq!(
+            content["items"],
+            json!([{"user_id":USER_B,"username":"public_seller"}])
+        );
+        if scopes != READ {
+            let args = json!({"user_id":USER_B,"blocked":true});
+            assert_eq!(
+                post(
+                    &client,
+                    &endpoint,
+                    "reader",
+                    call("set_my_personal_block", args.clone())
+                )
+                .await?
+                .status(),
+                StatusCode::FORBIDDEN
+            );
+            assert_eq!(
+                post(
+                    &client,
+                    &endpoint,
+                    "writer",
+                    call("list_my_personal_blocks", json!({}))
+                )
+                .await?
+                .status(),
+                StatusCode::FORBIDDEN
+            );
+            let receipt =
+                json!({"user_id":USER_B,"blocked":true,"action_id":ACTION,"status":"executed"});
+            let _write = Mock::given(method("PUT"))
+                .and(path(format!(
+                    "/api/v1/mcp/account/personal-blocks/{USER_B}"
+                )))
+                .and(matches_header("authorization", "Bearer block-writer"))
+                .and(body_json(json!({"blocked":true})))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(json!({"success":true,"data":receipt})),
+                )
+                .expect(1)
+                .mount_as_scoped(&api)
+                .await;
+            let result: Value = post(
+                &client,
+                &endpoint,
+                "writer",
+                call("set_my_personal_block", args),
+            )
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+            assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        }
+        server.child.kill().await?;
+        server.child.wait().await?;
+    }
     Ok(())
 }

@@ -34,7 +34,7 @@ impl AccountMcpServer {
     }
     #[tool(
         title = "Save a marketplace search",
-        description = "On the customer's request, save one named search with savedsearches:write. Use taxonomy reads for valid category filters and check the account's search limit. Supply prices as exact SEK decimals.",
+        description = "On the customer's request, save one named search with savedsearches:write. Use taxonomy reads for valid category filters and check the account's search limit. Supply exact decimal money in the saved search market currency.",
         annotations(
             read_only_hint = false,
             destructive_hint = false,

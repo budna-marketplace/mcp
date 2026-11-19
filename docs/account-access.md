@@ -145,7 +145,7 @@ review. Use Account Read or Public Explore to turn off the write tool.
 
 Use the HTTP profile `account-actions` to enable multiple independently consented
 families on one connection. Set `BUDNA_MCP_WRITE_SCOPES` to the exact
-space-separated permissions approved for the deployment. For example,
+space-separated permissions approved for the deployment. Include optional personal-block reads explicitly. For example,
 `watchlist:write livereminders:write` enables private listing membership and
 personal live reminders. Unknown, duplicate and empty permission lists fail
 startup. A client also needs current consent for each tool it invokes.
@@ -165,14 +165,20 @@ Protected, foreign or unavailable IDs reject the entire request. The receipt
 contains `action_id`, `status` and `requested_count`. The count includes
 eligible IDs that another client already acknowledged.
 
+Use `get_budna_account_destination` on the combined profile to open the
+appropriate Budna web area for a first-party task. This accepts a fixed task
+name. The tool constructs the URL from the configured first-party origin and
+returns no session material. Verification, payment and connected-app approval
+take place in the customer's own browser.
+
 ### Saved searches
 
 Enable `savedsearches:write` on the account-actions deployment.
 `get_my_saved_search_authoring` uses `watchlist:read` to return usage, the
 account limit and allowed frequencies. Resolve category, filter and location
 choices using the marketplace reads. For creation, give the new search a
-name and supply the criteria. Monetary bounds use exact decimal strings and
-currency code SEK. Frequencies are immediate, daily or weekly.
+name and supply the criteria. Monetary bounds use exact decimal strings, with SEK for Swedish searches
+and NOK for Norwegian searches. An omitted market on creation uses SEK. Frequencies are immediate, daily or weekly.
 
 Read the saved search to obtain its current `updated_at`. Send that value as
 `expected_updated_at` to edit or delete. On edit, omitted scalar criteria are
@@ -198,6 +204,16 @@ Enable `following:write` for a single public follow or unfollow. Use
 `get_my_following_state` under `following:read` to read the exact handle,
 stable public ID and relationship. The write requires the same handle and
 stable ID. A new follow can notify the other person.
+
+### Personal blocks
+
+`personalblocks:read` and `personalblocks:write` are independent opt-in
+permissions. The read returns only the connected account’s outgoing blocks,
+with public IDs and handles. Supply the returned `next_after` for the next
+page. Blocking removes reciprocal follows and pauses standing automatic bids
+between the accounts. Unblocking restores neither. Explain these effects
+before submitting the customer’s request. The receipt contains `action_id`,
+`status`, the target `user_id` and the requested `blocked` state.
 
 ## Private watchlist management
 

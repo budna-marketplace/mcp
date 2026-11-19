@@ -47,6 +47,8 @@ use crate::{
 };
 
 mod actions;
+mod blocks;
+mod destinations;
 mod draft;
 mod notification_state;
 mod personal;
@@ -117,6 +119,12 @@ impl AccountMcpServer {
         if client.write_permissions().following {
             routes += Self::following_actions_router();
         }
+        if client.write_permissions().personal_blocks_read {
+            routes += Self::blocks_read_router();
+        }
+        if client.write_permissions().personal_blocks {
+            routes += Self::blocks_write_router();
+        }
         if client.write_permissions().saved_searches {
             routes += Self::saved_search_router();
         }
@@ -130,6 +138,18 @@ impl AccountMcpServer {
             routes += Self::action_status_router();
         }
         routes
+    }
+
+    pub(crate) fn apply_account_profile(&mut self, policy: budna_mcp_core::ToolPolicy) {
+        match policy {
+            budna_mcp_core::ToolPolicy::AccountActions(_) => {
+                *Arc::make_mut(&mut self.routes) += Self::destinations_router()
+            }
+            budna_mcp_core::ToolPolicy::AccountWatchlistPilot => {
+                Arc::make_mut(&mut self.routes).remove_route(ACTION_STATUS_TOOL)
+            }
+            _ => {}
+        }
     }
 
     pub(crate) fn enabled_account_tools(
@@ -1622,7 +1642,9 @@ impl ServerHandler for AccountMcpServer {
                 ACCOUNT_INSTRUCTIONS,
             )
         };
-        let instructions = if self.client.supported_write_scopes().next().is_some() {
+        let instructions = if self.client.write_permissions()
+            != budna_mcp_core::AccountWritePermissions::NONE
+        {
             let mut text = ACCOUNT_INSTRUCTIONS.to_owned();
             if self.public.is_some() {
                 text.push_str(" Public Explore tools and resources are also available.");
@@ -1654,7 +1676,18 @@ impl ServerHandler for AccountMcpServer {
             if self.client.write_permissions().following {
                 text.push_str(" get_my_following_state resolves a public target. set_my_following follows or unfollows that account with following:write.");
             }
-            text.push_str(" Use get_my_action_status to reconcile a receipt on its original connection. Only executed confirms success.");
+            if self.client.write_permissions().personal_blocks_read {
+                text.push_str(" list_my_personal_blocks lists only blocks created by the connected account with personalblocks:read.");
+            }
+            if self.client.write_permissions().personal_blocks {
+                text.push_str(" set_my_personal_block can block or unblock one public account with personalblocks:write. Explain effects on follows and automatic bids.");
+            }
+            if self.routes.has_route("get_budna_account_destination") {
+                text.push_str(" get_budna_account_destination provides a first-party web page for tasks the customer completes in Budna.");
+            }
+            if self.routes.has_route(ACTION_STATUS_TOOL) {
+                text.push_str(" Use get_my_action_status to reconcile a receipt on its original connection. Only executed confirms success.");
+            }
             text
         } else {
             instructions.to_owned()

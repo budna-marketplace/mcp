@@ -176,3 +176,50 @@ impl From<budna_mcp_client::ProfileAuthoring> for ProfileAuthoringOutput {
         }
     }
 }
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct OutgoingBlockOutput {
+    pub user_id: String,
+    pub username: String,
+}
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct OutgoingBlocksOutput {
+    #[schemars(length(max = 50))]
+    pub items: Vec<OutgoingBlockOutput>,
+    pub next_after: Option<String>,
+    pub untrusted_content_notice: &'static str,
+}
+impl From<budna_mcp_client::OutgoingBlocks> for OutgoingBlocksOutput {
+    fn from(value: budna_mcp_client::OutgoingBlocks) -> Self {
+        let mut budget = ProjectionBudget::default();
+        Self {
+            items: value
+                .items
+                .into_iter()
+                .map(|i| OutgoingBlockOutput {
+                    user_id: i.user_id,
+                    username: budget.text(i.username, 256),
+                })
+                .collect(),
+            next_after: value.next_after,
+            untrusted_content_notice: UNTRUSTED_CONTENT_NOTICE,
+        }
+    }
+}
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct PersonalBlockReceiptOutput {
+    pub action_id: String,
+    pub status: WatchlistActionStatusOutput,
+    pub user_id: String,
+    pub blocked: bool,
+}
+impl From<budna_mcp_client::PersonalBlockReceipt> for PersonalBlockReceiptOutput {
+    fn from(value: budna_mcp_client::PersonalBlockReceipt) -> Self {
+        Self {
+            action_id: value.action_id,
+            status: value.status.into(),
+            user_id: value.user_id,
+            blocked: value.blocked,
+        }
+    }
+}

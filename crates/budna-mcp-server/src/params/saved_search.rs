@@ -22,12 +22,15 @@ pub struct SearchPriceParam {
 enum SearchCurrency {
     #[serde(rename = "SEK")]
     Sek,
+    #[serde(rename = "NOK")]
+    Nok,
 }
 
 impl From<SearchPriceParam> for SearchPrice {
     fn from(value: SearchPriceParam) -> Self {
         let currency_code = match value.currency_code {
             SearchCurrency::Sek => "SEK",
+            SearchCurrency::Nok => "NOK",
         }
         .to_owned();
         Self {

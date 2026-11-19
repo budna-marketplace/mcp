@@ -11,6 +11,8 @@ pub enum ToolCapability {
     InboxWrite,
     ProfileWrite,
     FollowingWrite,
+    PersonalBlocksRead,
+    PersonalBlocksWrite,
     LiveReminderWrite,
     NotificationStateWrite,
     SavedSearchWrite,
@@ -71,6 +73,8 @@ impl ToolPolicy {
             ToolCapability::InboxWrite => writes.inbox,
             ToolCapability::ProfileWrite => writes.profile,
             ToolCapability::FollowingWrite => writes.following,
+            ToolCapability::PersonalBlocksRead => writes.personal_blocks_read,
+            ToolCapability::PersonalBlocksWrite => writes.personal_blocks,
             ToolCapability::LiveReminderWrite => writes.live_reminders,
         }
     }

@@ -17,7 +17,8 @@ pub struct SearchPrice {
 
 impl SearchPrice {
     fn hundredths(&self) -> Option<u64> {
-        if self.currency_code != "SEK" || !is_exact_decimal(&self.amount) {
+        if !matches!(self.currency_code.as_str(), "SEK" | "NOK") || !is_exact_decimal(&self.amount)
+        {
             return None;
         }
         let (whole, fraction) = self.amount.split_once('.').unwrap_or((&self.amount, ""));
@@ -92,6 +93,23 @@ impl SearchCriteriaPatch {
         }
         let minimum = self.min_price.as_ref().and_then(Option::as_ref);
         let maximum = self.max_price.as_ref().and_then(Option::as_ref);
+        // On edit an omitted market comes from the stored search and is checked by Budna.
+        let currency = match self.market.as_ref().map(Option::as_deref) {
+            Some(Some("norwegian")) => Some("NOK"),
+            Some(None | Some("swedish")) => Some("SEK"),
+            None if create => Some("SEK"),
+            _ => None,
+        };
+        if [minimum, maximum]
+            .into_iter()
+            .flatten()
+            .any(|p| currency.is_some_and(|expected| p.currency_code != expected))
+            || minimum
+                .zip(maximum)
+                .is_some_and(|(a, b)| a.currency_code != b.currency_code)
+        {
+            return false;
+        }
         self.text
             .as_ref()
             .and_then(Option::as_ref)
@@ -336,5 +354,27 @@ impl AccountApiClient {
                 operation: op,
                 rejection_status: None,
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn price_matches_the_selected_or_default_market_without_conversion() {
+        let mut criteria = SearchCriteriaPatch {
+            min_price: Some(Some(SearchPrice {
+                amount: "15.90".into(),
+                currency_code: "NOK".into(),
+            })),
+            ..Default::default()
+        };
+        assert!(!criteria.valid(true));
+        assert!(criteria.valid(false)); // The API rechecks the stored market on a partial edit.
+        criteria.market = Some(Some("norwegian".into()));
+        assert!(criteria.valid(true));
+        criteria.market = Some(Some("swedish".into()));
+        assert!(!criteria.valid(false));
     }
 }

@@ -57,12 +57,14 @@ pub use account::{
     FollowReceipt, FollowState, INBOX_WRITE_SCOPE, LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
     ListingChatPreference, ListingChatPreferenceReceipt, LiveReminderReceipt, MESSAGES_READ_SCOPE,
     MessageCopyReceipt, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, NotificationReadBatch,
-    NotificationReadReceipt, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
-    PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, PrivateWatchlistChange, ProfileAuthoring,
-    ProfileEditReceipt, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE,
-    SavedSearchAuthoring, SavedSearchChange, SavedSearchChanges, SavedSearchReceipt,
-    SearchCriteriaPatch, SearchPrice, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
-    WATCHLIST_WRITE_SCOPE, is_account_access_token, is_action_id, is_watchlist_name,
+    NotificationReadReceipt, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, OutgoingBlock, OutgoingBlocks,
+    PAYMENTS_READ_SCOPE, PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE,
+    PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, PersonalBlockReceipt, PrivateWatchlistChange,
+    ProfileAuthoring, ProfileEditReceipt, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE,
+    SELLING_READ_SCOPE, SavedSearchAuthoring, SavedSearchChange, SavedSearchChanges,
+    SavedSearchReceipt, SearchCriteriaPatch, SearchPrice, WATCHLIST_MANAGE_SCOPE,
+    WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token, is_action_id,
+    is_watchlist_name,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};

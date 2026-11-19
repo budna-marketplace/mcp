@@ -13,9 +13,9 @@ use budna_mcp_client::{
     DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE,
     LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATION_STATE_SCOPE,
     NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
-    PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE,
-    SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE,
-    is_account_access_token,
+    PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE, PROFILE_READ_SCOPE,
+    PROFILE_WRITE_SCOPE, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE,
+    WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -62,6 +62,7 @@ pub fn account_http_router(
     let permissions = server.limit_permissions(configured);
     let client = client.with_write_permissions(permissions);
     let scopes: Vec<_> = client.supported_scopes().collect();
+    server.apply_account_profile(account.policy());
     let enabled_tools = Arc::new(server.enabled_account_tools());
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
@@ -204,6 +205,8 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "update_my_public_profile" => PROFILE_WRITE_SCOPE,
         "get_my_following_state" => FOLLOWING_READ_SCOPE,
         "set_my_following" => FOLLOWING_WRITE_SCOPE,
+        "list_my_personal_blocks" => PERSONAL_BLOCKS_READ_SCOPE,
+        "set_my_personal_block" => PERSONAL_BLOCKS_WRITE_SCOPE,
         SEARCH_AUTHORING_TOOL => WATCHLIST_READ_SCOPE,
         name if SEARCH_WRITE_TOOLS.contains(&name) => SAVED_SEARCH_WRITE_SCOPE,
         NOTIFICATION_BATCH_TOOL => NOTIFICATIONS_READ_SCOPE,

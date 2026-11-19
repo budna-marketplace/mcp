@@ -5,6 +5,8 @@ use crate::ConfigError;
 pub const INBOX_WRITE_SCOPE: &str = "inbox:write";
 pub const PROFILE_WRITE_SCOPE: &str = "profile:write";
 pub const FOLLOWING_WRITE_SCOPE: &str = "following:write";
+pub const PERSONAL_BLOCKS_READ_SCOPE: &str = "personalblocks:read";
+pub const PERSONAL_BLOCKS_WRITE_SCOPE: &str = "personalblocks:write";
 pub const WATCHLIST_WRITE_SCOPE: &str = "watchlist:write";
 pub const WATCHLIST_MANAGE_SCOPE: &str = "watchlists:write";
 pub const DRAFT_CREATE_SCOPE: &str = "listingdrafts:write";
@@ -20,6 +22,8 @@ pub struct AccountWritePermissions {
     pub inbox: bool,
     pub profile: bool,
     pub following: bool,
+    pub personal_blocks_read: bool,
+    pub personal_blocks: bool,
     pub live_reminders: bool,
     pub notification_state: bool,
     pub saved_searches: bool,
@@ -33,6 +37,8 @@ impl AccountWritePermissions {
         inbox: false,
         profile: false,
         following: false,
+        personal_blocks_read: false,
+        personal_blocks: false,
         live_reminders: false,
         notification_state: false,
         saved_searches: false,
@@ -50,6 +56,8 @@ impl AccountWritePermissions {
                 INBOX_WRITE_SCOPE => &mut permissions.inbox,
                 PROFILE_WRITE_SCOPE => &mut permissions.profile,
                 FOLLOWING_WRITE_SCOPE => &mut permissions.following,
+                PERSONAL_BLOCKS_READ_SCOPE => &mut permissions.personal_blocks_read,
+                PERSONAL_BLOCKS_WRITE_SCOPE => &mut permissions.personal_blocks,
                 LIVE_REMINDER_WRITE_SCOPE => &mut permissions.live_reminders,
                 _ => return Err(ConfigError::InvalidAccountSettings),
             };
@@ -64,6 +72,13 @@ impl AccountWritePermissions {
         Ok(permissions)
     }
 
+    pub fn additional_read_scopes(self) -> impl Iterator<Item = &'static str> {
+        self.personal_blocks_read
+            .then_some(PERSONAL_BLOCKS_READ_SCOPE)
+            .into_iter()
+    }
+
+    /// Write powers only. Supplemental reads cannot authorize action receipts.
     pub fn scopes(self) -> impl Iterator<Item = &'static str> {
         [
             self.watchlist_membership.then_some(WATCHLIST_WRITE_SCOPE),
@@ -72,6 +87,7 @@ impl AccountWritePermissions {
             self.inbox.then_some(INBOX_WRITE_SCOPE),
             self.profile.then_some(PROFILE_WRITE_SCOPE),
             self.following.then_some(FOLLOWING_WRITE_SCOPE),
+            self.personal_blocks.then_some(PERSONAL_BLOCKS_WRITE_SCOPE),
             self.live_reminders.then_some(LIVE_REMINDER_WRITE_SCOPE),
             self.notification_state.then_some(NOTIFICATION_STATE_SCOPE),
             self.saved_searches.then_some(SAVED_SEARCH_WRITE_SCOPE),
@@ -88,6 +104,8 @@ impl AccountWritePermissions {
             inbox: self.inbox && other.inbox,
             profile: self.profile && other.profile,
             following: self.following && other.following,
+            personal_blocks_read: self.personal_blocks_read && other.personal_blocks_read,
+            personal_blocks: self.personal_blocks && other.personal_blocks,
             live_reminders: self.live_reminders && other.live_reminders,
             notification_state: self.notification_state && other.notification_state,
             saved_searches: self.saved_searches && other.saved_searches,

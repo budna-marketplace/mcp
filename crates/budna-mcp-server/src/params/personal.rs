@@ -72,3 +72,20 @@ pub struct SetFollowingParams {
 fn supplied_text<'de, D: Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
     String::deserialize(d).map(Some)
 }
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OutgoingBlockParams {
+    #[schemars(range(min = 1, max = 50))]
+    pub limit: Option<u32>,
+    #[schemars(length(min=41,max=41),regex(pattern=USER_ID_PATTERN))]
+    pub after: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PersonalBlockParams {
+    #[schemars(length(min=41,max=41),regex(pattern=USER_ID_PATTERN))]
+    pub user_id: String,
+    pub blocked: bool,
+}
