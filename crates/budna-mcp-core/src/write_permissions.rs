@@ -11,6 +11,11 @@ pub const ROOM_MODERATION_READ_SCOPE: &str = "roommoderation:read";
 pub const ROOM_REACTIONS_WRITE_SCOPE: &str = "roomreactions:write";
 pub const LIVE_REPORTS_WRITE_SCOPE: &str = "livereports:write";
 pub const ROOM_MODERATION_WRITE_SCOPE: &str = "roommoderation:write";
+pub const BIDS_WRITE_SCOPE: &str = "bids:write";
+pub const DRAFT_AUTHORING_SCOPE: &str = "draftauthoring:write";
+pub const SHIPPING_RULES_WRITE_SCOPE: &str = "shippingrules:write";
+pub const SHIPPING_RULES_READ_SCOPE: &str = "shippingrules:read";
+pub const SHIPPING_DEFAULTS_SCOPE: &str = "shippingdefaults:write";
 pub const INBOX_WRITE_SCOPE: &str = "inbox:write";
 pub const PROFILE_WRITE_SCOPE: &str = "profile:write";
 pub const FOLLOWING_WRITE_SCOPE: &str = "following:write";
@@ -37,6 +42,11 @@ pub struct AccountWritePermissions {
     pub room_reactions: bool,
     pub live_reports: bool,
     pub room_moderation: bool,
+    pub bids: bool,
+    pub draft_authoring: bool,
+    pub shipping_rules: bool,
+    pub shipping_rules_read: bool,
+    pub shipping_defaults: bool,
     pub inbox: bool,
     pub profile: bool,
     pub following: bool,
@@ -61,6 +71,11 @@ impl AccountWritePermissions {
         room_reactions: false,
         live_reports: false,
         room_moderation: false,
+        bids: false,
+        draft_authoring: false,
+        shipping_rules: false,
+        shipping_rules_read: false,
+        shipping_defaults: false,
         inbox: false,
         profile: false,
         following: false,
@@ -89,6 +104,11 @@ impl AccountWritePermissions {
                 ROOM_REACTIONS_WRITE_SCOPE => &mut permissions.room_reactions,
                 LIVE_REPORTS_WRITE_SCOPE => &mut permissions.live_reports,
                 ROOM_MODERATION_WRITE_SCOPE => &mut permissions.room_moderation,
+                BIDS_WRITE_SCOPE => &mut permissions.bids,
+                DRAFT_AUTHORING_SCOPE => &mut permissions.draft_authoring,
+                SHIPPING_RULES_WRITE_SCOPE => &mut permissions.shipping_rules,
+                SHIPPING_RULES_READ_SCOPE => &mut permissions.shipping_rules_read,
+                SHIPPING_DEFAULTS_SCOPE => &mut permissions.shipping_defaults,
                 INBOX_WRITE_SCOPE => &mut permissions.inbox,
                 PROFILE_WRITE_SCOPE => &mut permissions.profile,
                 FOLLOWING_WRITE_SCOPE => &mut permissions.following,
@@ -112,6 +132,8 @@ impl AccountWritePermissions {
         [
             self.personal_blocks_read
                 .then_some(PERSONAL_BLOCKS_READ_SCOPE),
+            self.shipping_rules_read
+                .then_some(SHIPPING_RULES_READ_SCOPE),
             self.room_targets.then_some(CHAT_ROOMS_READ_SCOPE),
             self.room_safety.then_some(ROOM_MODERATION_READ_SCOPE),
         ]
@@ -133,6 +155,10 @@ impl AccountWritePermissions {
             self.room_reactions.then_some(ROOM_REACTIONS_WRITE_SCOPE),
             self.live_reports.then_some(LIVE_REPORTS_WRITE_SCOPE),
             self.room_moderation.then_some(ROOM_MODERATION_WRITE_SCOPE),
+            self.bids.then_some(BIDS_WRITE_SCOPE),
+            self.draft_authoring.then_some(DRAFT_AUTHORING_SCOPE),
+            self.shipping_rules.then_some(SHIPPING_RULES_WRITE_SCOPE),
+            self.shipping_defaults.then_some(SHIPPING_DEFAULTS_SCOPE),
             self.inbox.then_some(INBOX_WRITE_SCOPE),
             self.profile.then_some(PROFILE_WRITE_SCOPE),
             self.following.then_some(FOLLOWING_WRITE_SCOPE),
@@ -159,6 +185,11 @@ impl AccountWritePermissions {
             room_reactions: self.room_reactions && other.room_reactions,
             live_reports: self.live_reports && other.live_reports,
             room_moderation: self.room_moderation && other.room_moderation,
+            bids: self.bids && other.bids,
+            draft_authoring: self.draft_authoring && other.draft_authoring,
+            shipping_rules: self.shipping_rules && other.shipping_rules,
+            shipping_rules_read: self.shipping_rules_read && other.shipping_rules_read,
+            shipping_defaults: self.shipping_defaults && other.shipping_defaults,
             inbox: self.inbox && other.inbox,
             profile: self.profile && other.profile,
             following: self.following && other.following,

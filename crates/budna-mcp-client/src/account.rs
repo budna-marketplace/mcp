@@ -12,6 +12,11 @@ mod order_review;
 pub use order_review::*;
 mod room_activity;
 pub use room_activity::*;
+mod bid_submission;
+pub use bid_submission::*;
+mod draft_authoring;
+mod shipping;
+pub use shipping::*;
 mod inbox;
 mod personal_blocks;
 pub use personal_blocks::{OutgoingBlock, OutgoingBlocks, PersonalBlockReceipt};
@@ -26,13 +31,18 @@ pub use social::*;
 mod records;
 mod reminder;
 use budna_mcp_core::AccountWritePermissions;
+pub use budna_mcp_core::write_permissions::BIDS_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::CHAT_ROOMS_READ_SCOPE;
+pub use budna_mcp_core::write_permissions::DRAFT_AUTHORING_SCOPE;
 pub use budna_mcp_core::write_permissions::LIVE_REPORTS_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::PUBLIC_CHAT_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::RATINGS_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::ROOM_MODERATION_READ_SCOPE;
 pub use budna_mcp_core::write_permissions::ROOM_MODERATION_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::ROOM_REACTIONS_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::SHIPPING_DEFAULTS_SCOPE;
+pub use budna_mcp_core::write_permissions::SHIPPING_RULES_READ_SCOPE;
+pub use budna_mcp_core::write_permissions::SHIPPING_RULES_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::{
     DRAFT_CREATE_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
     MESSAGE_REACTIONS_WRITE_SCOPE, MESSAGES_WRITE_SCOPE, NOTIFICATION_STATE_SCOPE,
@@ -1301,8 +1311,10 @@ impl AccountApiClient {
                 .await
                 .map_err(|source| crate::request_error(operation, source))?;
             let status = response.status();
-            let draft_refused =
-                operation == "create_my_listing_draft" && status == reqwest::StatusCode::FORBIDDEN;
+            let draft_refused = matches!(
+                operation,
+                "create_my_listing_draft" | "create_my_similar_draft"
+            ) && status == reqwest::StatusCode::FORBIDDEN;
             if !status.is_success() && !draft_refused {
                 return Err(ClientError::Api {
                     operation,
@@ -1343,7 +1355,7 @@ impl AccountApiClient {
                     if serde_json::from_slice::<Refusal>(&body)
                         .is_ok_and(|p| p.code == "SELLER_VERIFICATION_REQUIRED")
                     {
-                        ClientError::SellerVerificationRequired
+                        ClientError::SellerVerificationRequired { operation }
                     } else {
                         ClientError::Api {
                             operation,

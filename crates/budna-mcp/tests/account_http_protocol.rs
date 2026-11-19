@@ -2292,3 +2292,9 @@ mod ratings;
 
 #[path = "account_http_protocol/rooms.rs"]
 mod rooms;
+
+#[path = "account_http_protocol/bid_submission.rs"]
+mod bid_submission;
+
+#[path = "account_http_protocol/seller_authoring.rs"]
+mod seller_authoring;

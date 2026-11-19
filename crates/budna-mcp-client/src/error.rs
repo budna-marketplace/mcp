@@ -90,7 +90,7 @@ pub enum ClientError {
     },
 
     #[error("Current seller verification is required")]
-    SellerVerificationRequired,
+    SellerVerificationRequired { operation: &'static str },
 
     #[error("Budna API retry handling failed during {operation}")]
     RetryInvariant { operation: &'static str },
@@ -106,7 +106,7 @@ pub enum ClientError {
 
 impl ClientError {
     pub(crate) fn account_write(error: Self) -> Self {
-        if matches!(error, Self::SellerVerificationRequired) {
+        if matches!(error, Self::SellerVerificationRequired { .. }) {
             return error;
         }
         Self::AccountWrite {
@@ -119,7 +119,7 @@ impl ClientError {
 
     pub const fn operation(&self) -> &'static str {
         match self {
-            Self::SellerVerificationRequired => "create_my_listing_draft",
+            Self::SellerVerificationRequired { operation } => operation,
             Self::InvalidInput { operation, .. }
             | Self::Endpoint { operation, .. }
             | Self::Request { operation, .. }
@@ -138,7 +138,7 @@ impl ClientError {
 
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::SellerVerificationRequired => "action_rejected",
+            Self::SellerVerificationRequired { .. } => "action_rejected",
             Self::InvalidInput { .. } => "invalid_input",
             Self::Endpoint { .. } => "configuration",
             Self::Request { kind, .. } => kind.as_str(),
@@ -164,7 +164,7 @@ impl ClientError {
 
     pub fn status(&self) -> Option<u16> {
         match self {
-            Self::SellerVerificationRequired => Some(403),
+            Self::SellerVerificationRequired { .. } => Some(403),
             Self::InvalidInput { .. } => Some(400),
             Self::Api { status, .. } => Some(*status),
             Self::AccountWrite {
@@ -190,7 +190,7 @@ impl ClientError {
     /// problem code to the model, even when it was syntactically sanitized.
     pub const fn public_code(&self) -> Option<&'static str> {
         match self {
-            Self::SellerVerificationRequired => Some("SELLER_VERIFICATION_REQUIRED"),
+            Self::SellerVerificationRequired { .. } => Some("SELLER_VERIFICATION_REQUIRED"),
             Self::InvalidInput { code, .. } => Some(code),
             Self::Endpoint { .. } => Some("BUDNA_API_CONFIGURATION_ERROR"),
             Self::Request { kind, .. } => Some(match kind {
@@ -242,7 +242,7 @@ impl ClientError {
 
     pub fn public_message(&self) -> String {
         match self {
-            Self::SellerVerificationRequired => "Complete seller verification on Budna web. Use get_my_listing_draft_eligibility for the account-specific next step.".to_owned(),
+            Self::SellerVerificationRequired { .. } => "Complete seller verification on Budna web. Use get_my_listing_draft_eligibility for the account-specific next step.".to_owned(),
             Self::InvalidInput { message, .. } => message.to_string(),
             Self::AccountWrite { rejection_status: None, .. } =>
                 "The action outcome is unknown. Check the affected item and your action history in Budna before requesting another change.".to_owned(),

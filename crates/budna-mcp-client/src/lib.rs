@@ -23,13 +23,18 @@ use reqwest::{
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
+pub use account::BIDS_WRITE_SCOPE;
 pub use account::CHAT_ROOMS_READ_SCOPE;
+pub use account::DRAFT_AUTHORING_SCOPE;
 pub use account::LIVE_REPORTS_WRITE_SCOPE;
 pub use account::PublicRoomMessage;
 pub use account::RATINGS_WRITE_SCOPE;
 pub use account::ROOM_MODERATION_READ_SCOPE;
 pub use account::ROOM_MODERATION_WRITE_SCOPE;
 pub use account::ROOM_REACTIONS_WRITE_SCOPE;
+pub use account::SHIPPING_DEFAULTS_SCOPE;
+pub use account::SHIPPING_RULES_READ_SCOPE;
+pub use account::SHIPPING_RULES_WRITE_SCOPE;
 pub use account::{
     ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountAchievement, AccountAchievements,
     AccountActionState, AccountActionStatus, AccountApiClient, AccountAutoBid, AccountBadge,
@@ -76,10 +81,15 @@ pub use account::{
     WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
     is_action_id, is_watchlist_name,
 };
+pub use account::{BidAmount, BidCurrency, BidQuote, BidSubmissionReceipt};
 pub use account::{OrderReviewFacts, OrderReviewReceipt, ReviewAudience};
 pub use account::{
     PUBLIC_CHAT_WRITE_SCOPE, PublicChatAudience, PublicChatBlocker, PublicChatPosting,
     PublicChatReceipt, PublicChatRole,
+};
+pub use account::{
+    PackageSize, ShippingDefaultEdit, ShippingListingPage, ShippingReceipt, ShippingRuleCatalog,
+    ShippingRuleEdit,
 };
 pub use account::{
     RoomActionName, RoomBanScope, RoomModerationView, RoomOperation, RoomReceipt,

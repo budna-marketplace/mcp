@@ -289,6 +289,9 @@ impl From<AccountListingPromotion> for AccountListingPromotionOutput {
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AccountShippingSettingsOutput {
+    /// Available when the API supports revision-checked seller settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revision: Option<String>,
     /// Default carriers; null when the seller has not chosen any.
     #[schemars(length(max = 10), inner(length(max = 64)))]
     pub provider_codes: Option<Vec<String>>,
@@ -299,6 +302,7 @@ pub struct AccountShippingSettingsOutput {
 impl From<AccountShippingSettings> for AccountShippingSettingsOutput {
     fn from(settings: AccountShippingSettings) -> Self {
         Self {
+            revision: settings.revision,
             provider_codes: settings.provider_codes,
             combined_enabled: settings.combined_enabled,
             updated_at: settings.updated_at,

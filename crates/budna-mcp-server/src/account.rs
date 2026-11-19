@@ -47,10 +47,12 @@ use crate::{
 };
 
 mod actions;
+mod bid_submission;
 mod blocks;
 mod destinations;
 mod direct_messages;
 mod draft;
+mod draft_authoring;
 mod notification_state;
 mod order_review;
 mod personal;
@@ -58,6 +60,7 @@ mod public_chat;
 mod reactions;
 mod room_activity;
 mod saved_search;
+mod shipping;
 pub(crate) const SEARCH_AUTHORING_TOOL: &str = "get_my_saved_search_authoring";
 pub(crate) const SEARCH_WRITE_TOOLS: [&str; 3] = [
     "create_my_saved_search",
@@ -112,6 +115,9 @@ impl AccountMcpServer {
         if client.private_watchlist_management_enabled() {
             routes += Self::watchlist_management_router();
         }
+        if client.listing_draft_creation_enabled() || client.write_permissions().draft_authoring {
+            routes += Self::draft_eligibility_router();
+        }
         if client.listing_draft_creation_enabled() {
             routes += Self::listing_draft_router();
         }
@@ -141,6 +147,21 @@ impl AccountMcpServer {
         }
         if client.write_permissions().room_moderation {
             routes += Self::room_moderation_router();
+        }
+        if client.write_permissions().bids {
+            routes += Self::bid_submission_router();
+        }
+        if client.write_permissions().draft_authoring {
+            routes += Self::draft_authoring_router();
+        }
+        if client.write_permissions().shipping_rules {
+            routes += Self::shipping_rule_write_router();
+        }
+        if client.write_permissions().shipping_rules_read {
+            routes += Self::shipping_rules_read_router();
+        }
+        if client.write_permissions().shipping_defaults {
+            routes += Self::shipping_router();
         }
         if client.write_permissions().inbox {
             routes += Self::inbox_actions_router();
@@ -1725,6 +1746,23 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.client.write_permissions().room_moderation {
                 text.push_str(" set_my_room_message_pinned, hide_my_room_message, report_my_room_participant, ban_my_room_participant and unban_my_room_participant apply the requested moderation to the selected room and participant.");
+            }
+            if self.client.write_permissions().bids {
+                text.push_str(" prepare_my_bid quotes one exact bid. submit_my_quoted_bid submits the same terms and can require approval in Budna.");
+            }
+            if self.client.write_permissions().draft_authoring {
+                text.push_str(" create_my_similar_draft copies eligible listing fields into one unpublished draft after seller verification.");
+            }
+            if self.client.write_permissions().shipping_rules {
+                text.push_str(
+                    " Use change_my_shipping_rule for one revision-checked goods or parcel change.",
+                );
+            }
+            if self.client.write_permissions().shipping_rules_read {
+                text.push_str(" Use get_my_shipping_rules and list_my_shipping_rule_listings to inspect parcel rules and memberships.");
+            }
+            if self.client.write_permissions().shipping_defaults {
+                text.push_str(" change_my_shipping_defaults edits one seller-selected default.");
             }
             if self.client.write_permissions().inbox {
                 text.push_str(" get_my_conversation_settings and get_my_listing_chat_notification_setting check your own preferences. With inbox:write, set_my_conversation_setting, set_my_listing_chat_muted and hide_my_message_copy organize your own inbox.");

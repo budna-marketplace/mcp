@@ -148,10 +148,10 @@ pub struct ActionStatusOutput {
     pub expires_at: Option<i64>,
 }
 
-impl From<budna_mcp_client::AccountActionStatus> for ActionStatusOutput {
-    fn from(action: budna_mcp_client::AccountActionStatus) -> Self {
+impl From<budna_mcp_client::AccountActionState> for ActionStateOutput {
+    fn from(state: budna_mcp_client::AccountActionState) -> Self {
         use budna_mcp_client::AccountActionState as S;
-        let status = match action.status {
+        match state {
             S::Refused => ActionStateOutput::Refused,
             S::AwaitingConfirmation => ActionStateOutput::AwaitingConfirmation,
             S::Declined => ActionStateOutput::Declined,
@@ -160,10 +160,15 @@ impl From<budna_mcp_client::AccountActionStatus> for ActionStatusOutput {
             S::Executed => ActionStateOutput::Executed,
             S::Failed => ActionStateOutput::Failed,
             S::Unknown => ActionStateOutput::Unknown,
-        };
+        }
+    }
+}
+
+impl From<budna_mcp_client::AccountActionStatus> for ActionStatusOutput {
+    fn from(action: budna_mcp_client::AccountActionStatus) -> Self {
         Self {
             action_id: action.action_id,
-            status,
+            status: action.status.into(),
             expires_at: action.expires_at,
         }
     }

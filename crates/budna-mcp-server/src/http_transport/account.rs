@@ -8,13 +8,18 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use budna_mcp_client::BIDS_WRITE_SCOPE;
 use budna_mcp_client::CHAT_ROOMS_READ_SCOPE;
+use budna_mcp_client::DRAFT_AUTHORING_SCOPE;
 use budna_mcp_client::LIVE_REPORTS_WRITE_SCOPE;
 use budna_mcp_client::PUBLIC_CHAT_WRITE_SCOPE;
 use budna_mcp_client::RATINGS_WRITE_SCOPE;
 use budna_mcp_client::ROOM_MODERATION_READ_SCOPE;
 use budna_mcp_client::ROOM_MODERATION_WRITE_SCOPE;
 use budna_mcp_client::ROOM_REACTIONS_WRITE_SCOPE;
+use budna_mcp_client::SHIPPING_DEFAULTS_SCOPE;
+use budna_mcp_client::SHIPPING_RULES_READ_SCOPE;
+use budna_mcp_client::SHIPPING_RULES_WRITE_SCOPE;
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
     DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE,
@@ -213,6 +218,12 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "set_my_message_reaction" => MESSAGE_REACTIONS_WRITE_SCOPE,
         "get_my_chat_message" | "get_my_chat_posting" => MESSAGES_READ_SCOPE,
         "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
+        "prepare_my_bid" => BIDS_READ_SCOPE,
+        "submit_my_quoted_bid" => BIDS_WRITE_SCOPE,
+        "create_my_similar_draft" => DRAFT_AUTHORING_SCOPE,
+        "change_my_shipping_defaults" => SHIPPING_DEFAULTS_SCOPE,
+        "get_my_shipping_rules" | "list_my_shipping_rule_listings" => SHIPPING_RULES_READ_SCOPE,
+        "change_my_shipping_rule" => SHIPPING_RULES_WRITE_SCOPE,
         "get_my_order_rating_eligibility" => ORDERS_READ_SCOPE,
         "rate_my_order_counterparty" => RATINGS_WRITE_SCOPE,
         "list_my_room_reaction_targets" => CHAT_ROOMS_READ_SCOPE,

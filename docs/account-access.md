@@ -450,3 +450,15 @@ failure recovery using synthetic accounts. Complete privacy review of the
 account data delivered to each AI host. Disconnecting blocks future access;
 it does not recall information already delivered to another service. This
 source profile does not establish a live deployment or compliance approval.
+
+### Bidding
+
+Operators can enable `bids:write` on an account-actions deployment with the matching bidding API. Preparing a bid under `bids:read` returns an expiring quote for one listing, auction round and exact amount in SEK. Review the minimum, increment, protection fee and whether it is mandatory, nonpayment fee, shipping selection at checkout and payment deadline before submission.
+
+Submission requires `bids:write` and the original quote, listing and amount. A pending receipt includes a link to the requesting customer’s Budna approval page. Read the action status for its outcome. If the submission response is lost, retry the same terms with the same quote. A new quote represents a new intent.
+
+### Similar drafts and shipping rules
+
+To create a similar unpublished draft, the customer selects an owned source, reads its `updated_at`, and grants `draftauthoring:write`. The action checks seller verification and copies the supported source fields. Media, bid history, orders and identity stay outside the copy. Supply one `request_id` UUID per intended draft and reuse it after an interrupted request.
+
+The seller’s existing shipping settings provide a revision when the API supports editing. `shippingdefaults:write` allows changing the carrier selection or combined-shipping default for future listings. `shippingrules:read` allows reading kinds of goods, their listing counts, parcel capacities and pages of owned listings. `shippingrules:write` permits one change at a time. Read the revision, show the resulting change and submit that revision with a stable `request_id`. Moving a listing or deleting a kind affects future combined quotes. Budna sets the delivery price.

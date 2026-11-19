@@ -1,6 +1,7 @@
 mod account;
 mod account_detail;
 mod activity;
+pub(crate) mod bid_submission;
 mod collections;
 mod common;
 mod discovery;
@@ -12,6 +13,7 @@ mod profiles;
 mod records;
 pub(crate) mod room_activity;
 mod selling;
+pub(crate) mod shipping;
 mod taxonomy;
 
 pub(crate) use account::{

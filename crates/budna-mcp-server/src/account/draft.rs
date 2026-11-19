@@ -5,7 +5,7 @@ use crate::{
 };
 use budna_mcp_client::{DraftInput, DraftVerification};
 
-#[tool_router(router = listing_draft_router, vis = "pub(super)")]
+#[tool_router(router = draft_eligibility_router, vis = "pub(super)")]
 impl AccountMcpServer {
     #[tool(
         title = "Check seller verification for a listing draft",
@@ -40,7 +40,10 @@ impl AccountMcpServer {
         })
         .await
     }
+}
 
+#[tool_router(router=listing_draft_router,vis="pub(super)")]
+impl AccountMcpServer {
     #[tool(
         title = "Create an unpublished listing draft",
         description = "On the verified seller's explicit request, save one unpublished draft with listingdrafts:write. Select the market and currency. Seller verification takes place in Budna web. To add media use Budna. Only executed confirms a draft was saved.",

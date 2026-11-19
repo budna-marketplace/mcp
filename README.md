@@ -162,6 +162,7 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `rename_my_private_watchlist` | Management profile · `watchlists:write` | Rename one private, non-default watchlist you own |
 | `delete_my_private_watchlist` | Management profile · `watchlists:write` | Permanently delete one private, non-default watchlist and its memberships |
 | `get_my_listing_draft_eligibility` | Draft pilot · `profile:read` | Check seller verification and open the appropriate Budna verification page |
+| `create_my_similar_draft` | Account actions · `draftauthoring:write` | Copy supported fields from one reviewed listing into a verified seller’s unpublished draft |
 | `create_my_listing_draft` | Draft pilot · `listingdrafts:write` | Save one unpublished initial draft as the verified seller |
 | `get_my_notification_read_batch` | Account actions · `notifications:read` | Preview up to 50 eligible unread ordinary notifications |
 | `mark_my_notifications_read` | Account actions · `notificationstate:write` | Acknowledge the ordinary notification IDs the customer selected |
@@ -211,6 +212,8 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `list_my_notifications` | Notifications permission | List your notifications by type, read state and related listing, order, offer or saved search |
 | `get_my_notification_preferences` | Notifications permission | Read your notification settings: channels, categories and quiet hours |
 | `get_my_order_rating_eligibility` | Account actions · `orders:read` | Preview the counterparty and rating eligibility for one owned order |
+| `prepare_my_bid` | Account actions · `bids:read` | Prepare one nonbinding, short-lived quote in SEK for the current auction round |
+| `submit_my_quoted_bid` | Account actions · `bids:write` | Submit the exact quoted bid under the customer’s connected-app approval policy |
 | `rate_my_order_counterparty` | Account actions · `ratings:write` | Submit the customer’s stars and chosen comment or star-only rating |
 | `list_my_ratings` | Ratings permission | List ratings you received or gave, with the other party's public username, stars, comment and listing |
 | `get_my_money_summary` | Payments permission | Read your money totals per currency: proceeds pending, on the way, paid out, on hold or in balance, and payments made and refunded |
@@ -226,6 +229,9 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `get_my_seller_insights` | Selling permission | Read views and saves of your listings over 7, 30 or 90 days, your top listings and priority credits |
 | `list_my_boosts` | Selling permission | List the boosts you bought, with status, price and dates |
 | `get_my_listing_promotion` | Selling permission | Read one listing's boosts, search priority, video processing status and, for a company, its VAT treatment |
+| `change_my_shipping_defaults` | Account actions · `shippingdefaults:write` | Change carrier or combined-shipping defaults for future listings |
+| `get_my_shipping_rules` / `list_my_shipping_rule_listings` | Account actions · `shippingrules:read` | Read kinds of goods, parcel capacities and paged listing assignments |
+| `change_my_shipping_rule` | Account actions · `shippingrules:write` | Apply one reviewed change to a kind, listing assignment or parcel |
 | `get_my_shipping_settings` | Selling permission | Read your default carriers and combined-shipping choice |
 | `list_my_showcases` | Selling permission | List your collections, including drafts |
 | `list_my_live_sessions` | Selling permission | List your live streams with items sold and revenue |
