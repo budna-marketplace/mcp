@@ -507,3 +507,27 @@ Enable `listingmanagement:write` for eligible edits, extensions, relisting and d
 Use `orders:read` to check the connected party’s available actions, current case and order revisions, offer ID, exact discount and deadline. With `disputecases:write` the customer can open a case or send their exact statement to the parties and Budna. Opening a case can hold a payout. The claimant must approve withdrawing the case in Budna.
 
 With `disputesettlements:write` the buyer can decline the current discount or the seller can withdraw their proposal. A new proposal and a buyer’s acceptance each require first-party confirmation of the amount and currency. A seller proposal stays open for 24 hours from approval. Acceptance requests the native refund. The provider processes the transfer separately. The app and MCP can read the resulting order and case. Use Budna to submit evidence or reach support.
+
+### Second-chance auction sales
+
+A seller can review a closed unpaid auction order with `orders:read`. Budna selects eligible runner-up bidders and offers the same fixed price to one bidder at a time. Starting a cascade under `secondchances:write` requires first-party approval. The seller can cancel a live cascade directly.
+
+With `offers:read`, an invited buyer can resolve their received offer to their personal invitation and review its price, fees, response window and payment deadline. Acceptance under `secondchanceanswers:write` requires approval in Budna and returns the resulting unpaid order. A decline passes the opportunity on. Each submission uses its original quote as the idempotency key.
+
+### Order returns
+
+With `returnreview:read`, `get_my_return_terms` shows the participant’s role, order amount, current refundable amount when available, online refund deadline, statutory deadline, who pays return postage and who handles the refund. Use the supplied Budna order link to pay for a return label, book it or supply sensitive evidence.
+
+With a separate `returns:write` grant, `change_my_order_return` takes the order ID, current revision, a stable UUID request ID and one change. A qualifying consumer buyer can request a statutory withdrawal. A seller can agree to take an eligible purchase back or confirm that the return arrived. These three changes require the owner’s approval on Budna. The buyer can directly submit or correct own return tracking or cancel an eligible open return. Budna checks the current tracking lock, paid label, order parties, protection requirements and payment state again when applying the change. Use the order terms to distinguish a provider refund, manual review and a direct refund owed by the seller. Tracking numbers are omitted from action receipts.
+
+### Fulfillment and pickup
+
+An enrolled client may request the four fulfillment permissions independently. With `fulfillmentreview:read`, use `get_my_fulfillment_terms` with a positive order ID and the intended operation. A combined delivery identifies every affected order and listing. The review returns a revision, the remaining funded balance and the consequences for payment and any eligible non-receipt disputes.
+
+A seller with `sellerfulfillment:write` can record actual dispatch or handover, or set tracking for seller-arranged shipping. The separate `carrierbookings:write` permission books the carrier already selected for the funded order or parcel. Budna keeps carrier documents on the order page. Reuse the same request ID after an interrupted call. A carrier outcome that needs reconciliation stays visible in action history.
+
+A buyer with `buyerreceipts:write` requests a first-party approval on Budna. Confirming actual delivery starts the 48-hour inspection period. Confirming in-person receipt makes the payment eligible for release immediately, subject to remaining holds, and closes the eligible non-receipt disputes listed in the review.
+
+### Binding Buy Now orders
+
+An enrolled buyer with `orders:read` can inspect an existing checkout for a listing. Open the listing on Budna to start checkout or select delivery. A quote binds that selection, item quantity, fees, total, payment deadline, and whether the auction ends. The independent `checkoutorders:write` grant lets the buyer request approval in Budna. Once approved, Budna holds the stock and returns the unpaid order and deadline. The buyer pays on Budna. An expired quote requires another review. Retry the original submission to reconcile its receipt after a lost response.

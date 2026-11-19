@@ -50,6 +50,7 @@ use crate::{
 mod actions;
 mod automatic_bids;
 mod bid_submission;
+mod binding_checkout;
 mod blocks;
 mod destinations;
 mod direct_messages;
@@ -57,6 +58,7 @@ mod dispute_cases;
 mod dispute_settlements;
 mod draft;
 mod draft_authoring;
+mod fulfillment;
 mod inventory;
 mod listing_management;
 mod notification_state;
@@ -67,8 +69,10 @@ mod personal;
 mod public_chat;
 mod publication;
 mod reactions;
+mod returns;
 mod room_activity;
 mod saved_search;
+mod second_chances;
 mod shipping;
 mod showcase_authoring;
 mod stream_authoring;
@@ -162,6 +166,15 @@ impl AccountMcpServer {
         if client.write_permissions().room_moderation {
             routes += Self::room_moderation_router();
         }
+        if client.write_permissions().checkout_orders {
+            routes += Self::binding_checkout_router();
+        }
+        if client.write_permissions().second_chances {
+            routes += Self::second_chance_sale_router();
+        }
+        if client.write_permissions().second_chance_answers {
+            routes += Self::second_chance_answer_router();
+        }
         if client.write_permissions().offers {
             routes += Self::offer_actions_router();
         }
@@ -176,6 +189,24 @@ impl AccountMcpServer {
         }
         if client.write_permissions().shipping_rules {
             routes += Self::shipping_rule_write_router();
+        }
+        if client.write_permissions().fulfillment_review {
+            routes += Self::fulfillment_review_router();
+        }
+        if client.write_permissions().seller_fulfillment {
+            routes += Self::seller_fulfillment_router();
+        }
+        if client.write_permissions().carrier_bookings {
+            routes += Self::carrier_bookings_router();
+        }
+        if client.write_permissions().buyer_receipts {
+            routes += Self::buyer_receipts_router();
+        }
+        if client.write_permissions().return_review {
+            routes += Self::return_review_router();
+        }
+        if client.write_permissions().returns {
+            routes += Self::return_change_router();
         }
         if client.write_permissions().parcel_review {
             routes += Self::parcel_review_router();
@@ -1818,6 +1849,26 @@ impl ServerHandler for AccountMcpServer {
                 text.push_str(
                     " Use change_my_shipping_rule for one revision-checked goods or parcel change.",
                 );
+            }
+            if self.client.write_permissions().fulfillment_review {
+                text.push_str(" Use get_my_fulfillment_terms for the connected account’s reviewed order fulfillment.");
+            }
+            if self.client.write_permissions().seller_fulfillment {
+                text.push_str(" Use update_my_seller_fulfillment for the connected account’s reviewed order fulfillment.");
+            }
+            if self.client.write_permissions().carrier_bookings {
+                text.push_str(" Use book_my_order_shipment for the connected account’s reviewed order fulfillment.");
+            }
+            if self.client.write_permissions().buyer_receipts {
+                text.push_str(" Use confirm_my_order_receipt for the connected account’s reviewed order fulfillment.");
+            }
+            if self.client.write_permissions().return_review {
+                text.push_str(
+                    " Read current order return rights and refund terms with get_my_return_terms.",
+                );
+            }
+            if self.client.write_permissions().returns {
+                text.push_str(" Use change_my_order_return for one reviewed return action.");
             }
             if self.client.write_permissions().parcel_review {
                 text.push_str(" Review combined parcel terms and deadlines with get_my_combined_parcel_terms.");

@@ -5,6 +5,7 @@ pub(crate) mod offer_actions;
 pub(crate) mod personal;
 pub(crate) mod room_activity;
 mod saved_search;
+pub(crate) mod second_chances;
 pub(crate) use saved_search::{CreateSearchParams, DeleteSearchParams, UpdateSearchParams};
 use std::{
     borrow::Cow,

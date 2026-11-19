@@ -2376,3 +2376,12 @@ mod cases_and_listing;
 
 #[path = "account_http_protocol/offer_actions.rs"]
 mod offer_actions;
+
+#[path = "account_http_protocol/returns.rs"]
+mod returns;
+
+#[path = "account_http_protocol/second_chances.rs"]
+mod second_chances;
+
+#[path = "account_http_protocol/fulfillment.rs"]
+mod fulfillment;

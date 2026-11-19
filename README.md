@@ -220,6 +220,15 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `submit_my_quoted_bid` | Account actions · `bids:write` | Submit the exact quoted bid under the customer’s connected-app approval policy |
 | `get_my_automatic_bid_state` | Account actions · `bids:read` | Read the customer’s own maximum and its current revision for one auction |
 | `prepare_my_automatic_bid_maximum` | Account actions · `bids:read` | Quote a private standing maximum and show the effect of an immediate bid |
+| `get_my_binding_checkout` | Account actions · `orders:read` | Read an existing Buy Now checkout, its delivery-selection status and any linked order |
+| `prepare_my_binding_checkout_order` | Account actions · `orders:read` | Review quantity, delivery, all-in price, deadlines, unpaid fee and auction closure |
+| `submit_my_quoted_checkout_order` | Account actions · `checkoutorders:write` | Request approval in Budna to create one binding unpaid order |
+| `get_my_second_chance_sale` | Account actions · `orders:read` | Check whether an unpaid auction order you sold can start a second-chance offer or cancel an active one |
+| `prepare_my_second_chance_sale` | Account actions · `orders:read` | Prepare the price and deadlines to start or cancel one cascade |
+| `submit_my_quoted_second_chance_sale` | Account actions · `secondchances:write` | Starting a cascade requires approval in Budna |
+| `get_my_second_chance_invitation` | Account actions · `offers:read` | Look up your active, personal invitation from a received second-chance offer |
+| `prepare_my_second_chance_answer` | Account actions · `offers:read` | Review one invitation and its fixed price, fees, response window and payment deadline before accepting or passing on it |
+| `submit_my_quoted_second_chance_answer` | Account actions · `secondchanceanswers:write` | Accepting a second-chance invitation requires approval in Budna and creates a binding unpaid order |
 | `prepare_my_offer_change` | Account actions · `offers:read` | Review the exact amount, units, parties’ standing proposals and order terms |
 | `submit_my_quoted_offer_change` | Account actions · `offers:write` | Make, raise, counter, lower, accept, reject or withdraw the reviewed proposal |
 | `set_my_quoted_automatic_bid_maximum` | Account actions · `autobids:write` | Authorize future bids up to the quoted maximum under the customer’s approval policy |
@@ -247,6 +256,12 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `change_my_shipping_defaults` | Account actions · `shippingdefaults:write` | Change carrier or combined-shipping defaults for future listings |
 | `get_my_shipping_rules` / `list_my_shipping_rule_listings` | Account actions · `shippingrules:read` | Read kinds of goods, parcel capacities and paged listing assignments |
 | `change_my_shipping_rule` | Account actions · `shippingrules:write` | Apply one reviewed change to a kind, listing assignment or parcel |
+| `get_my_fulfillment_terms` | Account actions · `fulfillmentreview:read` | Review the orders affected, funded balance, payout timing and receipt-related dispute consequences |
+| `update_my_seller_fulfillment` | Account actions · `sellerfulfillment:write` | Record actual dispatch or handover, or update the tracking for one eligible sale |
+| `book_my_order_shipment` | Account actions · `carrierbookings:write` | Book the saved carrier for an eligible funded order or its combined parcel |
+| `confirm_my_order_receipt` | Account actions · `buyerreceipts:write` | Request approval in Budna to confirm receipt of a shipped order or in-person pickup |
+| `get_my_return_terms` | Account actions · `returnreview:read` | Check return rights, refundable amount, postage, deadlines and refund route on a participating order |
+| `change_my_order_return` | Account actions · `returns:write` | Request a withdrawal, agree a return or acknowledge arrival through Budna approval, or submit tracking or call off an eligible return as buyer |
 | `get_my_combined_parcel_terms` | Account actions · `parcelreview:read` | Review compatible unpaid orders or a parcel you participate in, including all member terms |
 | `request_my_combined_parcel` | Account actions · `parcelrequests:write` | Request buyer confirmation on Budna to combine the reviewed orders |
 | `change_my_combined_parcel` | Account actions · `parcelmanagement:write` | Declare or decline a parcel as seller, or dissolve it as buyer |

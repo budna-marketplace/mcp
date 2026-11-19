@@ -11,12 +11,21 @@ pub const ROOM_MODERATION_READ_SCOPE: &str = "roommoderation:read";
 pub const ROOM_REACTIONS_WRITE_SCOPE: &str = "roomreactions:write";
 pub const LIVE_REPORTS_WRITE_SCOPE: &str = "livereports:write";
 pub const ROOM_MODERATION_WRITE_SCOPE: &str = "roommoderation:write";
+pub const CHECKOUT_ORDERS_WRITE_SCOPE: &str = "checkoutorders:write";
+pub const SECOND_CHANCES_WRITE_SCOPE: &str = "secondchances:write";
+pub const SECOND_CHANCE_ANSWERS_WRITE_SCOPE: &str = "secondchanceanswers:write";
 pub const OFFERS_WRITE_SCOPE: &str = "offers:write";
 pub const AUTOBIDS_WRITE_SCOPE: &str = "autobids:write";
 pub const BIDS_WRITE_SCOPE: &str = "bids:write";
 pub const DRAFT_AUTHORING_SCOPE: &str = "draftauthoring:write";
 pub const SHIPPING_RULES_WRITE_SCOPE: &str = "shippingrules:write";
 pub const SHIPPING_RULES_READ_SCOPE: &str = "shippingrules:read";
+pub const FULFILLMENT_REVIEW_SCOPE: &str = "fulfillmentreview:read";
+pub const SELLER_FULFILLMENT_SCOPE: &str = "sellerfulfillment:write";
+pub const CARRIER_BOOKINGS_SCOPE: &str = "carrierbookings:write";
+pub const BUYER_RECEIPTS_SCOPE: &str = "buyerreceipts:write";
+pub const RETURN_REVIEW_SCOPE: &str = "returnreview:read";
+pub const RETURNS_WRITE_SCOPE: &str = "returns:write";
 pub const PARCEL_REVIEW_SCOPE: &str = "parcelreview:read";
 pub const PARCEL_REQUESTS_SCOPE: &str = "parcelrequests:write";
 pub const PARCEL_MANAGEMENT_SCOPE: &str = "parcelmanagement:write";
@@ -56,6 +65,9 @@ pub struct AccountWritePermissions {
     pub room_reactions: bool,
     pub live_reports: bool,
     pub room_moderation: bool,
+    pub checkout_orders: bool,
+    pub second_chances: bool,
+    pub second_chance_answers: bool,
     pub offers: bool,
     pub automatic_bids: bool,
     pub bids: bool,
@@ -63,6 +75,12 @@ pub struct AccountWritePermissions {
     pub shipping_rules: bool,
     pub shipping_rules_read: bool,
     pub shipping_defaults: bool,
+    pub fulfillment_review: bool,
+    pub seller_fulfillment: bool,
+    pub carrier_bookings: bool,
+    pub buyer_receipts: bool,
+    pub return_review: bool,
+    pub returns: bool,
     pub parcel_review: bool,
     pub parcel_requests: bool,
     pub parcel_management: bool,
@@ -99,6 +117,9 @@ impl AccountWritePermissions {
         room_reactions: false,
         live_reports: false,
         room_moderation: false,
+        checkout_orders: false,
+        second_chances: false,
+        second_chance_answers: false,
         offers: false,
         automatic_bids: false,
         bids: false,
@@ -106,6 +127,12 @@ impl AccountWritePermissions {
         shipping_rules: false,
         shipping_rules_read: false,
         shipping_defaults: false,
+        returns: false,
+        fulfillment_review: false,
+        seller_fulfillment: false,
+        carrier_bookings: false,
+        buyer_receipts: false,
+        return_review: false,
         parcel_review: false,
         parcel_requests: false,
         parcel_management: false,
@@ -146,12 +173,21 @@ impl AccountWritePermissions {
                 ROOM_REACTIONS_WRITE_SCOPE => &mut permissions.room_reactions,
                 LIVE_REPORTS_WRITE_SCOPE => &mut permissions.live_reports,
                 ROOM_MODERATION_WRITE_SCOPE => &mut permissions.room_moderation,
+                CHECKOUT_ORDERS_WRITE_SCOPE => &mut permissions.checkout_orders,
+                SECOND_CHANCES_WRITE_SCOPE => &mut permissions.second_chances,
+                SECOND_CHANCE_ANSWERS_WRITE_SCOPE => &mut permissions.second_chance_answers,
                 OFFERS_WRITE_SCOPE => &mut permissions.offers,
                 AUTOBIDS_WRITE_SCOPE => &mut permissions.automatic_bids,
                 BIDS_WRITE_SCOPE => &mut permissions.bids,
                 DRAFT_AUTHORING_SCOPE => &mut permissions.draft_authoring,
                 SHIPPING_RULES_WRITE_SCOPE => &mut permissions.shipping_rules,
                 SHIPPING_RULES_READ_SCOPE => &mut permissions.shipping_rules_read,
+                FULFILLMENT_REVIEW_SCOPE => &mut permissions.fulfillment_review,
+                SELLER_FULFILLMENT_SCOPE => &mut permissions.seller_fulfillment,
+                CARRIER_BOOKINGS_SCOPE => &mut permissions.carrier_bookings,
+                BUYER_RECEIPTS_SCOPE => &mut permissions.buyer_receipts,
+                RETURN_REVIEW_SCOPE => &mut permissions.return_review,
+                RETURNS_WRITE_SCOPE => &mut permissions.returns,
                 PARCEL_REVIEW_SCOPE => &mut permissions.parcel_review,
                 PARCEL_REQUESTS_SCOPE => &mut permissions.parcel_requests,
                 PARCEL_MANAGEMENT_SCOPE => &mut permissions.parcel_management,
@@ -188,6 +224,8 @@ impl AccountWritePermissions {
         [
             self.personal_blocks_read
                 .then_some(PERSONAL_BLOCKS_READ_SCOPE),
+            self.fulfillment_review.then_some(FULFILLMENT_REVIEW_SCOPE),
+            self.return_review.then_some(RETURN_REVIEW_SCOPE),
             self.parcel_review.then_some(PARCEL_REVIEW_SCOPE),
             self.stream_authoring.then_some(STREAM_AUTHORING_READ_SCOPE),
             self.showcase_authoring
@@ -216,10 +254,18 @@ impl AccountWritePermissions {
             self.live_reports.then_some(LIVE_REPORTS_WRITE_SCOPE),
             self.room_moderation.then_some(ROOM_MODERATION_WRITE_SCOPE),
             self.bids.then_some(BIDS_WRITE_SCOPE),
+            self.checkout_orders.then_some(CHECKOUT_ORDERS_WRITE_SCOPE),
+            self.second_chances.then_some(SECOND_CHANCES_WRITE_SCOPE),
+            self.second_chance_answers
+                .then_some(SECOND_CHANCE_ANSWERS_WRITE_SCOPE),
             self.offers.then_some(OFFERS_WRITE_SCOPE),
             self.automatic_bids.then_some(AUTOBIDS_WRITE_SCOPE),
             self.draft_authoring.then_some(DRAFT_AUTHORING_SCOPE),
             self.shipping_rules.then_some(SHIPPING_RULES_WRITE_SCOPE),
+            self.seller_fulfillment.then_some(SELLER_FULFILLMENT_SCOPE),
+            self.carrier_bookings.then_some(CARRIER_BOOKINGS_SCOPE),
+            self.buyer_receipts.then_some(BUYER_RECEIPTS_SCOPE),
+            self.returns.then_some(RETURNS_WRITE_SCOPE),
             self.parcel_requests.then_some(PARCEL_REQUESTS_SCOPE),
             self.parcel_management.then_some(PARCEL_MANAGEMENT_SCOPE),
             self.stream_plans.then_some(STREAM_PLANS_WRITE_SCOPE),
@@ -258,6 +304,9 @@ impl AccountWritePermissions {
             room_reactions: self.room_reactions && other.room_reactions,
             live_reports: self.live_reports && other.live_reports,
             room_moderation: self.room_moderation && other.room_moderation,
+            checkout_orders: self.checkout_orders && other.checkout_orders,
+            second_chances: self.second_chances && other.second_chances,
+            second_chance_answers: self.second_chance_answers && other.second_chance_answers,
             offers: self.offers && other.offers,
             automatic_bids: self.automatic_bids && other.automatic_bids,
             bids: self.bids && other.bids,
@@ -265,6 +314,12 @@ impl AccountWritePermissions {
             shipping_rules: self.shipping_rules && other.shipping_rules,
             shipping_rules_read: self.shipping_rules_read && other.shipping_rules_read,
             shipping_defaults: self.shipping_defaults && other.shipping_defaults,
+            returns: self.returns && other.returns,
+            fulfillment_review: self.fulfillment_review && other.fulfillment_review,
+            seller_fulfillment: self.seller_fulfillment && other.seller_fulfillment,
+            carrier_bookings: self.carrier_bookings && other.carrier_bookings,
+            buyer_receipts: self.buyer_receipts && other.buyer_receipts,
+            return_review: self.return_review && other.return_review,
             parcel_review: self.parcel_review && other.parcel_review,
             parcel_requests: self.parcel_requests && other.parcel_requests,
             parcel_management: self.parcel_management && other.parcel_management,

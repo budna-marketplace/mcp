@@ -35,7 +35,14 @@ use budna_mcp_client::{
     WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
 use budna_mcp_client::{AUTOBIDS_WRITE_SCOPE, BIDS_WRITE_SCOPE, OFFERS_WRITE_SCOPE};
-use budna_mcp_client::{PARCEL_MANAGEMENT_SCOPE, PARCEL_REQUESTS_SCOPE, PARCEL_REVIEW_SCOPE};
+use budna_mcp_client::{
+    BUYER_RECEIPTS_SCOPE, CARRIER_BOOKINGS_SCOPE, FULFILLMENT_REVIEW_SCOPE,
+    SELLER_FULFILLMENT_SCOPE,
+};
+use budna_mcp_client::{
+    PARCEL_MANAGEMENT_SCOPE, PARCEL_REQUESTS_SCOPE, PARCEL_REVIEW_SCOPE, RETURN_REVIEW_SCOPE,
+    RETURNS_WRITE_SCOPE,
+};
 use budna_mcp_client::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
 use budna_mcp_client::{STREAM_AUTHORING_READ_SCOPE, STREAM_PLANS_WRITE_SCOPE};
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
@@ -228,6 +235,14 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
         "get_my_automatic_bid_state" | "prepare_my_automatic_bid_maximum" => BIDS_READ_SCOPE,
         "set_my_quoted_automatic_bid_maximum" | "pause_my_automatic_bid" => AUTOBIDS_WRITE_SCOPE,
+        "get_my_binding_checkout" | "prepare_my_binding_checkout_order" => ORDERS_READ_SCOPE,
+        "submit_my_quoted_checkout_order" => budna_mcp_client::CHECKOUT_ORDERS_WRITE_SCOPE,
+        "get_my_second_chance_sale" | "prepare_my_second_chance_sale" => ORDERS_READ_SCOPE,
+        "get_my_second_chance_invitation" | "prepare_my_second_chance_answer" => OFFERS_READ_SCOPE,
+        "submit_my_quoted_second_chance_sale" => budna_mcp_client::SECOND_CHANCES_WRITE_SCOPE,
+        "submit_my_quoted_second_chance_answer" => {
+            budna_mcp_client::SECOND_CHANCE_ANSWERS_WRITE_SCOPE
+        }
         "prepare_my_offer_change" => OFFERS_READ_SCOPE,
         "submit_my_quoted_offer_change" => OFFERS_WRITE_SCOPE,
         "prepare_my_bid" => BIDS_READ_SCOPE,
@@ -241,6 +256,12 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "change_my_shipping_defaults" => SHIPPING_DEFAULTS_SCOPE,
         "get_my_shipping_rules" | "list_my_shipping_rule_listings" => SHIPPING_RULES_READ_SCOPE,
         "change_my_shipping_rule" => SHIPPING_RULES_WRITE_SCOPE,
+        "get_my_fulfillment_terms" => FULFILLMENT_REVIEW_SCOPE,
+        "update_my_seller_fulfillment" => SELLER_FULFILLMENT_SCOPE,
+        "book_my_order_shipment" => CARRIER_BOOKINGS_SCOPE,
+        "confirm_my_order_receipt" => BUYER_RECEIPTS_SCOPE,
+        "get_my_return_terms" => RETURN_REVIEW_SCOPE,
+        "change_my_order_return" => RETURNS_WRITE_SCOPE,
         "get_my_combined_parcel_terms" => PARCEL_REVIEW_SCOPE,
         "request_my_combined_parcel" => PARCEL_REQUESTS_SCOPE,
         "change_my_combined_parcel" => PARCEL_MANAGEMENT_SCOPE,
