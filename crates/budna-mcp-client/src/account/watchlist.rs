@@ -54,12 +54,7 @@ impl AccountApiClient {
         let envelope: ApiEnvelope<AccountWatchlistMembershipReceipt> = self
             .send(OPERATION, request, 4096)
             .await
-            .map_err(|error| ClientError::AccountWrite {
-                operation: OPERATION,
-                rejection_status: error
-                    .status()
-                    .filter(|status| matches!(status, 400 | 401 | 403 | 404 | 409 | 422 | 429)),
-            })?;
+            .map_err(ClientError::account_write)?;
         envelope
             .data
             .filter(|receipt| {

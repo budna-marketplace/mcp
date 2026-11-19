@@ -10,10 +10,10 @@ use axum::{
 };
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
-    FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE,
-    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE,
-    RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
-    WATCHLIST_WRITE_SCOPE, is_account_access_token,
+    DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE,
+    NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
+    PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE,
+    WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings, ToolCapability};
 use http::{
@@ -28,7 +28,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     AccountMcpServer,
-    account::{ACTION_STATUS_TOOL, WATCHLIST_MANAGEMENT_TOOLS, WATCHLIST_MEMBERSHIP_TOOL},
+    account::{
+        ACTION_STATUS_TOOL, DRAFT_CREATE_TOOL, DRAFT_ELIGIBILITY_TOOL, WATCHLIST_MANAGEMENT_TOOLS,
+        WATCHLIST_MEMBERSHIP_TOOL,
+    },
 };
 
 #[derive(Clone)]
@@ -58,10 +61,14 @@ pub fn account_http_router(
         .allows(ToolCapability::PrivateWatchlistManagement)
         && client.private_watchlist_management_enabled()
         && server.has_watchlist_management();
-    server.restrict_write_tools(watchlist_write, management);
+    let drafts = account.policy().allows(ToolCapability::ListingDraftCreate)
+        && client.listing_draft_creation_enabled()
+        && server.has_listing_drafts();
+    server.restrict_write_tools(watchlist_write, management, drafts);
     let client = client
         .with_private_watchlist_writes(watchlist_write)
-        .with_private_watchlist_management(management);
+        .with_private_watchlist_management(management)
+        .with_listing_draft_creation(drafts);
     let scopes: Vec<_> = client.supported_scopes().collect();
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
@@ -88,7 +95,7 @@ pub fn account_http_router(
         "authorization_servers": [account.issuer()],
         "scopes_supported": scopes,
         "bearer_methods_supported": ["header"],
-        "resource_name": if management { "Budna private watchlists" } else if watchlist_write { "Budna private watchlist pilot" } else { "Budna account reads" }
+        "resource_name": if drafts { "Budna listing drafts" } else if management { "Budna private watchlists" } else if watchlist_write { "Budna private watchlist pilot" } else { "Budna account reads" }
     });
     let router = Router::new()
         .nest_service(ACCOUNT_MCP_PATH, service)
@@ -144,14 +151,13 @@ async fn authenticate(
                                     if name == ACTION_STATUS_TOOL {
                                         // The stored action determines the required scope. The API
                                         // enforces that scope and grant without leaking its owners.
-                                        if access.allows(WATCHLIST_WRITE_SCOPE) || access.allows(WATCHLIST_MANAGE_SCOPE) {
+                                        if auth.client.supported_write_scopes().any(|scope| access.allows(scope)) {
                                             None
-                                        } else if auth.client.private_watchlist_writes_enabled() {
-                                            Some(WATCHLIST_WRITE_SCOPE)
                                         } else {
-                                            auth.client.private_watchlist_management_enabled().then_some(WATCHLIST_MANAGE_SCOPE)
+                                            auth.client.supported_write_scopes().next()
                                         }
                                     } else {
+                                        if name == DRAFT_ELIGIBILITY_TOOL && !auth.client.listing_draft_creation_enabled() { return None; }
                                         account_tool_scope(name).filter(|scope| auth.client.supported_scopes().any(|allowed| allowed == *scope))
                                     }
                                 })
@@ -194,6 +200,8 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        DRAFT_CREATE_TOOL => DRAFT_CREATE_SCOPE,
+        DRAFT_ELIGIBILITY_TOOL => PROFILE_READ_SCOPE,
         WATCHLIST_MEMBERSHIP_TOOL => WATCHLIST_WRITE_SCOPE,
         name if WATCHLIST_MANAGEMENT_TOOLS.contains(&name) => WATCHLIST_MANAGE_SCOPE,
         "get_my_account" => ACCOUNT_READ_SCOPE,

@@ -5,6 +5,7 @@ pub enum ToolCapability {
     AccountRead,
     PrivateWatchlistWrite,
     PrivateWatchlistManagement,
+    ListingDraftCreate,
 }
 
 /// The concrete capability profile exposed by a server instance.
@@ -19,6 +20,7 @@ pub enum ToolPolicy {
     AccountRead,
     AccountWatchlistPilot,
     AccountWatchlistManagement,
+    AccountListingDraftPilot,
 }
 
 impl ToolPolicy {
@@ -30,6 +32,11 @@ impl ToolPolicy {
         matches!(
             (self, capability),
             (
+                Self::AccountListingDraftPilot,
+                ToolCapability::AccountRead
+                    | ToolCapability::PublicExplore
+                    | ToolCapability::ListingDraftCreate
+            ) | (
                 Self::AccountWatchlistManagement,
                 ToolCapability::PrivateWatchlistManagement
             ) | (

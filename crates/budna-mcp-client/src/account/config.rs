@@ -50,6 +50,7 @@ impl AccountApiClient {
             service_credential,
             private_watchlist_writes: false,
             private_watchlist_management: false,
+            listing_draft_creation: false,
         })
     }
 }

@@ -1404,3 +1404,124 @@ async fn watchlist_management_requires_separate_consent_and_returns_scoped_recei
     server.child.wait().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn draft_profile_requires_fresh_consent_and_recovers_verification_on_web() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000005";
+    const CHECK: &str = "get_my_listing_draft_eligibility";
+    const CREATE: &str = "create_my_listing_draft";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "seller",
+        "seller-downstream",
+        USER_A,
+        "profile:read listingdrafts:write",
+    )
+    .await;
+    exchange(
+        &api,
+        "profile",
+        "profile-downstream",
+        USER_B,
+        "profile:read",
+    )
+    .await;
+    let mut server = start_http_server(
+        &api.uri(),
+        30,
+        Some("account-listing-draft-pilot"),
+        Some(false),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let body = json!({"currency":"SEK","market":"swedish"});
+    let denied = post(&client, &endpoint, "profile", call(CREATE, body.clone())).await?;
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+    assert!(
+        denied.headers()[header::WWW_AUTHENTICATE]
+            .to_str()?
+            .contains("listingdrafts:write")
+    );
+    for (state, destination) in [
+        ("satisfied", None),
+        ("verify_identity_on_budna", Some("/account/verification")),
+        (
+            "verify_company_on_budna",
+            Some("/account/wallet?setup=payouts"),
+        ),
+    ] {
+        let _route=Mock::given(method("GET")).and(path("/api/v1/mcp/account/listing-draft-eligibility"))
+            .and(matches_header("authorization","Bearer seller-downstream"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"seller_verification":state,"verification_url":"https://example.invalid/untrusted","extra":SENTINEL}})))
+            .expect(1).mount_as_scoped(&api).await;
+        let result: Value = post(&client, &endpoint, "seller", call(CHECK, json!({})))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(
+            result.pointer("/result/structuredContent"),
+            Some(
+                &json!({"seller_verification":state,"verification_url":destination.map(|path|format!("https://connect.budna.se{path}"))})
+            )
+        );
+    }
+    let submit = || {
+        Mock::given(method("POST"))
+            .and(path("/api/v1/mcp/account/listing-drafts"))
+            .and(matches_header("authorization", "Bearer seller-downstream"))
+            .and(header_regex("idempotency-key", "^[0-9a-f-]{36}$"))
+            .and(body_json(body.clone()))
+    };
+    {
+        let _route =
+            submit()
+                .respond_with(ResponseTemplate::new(403).set_body_json(
+                    json!({"code":"SELLER_VERIFICATION_REQUIRED","detail":SENTINEL}),
+                ))
+                .expect(1)
+                .mount_as_scoped(&api)
+                .await;
+        let refused: Value = post(&client, &endpoint, "seller", call(CREATE, body.clone()))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&refused, CREATE, "SELLER_VERIFICATION_REQUIRED")?;
+        assert!(!refused.to_string().contains(SENTINEL));
+    }
+    for bad in [
+        json!({"currency":"SEK","market":"swedish","seller_id":USER_B}),
+        json!({"currency":"NOK","market":"norwegian"}),
+        json!({"currency":"SEK","market":"swedish","title":"\u{202e}incorrect"}),
+    ] {
+        let result: Value = post(&client, &endpoint, "seller", call(CREATE, bad))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&result, CREATE, "INVALID_INPUT")?;
+    }
+    let receipt = json!({"action_id":ACTION,"listing_id":LISTING_A,"status":"executed"});
+    let _route = submit()
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":receipt})),
+        )
+        .expect(1)
+        .mount_as_scoped(&api)
+        .await;
+    let result: Value = post(&client, &endpoint, "seller", call(CREATE, body.clone()))
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}

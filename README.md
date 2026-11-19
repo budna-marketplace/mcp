@@ -161,6 +161,8 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `create_my_private_watchlist` | Management profile · `watchlists:write` | Create one private watchlist |
 | `rename_my_private_watchlist` | Management profile · `watchlists:write` | Rename one private, non-default watchlist you own |
 | `delete_my_private_watchlist` | Management profile · `watchlists:write` | Permanently delete one private, non-default watchlist and its memberships |
+| `get_my_listing_draft_eligibility` | Draft pilot · `profile:read` | Check seller verification and open the appropriate Budna verification page |
+| `create_my_listing_draft` | Draft pilot · `listingdrafts:write` | Save one unpublished initial draft as the verified seller |
 | `get_my_action_status` | Write-enabled profile · original action permission | Check one receipt on the connection that submitted it |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |
 | `list_my_saved_searches` | Watchlist permission | List your saved searches with their criteria, alerts and unseen matches |

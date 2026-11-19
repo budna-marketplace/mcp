@@ -1304,7 +1304,7 @@ pub enum MarketParam {
 }
 
 impl MarketParam {
-    const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::Norwegian => "norwegian",
             Self::Swedish => "swedish",
@@ -1606,6 +1606,31 @@ fn is_valid_filter_name(value: &str) -> bool {
         && value
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DraftParams {
+    pub market: MarketParam,
+    pub currency: DraftCurrencyParam,
+    #[schemars(length(min = 1, max = 200))]
+    pub title: Option<String>,
+    #[schemars(length(min = 1, max = 10000))]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub enum DraftCurrencyParam {
+    #[serde(rename = "SEK")]
+    Sek,
+}
+
+impl DraftCurrencyParam {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Sek => "SEK",
+        }
+    }
 }
 
 #[cfg(test)]

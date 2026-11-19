@@ -3,8 +3,7 @@ use serde::Deserialize;
 
 use super::{
     AccountApiClient, AccountWatchlistActionStatus, ApiEnvelope, ClientError, DelegatedAccess,
-    WATCHLIST_MANAGE_SCOPE, WATCHLIST_WRITE_SCOPE, invalid_input, invalid_response,
-    is_canonical_uuid,
+    WATCHLIST_MANAGE_SCOPE, invalid_input, invalid_response, is_canonical_uuid,
 };
 
 pub fn is_action_id(value: &str) -> bool {
@@ -58,11 +57,16 @@ impl AccountApiClient {
     ) -> Result<AccountActionStatus, ClientError> {
         const OPERATION: &str = "get_my_action_status";
         // The API checks the actual action scope and grant together without disclosing either.
-        if self
-            .require_scope(access, WATCHLIST_WRITE_SCOPE, OPERATION)
-            .is_err()
+        if !self
+            .supported_write_scopes()
+            .any(|scope| access.allows(scope))
         {
-            self.require_scope(access, WATCHLIST_MANAGE_SCOPE, OPERATION)?;
+            return Err(ClientError::Api {
+                operation: OPERATION,
+                status: 403,
+                code: None,
+                retry_after: None,
+            });
         }
         if !is_action_id(action_id) {
             return Err(invalid_input(OPERATION, "Invalid action reference"));
@@ -132,12 +136,7 @@ impl AccountApiClient {
         let envelope: ApiEnvelope<AccountPrivateWatchlistReceipt> = self
             .send(operation, request, 4096)
             .await
-            .map_err(|error| ClientError::AccountWrite {
-                operation,
-                rejection_status: error
-                    .status()
-                    .filter(|code| matches!(code, 400 | 401 | 403 | 404 | 409 | 422 | 429)),
-            })?;
+            .map_err(ClientError::account_write)?;
         envelope
             .data
             .filter(|receipt| {

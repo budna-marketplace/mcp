@@ -48,7 +48,11 @@ async fn main() -> Result<()> {
                 .policy()
                 .allows(ToolCapability::PrivateWatchlistManagement),
         );
-        let mut server = AccountMcpServer::new(client.clone(), settings.request_timeout());
+        let client = client.with_listing_draft_creation(
+            account.policy().allows(ToolCapability::ListingDraftCreate),
+        );
+        let mut server = AccountMcpServer::new(client.clone(), settings.request_timeout())
+            .with_public_urls(settings.public_urls().clone());
         if account_public_explore {
             let public = BudnaMcpServer::new(PublicApiClient::new(client_config)?)
                 .with_public_urls(settings.public_urls().clone())

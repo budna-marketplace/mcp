@@ -43,6 +43,11 @@ impl AccountSettings {
         self
     }
 
+    pub fn with_listing_draft_creation(mut self) -> Self {
+        self.policy = ToolPolicy::AccountListingDraftPilot;
+        self
+    }
+
     pub fn policy(&self) -> ToolPolicy {
         self.policy
     }

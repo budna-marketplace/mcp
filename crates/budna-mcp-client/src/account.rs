@@ -1,6 +1,7 @@
 mod actions;
 mod activity;
 mod config;
+mod draft;
 mod listing;
 mod models;
 mod records;
@@ -25,6 +26,7 @@ use zeroize::Zeroizing;
 
 pub use actions::*;
 pub use activity::*;
+pub use draft::*;
 pub use listing::*;
 pub use models::{AccountListingPage, AccountListingSummary, AccountPage, AccountSummary};
 pub use records::*;
@@ -48,6 +50,7 @@ pub const SELLING_READ_SCOPE: &str = "selling:read";
 pub const FOLLOWING_READ_SCOPE: &str = "following:read";
 pub const COMPANY_READ_SCOPE: &str = "company:read";
 pub const WATCHLIST_WRITE_SCOPE: &str = "watchlist:write";
+pub const DRAFT_CREATE_SCOPE: &str = "listingdrafts:write";
 pub const WATCHLIST_MANAGE_SCOPE: &str = "watchlists:write";
 /// Delegated permissions supported by the read-only account profile, in consent order.
 pub const ACCOUNT_SCOPES: [&str; 14] = [
@@ -132,6 +135,7 @@ pub struct AccountApiClient {
     service_credential: Credential,
     private_watchlist_writes: bool,
     private_watchlist_management: bool,
+    listing_draft_creation: bool,
 }
 
 impl AccountApiClient {
@@ -154,18 +158,32 @@ impl AccountApiClient {
         self.private_watchlist_management
     }
 
+    pub fn with_listing_draft_creation(mut self, enabled: bool) -> Self {
+        self.listing_draft_creation = enabled;
+        self
+    }
+
+    pub fn listing_draft_creation_enabled(&self) -> bool {
+        self.listing_draft_creation
+    }
+
+    pub fn supported_write_scopes(&self) -> impl Iterator<Item = &'static str> {
+        [
+            self.private_watchlist_writes
+                .then_some(WATCHLIST_WRITE_SCOPE),
+            self.private_watchlist_management
+                .then_some(WATCHLIST_MANAGE_SCOPE),
+            self.listing_draft_creation.then_some(DRAFT_CREATE_SCOPE),
+        ]
+        .into_iter()
+        .flatten()
+    }
+
     /// Scope metadata and token validation must describe the same profile.
     pub fn supported_scopes(&self) -> impl Iterator<Item = &'static str> {
         ACCOUNT_SCOPES
             .into_iter()
-            .chain(
-                self.private_watchlist_writes
-                    .then_some(WATCHLIST_WRITE_SCOPE),
-            )
-            .chain(
-                self.private_watchlist_management
-                    .then_some(WATCHLIST_MANAGE_SCOPE),
-            )
+            .chain(self.supported_write_scopes())
     }
 
     pub async fn exchange(&self, token: &str) -> Result<DelegatedAccess, ClientError> {
@@ -1250,7 +1268,9 @@ impl AccountApiClient {
                 .await
                 .map_err(|source| crate::request_error(operation, source))?;
             let status = response.status();
-            if !status.is_success() {
+            let draft_refused =
+                operation == "create_my_listing_draft" && status == reqwest::StatusCode::FORBIDDEN;
+            if !status.is_success() && !draft_refused {
                 return Err(ClientError::Api {
                     operation,
                     status: status.as_u16(),
@@ -1280,6 +1300,26 @@ impl AccountApiClient {
                     });
                 }
                 body.extend_from_slice(&chunk);
+            }
+            if draft_refused {
+                #[derive(Deserialize)]
+                struct Refusal<'a> {
+                    code: &'a str,
+                }
+                return Err(
+                    if serde_json::from_slice::<Refusal>(&body)
+                        .is_ok_and(|p| p.code == "SELLER_VERIFICATION_REQUIRED")
+                    {
+                        ClientError::SellerVerificationRequired
+                    } else {
+                        ClientError::Api {
+                            operation,
+                            status: 403,
+                            code: None,
+                            retry_after: None,
+                        }
+                    },
+                );
             }
             serde_json::from_slice(&body)
                 .map_err(|source| ClientError::Decode { operation, source })

@@ -165,6 +165,24 @@ before requesting another change. Private list names never appear in receipts.
 Public, default, missing and foreign lists return the same unavailable result
 for rename and delete. List discovery still requires `watchlist:read`.
 
+## Verified listing drafts
+
+The opt-in HTTP profile `account-listing-draft-pilot` accepts a separate
+`listingdrafts:write` grant for creating one initial draft. Its optional
+`get_my_listing_draft_eligibility` read uses `profile:read`. The result contains
+`seller_verification` and an optional `verification_url` on the configured
+first-party web origin. Complete verification in that browser session and check
+again. Budna rechecks the seller at the point where it saves the draft.
+A connected company verifies its own organization.
+
+`create_my_listing_draft` requires a `market` of `swedish` or `norwegian`
+and `currency` of `SEK`. Omit `title` and `description` for a blank draft.
+Supplied text must be nonblank, with at most 200 and 10,000 characters
+respectively. The server supplies ownership, status and defaults. Add media or
+continue editing in Budna. The receipt contains `action_id`, `listing_id`
+and `status`. Check `get_my_action_status` on the originating connection
+when a receipt is pending or unknown.
+
 ## Read permissions and tools
 
 | Tool | Scope | Output |

@@ -47,6 +47,9 @@ use crate::{
 };
 
 mod actions;
+mod draft;
+pub(crate) const DRAFT_CREATE_TOOL: &str = "create_my_listing_draft";
+pub(crate) const DRAFT_ELIGIBILITY_TOOL: &str = "get_my_listing_draft_eligibility";
 pub(crate) const ACTION_STATUS_TOOL: &str = "get_my_action_status";
 pub(crate) const WATCHLIST_MANAGEMENT_TOOLS: [&str; 3] = [
     "create_my_private_watchlist",
@@ -64,6 +67,7 @@ pub struct AccountMcpServer {
     client: AccountApiClient,
     routes: Arc<ToolRouter<Self>>,
     public: Option<BudnaMcpServer>,
+    public_urls: budna_mcp_core::PublicUrlSettings,
     slots: Arc<Semaphore>,
     timeout: Duration,
 }
@@ -77,14 +81,16 @@ impl AccountMcpServer {
         if client.private_watchlist_management_enabled() {
             routes += Self::watchlist_management_router();
         }
-        if client.private_watchlist_writes_enabled()
-            || client.private_watchlist_management_enabled()
-        {
+        if client.listing_draft_creation_enabled() {
+            routes += Self::listing_draft_router();
+        }
+        if client.supported_write_scopes().next().is_some() {
             routes += Self::action_status_router();
         }
         Self {
             routes: Arc::new(routes),
             public: None,
+            public_urls: Default::default(),
             client,
             slots: Arc::new(Semaphore::new(8)),
             timeout,
@@ -99,7 +105,21 @@ impl AccountMcpServer {
         self.routes.has_route(WATCHLIST_MANAGEMENT_TOOLS[0])
     }
 
-    pub(crate) fn restrict_write_tools(&mut self, membership: bool, management: bool) {
+    pub fn with_public_urls(mut self, urls: budna_mcp_core::PublicUrlSettings) -> Self {
+        self.public_urls = urls;
+        self
+    }
+
+    pub(crate) fn has_listing_drafts(&self) -> bool {
+        self.routes.has_route(DRAFT_CREATE_TOOL)
+    }
+
+    pub(crate) fn restrict_write_tools(
+        &mut self,
+        membership: bool,
+        management: bool,
+        drafts: bool,
+    ) {
         let routes = Arc::make_mut(&mut self.routes);
         if !membership {
             routes.remove_route(WATCHLIST_MEMBERSHIP_TOOL);
@@ -109,7 +129,11 @@ impl AccountMcpServer {
                 routes.remove_route(name);
             }
         }
-        if !membership && !management {
+        if !drafts {
+            routes.remove_route(DRAFT_CREATE_TOOL);
+            routes.remove_route(DRAFT_ELIGIBILITY_TOOL);
+        }
+        if !membership && !management && !drafts {
             routes.remove_route(ACTION_STATUS_TOOL);
         }
     }
@@ -167,13 +191,14 @@ impl AccountMcpServer {
         })
         .await
         .map_err(|_| {
-            if operation == WATCHLIST_MEMBERSHIP_TOOL
+            if operation == DRAFT_CREATE_TOOL
+                || operation == WATCHLIST_MEMBERSHIP_TOOL
                 || WATCHLIST_MANAGEMENT_TOOLS.contains(&operation)
             {
                 return tool_error(
                     operation,
                     "ACTION_OUTCOME_UNKNOWN",
-                    "Check the watchlist and action history in Budna before trying again.",
+                    "Check your action history and the affected item in Budna before trying again.",
                     Some(504),
                     false,
                 );
@@ -1563,7 +1588,10 @@ impl ServerHandler for AccountMcpServer {
                 ACCOUNT_INSTRUCTIONS,
             )
         };
-        let instructions = if self.has_watchlist_write() || self.has_watchlist_management() {
+        let instructions = if self.has_watchlist_write()
+            || self.has_watchlist_management()
+            || self.has_listing_drafts()
+        {
             let mut text = ACCOUNT_INSTRUCTIONS.to_owned();
             if self.public.is_some() {
                 text.push_str(" Public Explore tools and resources are also available.");
@@ -1573,6 +1601,9 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.has_watchlist_management() {
                 text.push_str(" With separate watchlists:write consent, create_my_private_watchlist, rename_my_private_watchlist and delete_my_private_watchlist manage one owned private, non-default list. Deleting also removes its memberships.");
+            }
+            if self.has_listing_drafts() {
+                text.push_str(" Use get_my_listing_draft_eligibility to check seller verification. On explicit request, create_my_listing_draft can save an unpublished draft with listingdrafts:write. Verification takes place on Budna web.");
             }
             text.push_str(" Use get_my_action_status to reconcile a receipt on its original connection. Only executed confirms success.");
             text

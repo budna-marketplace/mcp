@@ -168,3 +168,55 @@ impl From<budna_mcp_client::AccountActionStatus> for ActionStatusOutput {
         }
     }
 }
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DraftVerificationOutput {
+    Satisfied,
+    VerifyIdentityOnBudna,
+    VerifyCompanyOnBudna,
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct DraftEligibilityOutput {
+    pub seller_verification: DraftVerificationOutput,
+    pub verification_url: Option<String>,
+}
+
+impl DraftEligibilityOutput {
+    pub fn new(
+        eligibility: budna_mcp_client::AccountDraftEligibility,
+        verification_url: Option<String>,
+    ) -> Self {
+        use budna_mcp_client::DraftVerification;
+        Self {
+            seller_verification: match eligibility.seller_verification {
+                DraftVerification::Satisfied => DraftVerificationOutput::Satisfied,
+                DraftVerification::VerifyIdentityOnBudna => {
+                    DraftVerificationOutput::VerifyIdentityOnBudna
+                }
+                DraftVerification::VerifyCompanyOnBudna => {
+                    DraftVerificationOutput::VerifyCompanyOnBudna
+                }
+            },
+            verification_url,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct DraftReceiptOutput {
+    pub action_id: String,
+    pub listing_id: Option<String>,
+    pub status: WatchlistActionStatusOutput,
+}
+
+impl From<budna_mcp_client::DraftReceipt> for DraftReceiptOutput {
+    fn from(receipt: budna_mcp_client::DraftReceipt) -> Self {
+        Self {
+            action_id: receipt.action_id,
+            listing_id: receipt.listing_id,
+            status: receipt.status.into(),
+        }
+    }
+}

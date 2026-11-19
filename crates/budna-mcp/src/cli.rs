@@ -116,7 +116,8 @@ impl Cli {
             CliProfile::PublicExplore => Ok(settings),
             CliProfile::AccountRead
             | CliProfile::AccountWatchlistPilot
-            | CliProfile::AccountWatchlistManagement => {
+            | CliProfile::AccountWatchlistManagement
+            | CliProfile::AccountListingDraftPilot => {
                 let account = AccountSettings::new(
                     account_issuer
                         .as_deref()
@@ -126,6 +127,7 @@ impl Cli {
                         .ok_or(ConfigError::InvalidAccountSettings)?,
                 )?;
                 settings.with_account(match profile {
+                    CliProfile::AccountListingDraftPilot => account.with_listing_draft_creation(),
                     CliProfile::AccountWatchlistManagement => {
                         account.with_private_watchlist_management()
                     }
@@ -143,6 +145,7 @@ enum CliProfile {
     AccountRead,
     AccountWatchlistPilot,
     AccountWatchlistManagement,
+    AccountListingDraftPilot,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
