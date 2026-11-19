@@ -2,6 +2,9 @@
 
 use crate::ConfigError;
 
+pub const MESSAGES_WRITE_SCOPE: &str = "messages:write";
+pub const MESSAGE_REACTIONS_WRITE_SCOPE: &str = "messagereactions:write";
+pub const PUBLIC_CHAT_WRITE_SCOPE: &str = "publicchat:write";
 pub const INBOX_WRITE_SCOPE: &str = "inbox:write";
 pub const PROFILE_WRITE_SCOPE: &str = "profile:write";
 pub const FOLLOWING_WRITE_SCOPE: &str = "following:write";
@@ -19,6 +22,9 @@ pub struct AccountWritePermissions {
     pub watchlist_membership: bool,
     pub watchlist_management: bool,
     pub listing_drafts: bool,
+    pub messages: bool,
+    pub message_reactions: bool,
+    pub public_chat: bool,
     pub inbox: bool,
     pub profile: bool,
     pub following: bool,
@@ -34,6 +40,9 @@ impl AccountWritePermissions {
         watchlist_membership: false,
         watchlist_management: false,
         listing_drafts: false,
+        messages: false,
+        message_reactions: false,
+        public_chat: false,
         inbox: false,
         profile: false,
         following: false,
@@ -53,6 +62,9 @@ impl AccountWritePermissions {
                 DRAFT_CREATE_SCOPE => &mut permissions.listing_drafts,
                 SAVED_SEARCH_WRITE_SCOPE => &mut permissions.saved_searches,
                 NOTIFICATION_STATE_SCOPE => &mut permissions.notification_state,
+                MESSAGES_WRITE_SCOPE => &mut permissions.messages,
+                MESSAGE_REACTIONS_WRITE_SCOPE => &mut permissions.message_reactions,
+                PUBLIC_CHAT_WRITE_SCOPE => &mut permissions.public_chat,
                 INBOX_WRITE_SCOPE => &mut permissions.inbox,
                 PROFILE_WRITE_SCOPE => &mut permissions.profile,
                 FOLLOWING_WRITE_SCOPE => &mut permissions.following,
@@ -84,6 +96,10 @@ impl AccountWritePermissions {
             self.watchlist_membership.then_some(WATCHLIST_WRITE_SCOPE),
             self.watchlist_management.then_some(WATCHLIST_MANAGE_SCOPE),
             self.listing_drafts.then_some(DRAFT_CREATE_SCOPE),
+            self.messages.then_some(MESSAGES_WRITE_SCOPE),
+            self.message_reactions
+                .then_some(MESSAGE_REACTIONS_WRITE_SCOPE),
+            self.public_chat.then_some(PUBLIC_CHAT_WRITE_SCOPE),
             self.inbox.then_some(INBOX_WRITE_SCOPE),
             self.profile.then_some(PROFILE_WRITE_SCOPE),
             self.following.then_some(FOLLOWING_WRITE_SCOPE),
@@ -101,6 +117,9 @@ impl AccountWritePermissions {
             watchlist_membership: self.watchlist_membership && other.watchlist_membership,
             watchlist_management: self.watchlist_management && other.watchlist_management,
             listing_drafts: self.listing_drafts && other.listing_drafts,
+            messages: self.messages && other.messages,
+            message_reactions: self.message_reactions && other.message_reactions,
+            public_chat: self.public_chat && other.public_chat,
             inbox: self.inbox && other.inbox,
             profile: self.profile && other.profile,
             following: self.following && other.following,

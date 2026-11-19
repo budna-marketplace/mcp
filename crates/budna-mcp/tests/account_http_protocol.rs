@@ -2283,3 +2283,6 @@ async fn block_discovery_and_mutations_require_independent_explicit_grants() -> 
     }
     Ok(())
 }
+
+#[path = "account_http_protocol/messages.rs"]
+mod messages;

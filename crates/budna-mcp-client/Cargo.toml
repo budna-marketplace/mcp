@@ -16,6 +16,7 @@ rust-version.workspace = true
 budna-mcp-core.workspace = true
 httpdate.workspace = true
 reqwest.workspace = true
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

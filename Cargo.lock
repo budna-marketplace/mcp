@@ -239,6 +239,7 @@ dependencies = [
  "budna-mcp-core",
  "httpdate",
  "reqwest",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror",

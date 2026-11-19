@@ -6,6 +6,7 @@ mod common;
 mod discovery;
 mod listing_activity;
 mod listings;
+pub(crate) mod messages;
 pub(crate) mod personal;
 mod profiles;
 mod records;
@@ -184,16 +185,7 @@ fn truncate_json_text(value: &mut String, max_raw_bytes: usize, max_encoded_byte
 /// that renders invisibly or reorders what a reader sees.
 fn is_hidden_character(character: char) -> bool {
     (character.is_control() && !matches!(character, '\n' | '\t'))
-        || matches!(
-            character,
-            '\u{061C}'
-                | '\u{200B}'..='\u{200F}'
-                | '\u{202A}'..='\u{202E}'
-                | '\u{2060}'..='\u{2064}'
-                | '\u{2066}'..='\u{2069}'
-                | '\u{FEFF}'
-                | '\u{E0000}'..='\u{E007F}'
-        )
+        || budna_mcp_core::is_hidden_format(character)
 }
 
 const fn json_encoded_character_len(character: char) -> usize {

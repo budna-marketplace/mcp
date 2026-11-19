@@ -207,6 +207,23 @@ stable ID. A new follow can notify the other person.
 
 ### Personal blocks
 
+With `messages:write`, one customer request can start a private conversation,
+send a message, reply to a specific message or replace the text of a message
+the customer sent within its edit window. Use the read tools under
+`messages:read` to confirm the other participant’s current public username
+and stable ID, and the current revision for an edit. Sending can notify the
+recipient and reopen the thread. These tools preserve the requested text and
+Budna’s moderation rules. To react to a visible private message, grant
+`messagereactions:write` separately. Pass one supported emoji or explicitly
+pass `null` to remove the customer’s reaction. The reaction read returns the
+customer’s choice and aggregate counts.
+
+Public posting requires its own `publicchat:write` consent. With
+`messages:read`, check the posting rules and available reply targets for the
+exact room. To submit, provide its public room ID, the explicit audience
+`public`, the text to post and, for a reply, the parent message ID.
+Budna rechecks eligibility and moderation rules when it receives the post.
+
 `personalblocks:read` and `personalblocks:write` are independent opt-in
 permissions. The read returns only the connected account’s outgoing blocks,
 with public IDs and handles. Supply the returned `next_after` for the next

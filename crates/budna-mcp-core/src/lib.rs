@@ -14,3 +14,8 @@ pub use config::{
     HttpServerSettings, MAX_REQUEST_TIMEOUT_SECS, PublicUrlSettings, Settings, Transport,
 };
 pub use policy::{ToolCapability, ToolPolicy};
+
+/// Formatting characters that hide or change the reading order of marketplace text.
+pub const fn is_hidden_format(ch: char) -> bool {
+    matches!(ch, '\u{00ad}' | '\u{034f}' | '\u{061c}' | '\u{180e}' | '\u{200b}'..='\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}' | '\u{fff9}'..='\u{fffb}' | '\u{e0000}'..='\u{e007f}')
+}

@@ -49,9 +49,12 @@ use crate::{
 mod actions;
 mod blocks;
 mod destinations;
+mod direct_messages;
 mod draft;
 mod notification_state;
 mod personal;
+mod public_chat;
+mod reactions;
 mod saved_search;
 pub(crate) const SEARCH_AUTHORING_TOOL: &str = "get_my_saved_search_authoring";
 pub(crate) const SEARCH_WRITE_TOOLS: [&str; 3] = [
@@ -109,6 +112,15 @@ impl AccountMcpServer {
         }
         if client.listing_draft_creation_enabled() {
             routes += Self::listing_draft_router();
+        }
+        if client.write_permissions().messages {
+            routes += Self::direct_messages_router();
+        }
+        if client.write_permissions().message_reactions {
+            routes += Self::reactions_router();
+        }
+        if client.write_permissions().public_chat {
+            routes += Self::public_chat_router();
         }
         if client.write_permissions().inbox {
             routes += Self::inbox_actions_router();
@@ -1666,6 +1678,15 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.client.write_permissions().saved_searches {
                 text.push_str(" get_my_saved_search_authoring reads account limits. With savedsearches:write, create_my_saved_search, update_my_saved_search and delete_my_saved_search can change one saved search. Use the observed revision for edits and deletion.");
+            }
+            if self.client.write_permissions().messages {
+                text.push_str(" get_my_message_recipient, get_my_conversation_audience and get_my_message_authoring check the target and edit eligibility. With messages:write, start_my_conversation, send_my_message, reply_to_my_message and edit_my_message send or change private text visible to the other participant.");
+            }
+            if self.client.write_permissions().message_reactions {
+                text.push_str(" get_my_message_reaction reads your reaction and aggregate counts on one visible private message. set_my_message_reaction changes your reaction with messagereactions:write.");
+            }
+            if self.client.write_permissions().public_chat {
+                text.push_str(" get_my_chat_message reads a visible reply target. get_my_chat_posting checks the public audience, reply targets and posting eligibility. With publicchat:write, post_public_chat_message posts the requested text or reply in the chosen room.");
             }
             if self.client.write_permissions().inbox {
                 text.push_str(" get_my_conversation_settings and get_my_listing_chat_notification_setting check your own preferences. With inbox:write, set_my_conversation_setting, set_my_listing_chat_muted and hide_my_message_copy organize your own inbox.");

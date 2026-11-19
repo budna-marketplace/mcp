@@ -8,14 +8,16 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use budna_mcp_client::PUBLIC_CHAT_WRITE_SCOPE;
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
     DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE,
-    LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATION_STATE_SCOPE,
-    NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
-    PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE, PROFILE_READ_SCOPE,
-    PROFILE_WRITE_SCOPE, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE,
-    WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
+    LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, MESSAGE_REACTIONS_WRITE_SCOPE,
+    MESSAGES_READ_SCOPE, MESSAGES_WRITE_SCOPE, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE,
+    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PERSONAL_BLOCKS_READ_SCOPE,
+    PERSONAL_BLOCKS_WRITE_SCOPE, PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, RATINGS_READ_SCOPE,
+    SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
+    WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -195,6 +197,16 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        "get_my_message_recipient"
+        | "get_my_conversation_audience"
+        | "get_my_message_authoring"
+        | "get_my_message_reaction" => MESSAGES_READ_SCOPE,
+        "start_my_conversation" | "send_my_message" | "reply_to_my_message" | "edit_my_message" => {
+            MESSAGES_WRITE_SCOPE
+        }
+        "set_my_message_reaction" => MESSAGE_REACTIONS_WRITE_SCOPE,
+        "get_my_chat_message" | "get_my_chat_posting" => MESSAGES_READ_SCOPE,
+        "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
         "get_my_conversation_settings" | "get_my_listing_chat_notification_setting" => {
             MESSAGES_READ_SCOPE
         }

@@ -23,6 +23,7 @@ use reqwest::{
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
+pub use account::PublicRoomMessage;
 pub use account::{
     ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountAchievement, AccountAchievements,
     AccountActionState, AccountActionStatus, AccountApiClient, AccountAutoBid, AccountBadge,
@@ -51,20 +52,27 @@ pub use account::{
     AccountShippingSettings, AccountShowcase, AccountStanding, AccountSubscription, AccountSummary,
     AccountTopListing, AccountTrackingEvent, AccountVerification, AccountVideo,
     AccountWatchedListing, AccountWatchlist, AccountWatchlistActionStatus,
-    AccountWatchlistMembershipReceipt, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ConversationSetting,
-    ConversationSettingReceipt, ConversationSettings, DRAFT_CREATE_SCOPE, DelegatedAccess,
-    DraftInput, DraftReceipt, DraftVerification, FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE,
-    FollowReceipt, FollowState, INBOX_WRITE_SCOPE, LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
-    ListingChatPreference, ListingChatPreferenceReceipt, LiveReminderReceipt, MESSAGES_READ_SCOPE,
-    MessageCopyReceipt, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, NotificationReadBatch,
+    AccountWatchlistMembershipReceipt, AddressedText, BIDS_READ_SCOPE, COMPANY_READ_SCOPE,
+    ConversationAudience, ConversationSetting, ConversationSettingReceipt, ConversationSettings,
+    DRAFT_CREATE_SCOPE, DelegatedAccess, DraftInput, DraftReceipt, DraftVerification,
+    FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, FollowReceipt, FollowState, INBOX_WRITE_SCOPE,
+    LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, ListingChatPreference,
+    ListingChatPreferenceReceipt, LiveReminderReceipt, MESSAGE_REACTIONS_WRITE_SCOPE,
+    MESSAGES_READ_SCOPE, MESSAGES_WRITE_SCOPE, MessageAction, MessageActionReceipt,
+    MessageAuthoring, MessageCopyReceipt, MessageReactionReceipt, MessageReactionView,
+    MessageRecipient, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, NotificationReadBatch,
     NotificationReadReceipt, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, OutgoingBlock, OutgoingBlocks,
     PAYMENTS_READ_SCOPE, PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE,
     PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, PersonalBlockReceipt, PrivateWatchlistChange,
-    ProfileAuthoring, ProfileEditReceipt, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE,
-    SELLING_READ_SCOPE, SavedSearchAuthoring, SavedSearchChange, SavedSearchChanges,
-    SavedSearchReceipt, SearchCriteriaPatch, SearchPrice, WATCHLIST_MANAGE_SCOPE,
-    WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token, is_action_id,
-    is_watchlist_name,
+    ProfileAuthoring, ProfileEditReceipt, RATINGS_READ_SCOPE, ReactionEmoji,
+    SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, SavedSearchAuthoring, SavedSearchChange,
+    SavedSearchChanges, SavedSearchReceipt, SearchCriteriaPatch, SearchPrice,
+    WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
+    is_action_id, is_watchlist_name,
+};
+pub use account::{
+    PUBLIC_CHAT_WRITE_SCOPE, PublicChatAudience, PublicChatBlocker, PublicChatPosting,
+    PublicChatReceipt, PublicChatRole,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};

@@ -31,7 +31,7 @@ pub struct FollowReceipt {
     pub following: bool,
 }
 
-fn is_follow_username(s: &str) -> bool {
+pub(super) fn is_account_username(s: &str) -> bool {
     s.len() <= 64
         && s.chars().next().is_some_and(char::is_alphabetic)
         && s.chars().all(|c| c.is_alphanumeric() || c == '_')
@@ -110,7 +110,7 @@ impl AccountApiClient {
     ) -> Result<FollowState, ClientError> {
         const OP: &str = "get_my_following_state";
         self.require_scope(access, FOLLOWING_READ_SCOPE, OP)?;
-        if !self.write_permissions().following || !is_follow_username(username) {
+        if !self.write_permissions().following || !is_account_username(username) {
             return Err(invalid_input(
                 OP,
                 "Following is unavailable or the handle is invalid",
@@ -139,7 +139,7 @@ impl AccountApiClient {
         key: &str,
     ) -> Result<FollowReceipt, ClientError> {
         const OP: &str = "set_my_following";
-        if !is_follow_username(username) || !is_user_id(user_id) {
+        if !is_account_username(username) || !is_user_id(user_id) {
             return Err(invalid_input(OP, "Invalid public target reference"));
         }
         let request = self

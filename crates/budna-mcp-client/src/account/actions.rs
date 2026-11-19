@@ -7,9 +7,16 @@ use super::{
 };
 
 pub(super) fn valid_action_text(value: &str, limit: usize) -> bool {
-    !value.trim().is_empty() && value.chars().count() <= limit && !value.chars().any(|ch| {
-        ch.is_control() || matches!(ch, '\u{061C}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2064}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}' | '\u{E0000}'..='\u{E007F}')
-    })
+    valid_outgoing_text(value, limit, false)
+}
+
+pub(super) fn valid_outgoing_text(value: &str, limit: usize, allow_line_breaks: bool) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= limit
+        && !value.chars().any(|ch| {
+            (ch.is_control() && !(allow_line_breaks && matches!(ch, '\n' | '\r' | '\t')))
+                || budna_mcp_core::is_hidden_format(ch)
+        })
 }
 
 pub fn is_action_id(value: &str) -> bool {
@@ -17,7 +24,7 @@ pub fn is_action_id(value: &str) -> bool {
 }
 
 pub fn is_watchlist_name(value: &str) -> bool {
-    !value.trim().is_empty() && value.len() <= 255 && !value.chars().any(char::is_control)
+    value.len() <= 255 && valid_action_text(value, 255)
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]

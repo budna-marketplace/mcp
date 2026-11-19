@@ -169,6 +169,15 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `create_my_saved_search` | Account actions · `savedsearches:write` | Save a named search with validated criteria |
 | `update_my_saved_search` | Account actions · `savedsearches:write` | Edit selected criteria, change frequency, or pause or resume alerts using the observed revision |
 | `delete_my_saved_search` | Account actions · `savedsearches:write` | Delete one owned saved search at its observed revision |
+| `get_my_message_recipient`, `get_my_conversation_audience` | Account actions · `messages:read` | Resolve the public recipient or the other participant before sending |
+| `get_my_message_authoring` | Account actions · `messages:read` | Read the message revision and whether the sender can still edit it |
+| `start_my_conversation`, `send_my_message`, `reply_to_my_message` | Account actions · `messages:write` | Deliver one requested private message to the confirmed participant |
+| `edit_my_message` | Account actions · `messages:write` | Replace the text of one message you sent at its observed revision |
+| `get_my_chat_message` | Account actions · `messages:read` | Read the visible message in the selected public room before replying |
+| `get_my_chat_posting` | Account actions · `messages:read` | Check eligibility, audience and reply targets in one public room |
+| `post_public_chat_message` | Account actions · `publicchat:write` | Post or reply in the specified public listing, showcase or live room |
+| `get_my_message_reaction` | Account actions · `messages:read` | Read your reaction and aggregate counts for one visible message |
+| `set_my_message_reaction` | Account actions · `messagereactions:write` | Select or clear your one reaction to a private message |
 | `get_my_conversation_settings` | Account actions · `messages:read` | Read your pin, archive and mute state without sending a read receipt |
 | `set_my_conversation_setting` | Account actions · `inbox:write` | Pin, archive or mute one conversation for yourself, or reverse that setting |
 | `hide_my_message_copy` | Account actions · `inbox:write` | Hide your own copy of one message |

@@ -1,7 +1,13 @@
 mod actions;
 mod activity;
 mod config;
+mod direct_messages;
 mod draft;
+pub use direct_messages::*;
+mod reactions;
+pub use reactions::*;
+mod public_chat;
+pub use public_chat::*;
 mod inbox;
 mod personal_blocks;
 pub use personal_blocks::{OutgoingBlock, OutgoingBlocks, PersonalBlockReceipt};
@@ -16,10 +22,12 @@ pub use social::*;
 mod records;
 mod reminder;
 use budna_mcp_core::AccountWritePermissions;
+pub use budna_mcp_core::write_permissions::PUBLIC_CHAT_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::{
     DRAFT_CREATE_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
-    NOTIFICATION_STATE_SCOPE, PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE,
-    PROFILE_WRITE_SCOPE, SAVED_SEARCH_WRITE_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_WRITE_SCOPE,
+    MESSAGE_REACTIONS_WRITE_SCOPE, MESSAGES_WRITE_SCOPE, NOTIFICATION_STATE_SCOPE,
+    PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE, PROFILE_WRITE_SCOPE,
+    SAVED_SEARCH_WRITE_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_WRITE_SCOPE,
 };
 pub use notification_state::{NotificationReadBatch, NotificationReadReceipt};
 pub use reminder::LiveReminderReceipt;
