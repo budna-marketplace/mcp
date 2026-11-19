@@ -1,3 +1,4 @@
+mod actions;
 mod activity;
 mod config;
 mod listing;
@@ -22,6 +23,7 @@ use reqwest::{
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
 use zeroize::Zeroizing;
 
+pub use actions::*;
 pub use activity::*;
 pub use listing::*;
 pub use models::{AccountListingPage, AccountListingSummary, AccountPage, AccountSummary};
@@ -46,6 +48,7 @@ pub const SELLING_READ_SCOPE: &str = "selling:read";
 pub const FOLLOWING_READ_SCOPE: &str = "following:read";
 pub const COMPANY_READ_SCOPE: &str = "company:read";
 pub const WATCHLIST_WRITE_SCOPE: &str = "watchlist:write";
+pub const WATCHLIST_MANAGE_SCOPE: &str = "watchlists:write";
 /// Delegated permissions supported by the read-only account profile, in consent order.
 pub const ACCOUNT_SCOPES: [&str; 14] = [
     ACCOUNT_READ_SCOPE,
@@ -128,6 +131,7 @@ pub struct AccountApiClient {
     resource: String,
     service_credential: Credential,
     private_watchlist_writes: bool,
+    private_watchlist_management: bool,
 }
 
 impl AccountApiClient {
@@ -141,17 +145,32 @@ impl AccountApiClient {
         self.private_watchlist_writes
     }
 
+    pub fn with_private_watchlist_management(mut self, enabled: bool) -> Self {
+        self.private_watchlist_management = enabled;
+        self
+    }
+
+    pub fn private_watchlist_management_enabled(&self) -> bool {
+        self.private_watchlist_management
+    }
+
     /// Scope metadata and token validation must describe the same profile.
     pub fn supported_scopes(&self) -> impl Iterator<Item = &'static str> {
-        ACCOUNT_SCOPES.into_iter().chain(
-            self.private_watchlist_writes
-                .then_some(WATCHLIST_WRITE_SCOPE),
-        )
+        ACCOUNT_SCOPES
+            .into_iter()
+            .chain(
+                self.private_watchlist_writes
+                    .then_some(WATCHLIST_WRITE_SCOPE),
+            )
+            .chain(
+                self.private_watchlist_management
+                    .then_some(WATCHLIST_MANAGE_SCOPE),
+            )
     }
 
     pub async fn exchange(&self, token: &str) -> Result<DelegatedAccess, ClientError> {
         const OPERATION: &str = "authorize_account_request";
-        if token.len() > 512 || !valid_credential(token) {
+        if !is_account_access_token(token) {
             return Err(unauthorized(OPERATION));
         }
         let endpoint = self.endpoint(OPERATION, "mcp/oauth/exchange")?;
@@ -1340,6 +1359,11 @@ fn is_canonical_uuid(value: &str) -> bool {
                 byte.is_ascii_digit() || (b'a'..=b'f').contains(byte)
             }
         })
+}
+
+/// Checks the allowed bearer syntax and size before spending exchange capacity.
+pub fn is_account_access_token(value: &str) -> bool {
+    value.len() <= 512 && valid_credential(value)
 }
 
 fn valid_credential(value: &str) -> bool {

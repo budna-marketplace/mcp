@@ -114,7 +114,9 @@ impl Cli {
                 Err(ConfigError::InvalidAccountSettings)
             }
             CliProfile::PublicExplore => Ok(settings),
-            CliProfile::AccountRead | CliProfile::AccountWatchlistPilot => {
+            CliProfile::AccountRead
+            | CliProfile::AccountWatchlistPilot
+            | CliProfile::AccountWatchlistManagement => {
                 let account = AccountSettings::new(
                     account_issuer
                         .as_deref()
@@ -123,10 +125,12 @@ impl Cli {
                         .as_deref()
                         .ok_or(ConfigError::InvalidAccountSettings)?,
                 )?;
-                settings.with_account(if profile == CliProfile::AccountWatchlistPilot {
-                    account.with_private_watchlist_writes()
-                } else {
-                    account
+                settings.with_account(match profile {
+                    CliProfile::AccountWatchlistManagement => {
+                        account.with_private_watchlist_management()
+                    }
+                    CliProfile::AccountWatchlistPilot => account.with_private_watchlist_writes(),
+                    _ => account,
                 })
             }
         }
@@ -138,6 +142,7 @@ enum CliProfile {
     PublicExplore,
     AccountRead,
     AccountWatchlistPilot,
+    AccountWatchlistManagement,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]

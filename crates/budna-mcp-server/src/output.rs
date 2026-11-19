@@ -11,7 +11,10 @@ mod records;
 mod selling;
 mod taxonomy;
 
-pub(crate) use account::{AccountListingsOutput, AccountOutput, WatchlistMembershipOutput};
+pub(crate) use account::{
+    AccountListingsOutput, AccountOutput, ActionStatusOutput, PrivateWatchlistOutput,
+    WatchlistMembershipOutput,
+};
 pub(crate) use account_detail::AccountListingDetailOutput;
 pub(crate) use activity::{
     AccountAutoBidOutput, AccountBidOutput, AccountCompaniesOutput, AccountCompanyDetailOutput,

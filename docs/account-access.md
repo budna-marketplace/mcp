@@ -141,6 +141,30 @@ The pilot grant covers only the action above. Keep general availability
 and any broader watchlist permissions behind separate rollout and consent
 review. Use Account Read or Public Explore to turn off the write tool.
 
+## Private watchlist management
+
+Select `BUDNA_MCP_PROFILE=account-watchlist-management` on a designated
+HTTP deployment. Public Explore on this profile requires explicit opt-in.
+Budna advertises enabled permissions in resource discovery. Existing
+`watchlist:write` consent covers only listing membership. The customer
+selects the separate `watchlists:write` permission to manage their lists.
+
+| Tool | Inputs | Result |
+| --- | --- | --- |
+| `create_my_private_watchlist` | `name`, a nonblank name of up to 255 UTF-8 bytes without control characters | Creates one private, non-default list. |
+| `rename_my_private_watchlist` | `watchlist_id` and `name` | Changes the name of one owned private, non-default list. |
+| `delete_my_private_watchlist` | `watchlist_id` | Permanently removes the list and its memberships. Listings saved in other lists stay there. |
+| `get_my_action_status` | `action_id` from one receipt | Reads the action on its original connection with the permission that submitted it. |
+
+A management receipt contains `action_id`, `watchlist_id` and `status`.
+The list ID may be unknown while creation is unresolved. Only `executed`
+confirms completion. To resolve a receipt, the status tool returns the same
+action reference, its current state and an optional expiry in epoch milliseconds.
+When a receipt is lost, check Connected apps in Budna and read the affected list
+before requesting another change. Private list names never appear in receipts.
+Public, default, missing and foreign lists return the same unavailable result
+for rename and delete. List discovery still requires `watchlist:read`.
+
 ## Read permissions and tools
 
 | Tool | Scope | Output |

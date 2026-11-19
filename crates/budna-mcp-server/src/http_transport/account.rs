@@ -9,11 +9,11 @@ use axum::{
     routing::get,
 };
 use budna_mcp_client::{
-    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE,
-    ClientError, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE,
-    NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
-    PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
-    WATCHLIST_WRITE_SCOPE,
+    ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
+    FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE,
+    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE,
+    RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
+    WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings, ToolCapability};
 use http::{
@@ -26,14 +26,16 @@ use rmcp::transport::streamable_http_server::{
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
-use crate::{AccountMcpServer, account::WATCHLIST_MEMBERSHIP_TOOL};
+use crate::{
+    AccountMcpServer,
+    account::{ACTION_STATUS_TOOL, WATCHLIST_MANAGEMENT_TOOLS, WATCHLIST_MEMBERSHIP_TOOL},
+};
 
 #[derive(Clone)]
 struct AccountAuth {
     client: AccountApiClient,
     challenge: HeaderValue,
     metadata_url: Arc<str>,
-    watchlist_write: bool,
     slots: Arc<Semaphore>,
 }
 
@@ -51,10 +53,15 @@ pub fn account_http_router(
         .allows(ToolCapability::PrivateWatchlistWrite)
         && client.private_watchlist_writes_enabled()
         && server.has_watchlist_write();
-    if !watchlist_write {
-        server.restrict_to_account_reads();
-    }
-    let client = client.with_private_watchlist_writes(watchlist_write);
+    let management = account
+        .policy()
+        .allows(ToolCapability::PrivateWatchlistManagement)
+        && client.private_watchlist_management_enabled()
+        && server.has_watchlist_management();
+    server.restrict_write_tools(watchlist_write, management);
+    let client = client
+        .with_private_watchlist_writes(watchlist_write)
+        .with_private_watchlist_management(management);
     let scopes: Vec<_> = client.supported_scopes().collect();
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
@@ -68,14 +75,12 @@ pub fn account_http_router(
     );
     let metadata_url = account.metadata_url();
     let challenge = HeaderValue::from_str(&format!(
-        "Bearer resource_metadata=\"{metadata_url}\", scope=\"{}\"",
-        ACCOUNT_SCOPES.join(" ")
+        "Bearer resource_metadata=\"{metadata_url}\", scope=\"{ACCOUNT_READ_SCOPE}\""
     ))?;
     let auth = AccountAuth {
         client,
         challenge,
         metadata_url: metadata_url.into(),
-        watchlist_write,
         slots: Arc::new(Semaphore::new(8)),
     };
     let metadata = serde_json::json!({
@@ -83,7 +88,7 @@ pub fn account_http_router(
         "authorization_servers": [account.issuer()],
         "scopes_supported": scopes,
         "bearer_methods_supported": ["header"],
-        "resource_name": if watchlist_write { "Budna private watchlist pilot" } else { "Budna account reads" }
+        "resource_name": if management { "Budna private watchlists" } else if watchlist_write { "Budna private watchlist pilot" } else { "Budna account reads" }
     });
     let router = Router::new()
         .nest_service(ACCOUNT_MCP_PATH, service)
@@ -108,7 +113,7 @@ async fn authenticate(
             .and_then(|header| header.split_once(' '))
             .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("Bearer"))
             .map(|(_, token)| token);
-        let Some(token) = token.filter(|_| credentials.next().is_none()) else {
+        let Some(token) = token.filter(|token| credentials.next().is_none() && is_account_access_token(token)) else {
             return unauthorized(&auth);
         };
         let Ok(_permit) = auth.slots.try_acquire() else {
@@ -135,8 +140,21 @@ async fn authenticate(
                             message
                                 .pointer("/params/name")
                                 .and_then(|value| value.as_str())
-                                .and_then(account_tool_scope)
-                                .filter(|scope| *scope != WATCHLIST_WRITE_SCOPE || auth.watchlist_write)
+                                .and_then(|name| {
+                                    if name == ACTION_STATUS_TOOL {
+                                        // The stored action determines the required scope. The API
+                                        // enforces that scope and grant without leaking its owners.
+                                        if access.allows(WATCHLIST_WRITE_SCOPE) || access.allows(WATCHLIST_MANAGE_SCOPE) {
+                                            None
+                                        } else if auth.client.private_watchlist_writes_enabled() {
+                                            Some(WATCHLIST_WRITE_SCOPE)
+                                        } else {
+                                            auth.client.private_watchlist_management_enabled().then_some(WATCHLIST_MANAGE_SCOPE)
+                                        }
+                                    } else {
+                                        account_tool_scope(name).filter(|scope| auth.client.supported_scopes().any(|allowed| allowed == *scope))
+                                    }
+                                })
                         } else {
                             None
                         };
@@ -177,6 +195,7 @@ async fn authenticate(
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
         WATCHLIST_MEMBERSHIP_TOOL => WATCHLIST_WRITE_SCOPE,
+        name if WATCHLIST_MANAGEMENT_TOOLS.contains(&name) => WATCHLIST_MANAGE_SCOPE,
         "get_my_account" => ACCOUNT_READ_SCOPE,
         "get_my_profile" | "get_my_achievements" | "get_my_referral" | "get_my_legal_documents" => {
             PROFILE_READ_SCOPE
@@ -339,7 +358,7 @@ mod tests {
             json!({
                 "resource": resource,
                 "authorization_servers": [api.uri()],
-                "scopes_supported": ACCOUNT_SCOPES,
+                "scopes_supported": budna_mcp_client::ACCOUNT_SCOPES,
                 "bearer_methods_supported": ["header"],
                 "resource_name": "Budna account reads"
             })
@@ -362,8 +381,7 @@ mod tests {
         }
 
         let challenge = format!(
-            "Bearer resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/account/mcp\", scope=\"{}\"",
-            ACCOUNT_SCOPES.join(" ")
+            "Bearer resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/account/mcp\", scope=\"{ACCOUNT_READ_SCOPE}\""
         );
         for token in [None, Some("invalid")] {
             let response = request(

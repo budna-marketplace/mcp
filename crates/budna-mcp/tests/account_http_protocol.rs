@@ -77,7 +77,7 @@ fn watchlist_args(saved: bool) -> Value {
     json!({"watchlist_id":7,"listing_id":LISTING_A,"saved":saved})
 }
 
-fn assert_write_error(response: &Value, code: &str) -> Result<()> {
+fn assert_write_error(response: &Value, operation: &str, code: &str) -> Result<()> {
     assert_eq!(response.pointer("/result/isError"), Some(&json!(true)));
     assert!(response.pointer("/result/structuredContent").is_none());
     let error: Value = serde_json::from_str(
@@ -86,7 +86,7 @@ fn assert_write_error(response: &Value, code: &str) -> Result<()> {
             .and_then(Value::as_str)
             .context("tool error")?,
     )?;
-    assert_eq!(error["operation"], WATCHLIST_WRITE);
+    assert_eq!(error["operation"], operation);
     assert_eq!(error["error"]["code"], code);
     assert_eq!(error["error"]["retryable"], false);
     Ok(())
@@ -1021,6 +1021,7 @@ async fn pilot_dispatches_private_watchlist_writes_only_with_the_write_grant() -
     ] {
         assert_write_error(
             &request(call(WATCHLIST_WRITE, arguments)).await?,
+            WATCHLIST_WRITE,
             "INVALID_INPUT",
         )?;
     }
@@ -1071,7 +1072,7 @@ async fn pilot_dispatches_private_watchlist_writes_only_with_the_write_grant() -
             .mount_as_scoped(&api)
             .await;
         let result = request(call(WATCHLIST_WRITE, watchlist_args(true))).await?;
-        assert_write_error(&result, code)?;
+        assert_write_error(&result, WATCHLIST_WRITE, code)?;
         assert!(!result.to_string().contains(SENTINEL));
     }
     let requests = api.received_requests().await.context("recorded requests")?;
@@ -1234,6 +1235,170 @@ async fn account_bid_history_shows_own_bids_as_you_only_with_the_bids_permission
         assert_eq!(bids[0]["bidder"], json!(own), "{token}");
         assert_eq!(bids[1]["bidder"], json!("Bidder 1"), "{token}");
         assert!(!history.to_string().contains("user_"));
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn watchlist_management_requires_separate_consent_and_returns_scoped_receipts() -> Result<()>
+{
+    const ACTION: &str = "00000000-0000-4000-8000-000000000004";
+    const MANAGE: &str = "watchlists:write";
+    let api = MockServer::start().await;
+    exchange(&api, "manager", "delegated-manager", USER_A, MANAGE).await;
+    exchange(&api, "saver", "delegated-saver", USER_B, "watchlist:write").await;
+    let mut server = start_http_server(
+        &api.uri(),
+        30,
+        Some("account-watchlist-management"),
+        Some(false),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let list: Value = post(
+        &client,
+        &endpoint,
+        "manager",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    let tools = list
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .context("tools")?;
+    for (name, verb, suffix, arguments, body) in [
+        (
+            "create_my_private_watchlist",
+            "POST",
+            "",
+            json!({"name":"Books"}),
+            Some(json!({"name":"Books"})),
+        ),
+        (
+            "rename_my_private_watchlist",
+            "PUT",
+            "/7",
+            json!({"watchlist_id":7,"name":"Novels"}),
+            Some(json!({"name":"Novels"})),
+        ),
+        (
+            "delete_my_private_watchlist",
+            "DELETE",
+            "/7",
+            json!({"watchlist_id":7}),
+            None,
+        ),
+    ] {
+        let tool = tools
+            .iter()
+            .find(|tool| tool["name"] == name)
+            .context("management tool")?;
+        assert_eq!(tool["annotations"]["readOnlyHint"], false);
+        assert_eq!(tool["inputSchema"]["additionalProperties"], false);
+        assert_eq!(
+            tool["annotations"]["destructiveHint"],
+            name != "create_my_private_watchlist"
+        );
+        let denied = post(&client, &endpoint, "saver", call(name, arguments.clone())).await?;
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        assert!(
+            denied.headers()[header::WWW_AUTHENTICATE]
+                .to_str()?
+                .contains(MANAGE)
+        );
+        let mut route = Mock::given(method(verb))
+            .and(path(format!(
+                "/api/v1/mcp/account/private-watchlists{suffix}"
+            )))
+            .and(matches_header("authorization", "Bearer delegated-manager"))
+            .and(header_regex("idempotency-key", "^[0-9a-f-]{36}$"));
+        if let Some(body) = body {
+            route = route.and(body_json(body));
+        } else {
+            route = route.and(wiremock::matchers::body_string(""));
+        }
+        let receipt = json!({"watchlist_id":7,"action_id":ACTION,"status":"executed"});
+        let mut wire = receipt.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = route
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(&client, &endpoint, "manager", call(name, arguments))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    let denied = post(
+        &client,
+        &endpoint,
+        "manager",
+        call(WATCHLIST_WRITE, watchlist_args(true)),
+    )
+    .await?;
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+    for args in [
+        json!({"name":" "}),
+        json!({"name":"a\u{0}b"}),
+        json!({"name":"日".repeat(86)}),
+        json!({"name":"books","is_public":true}),
+    ] {
+        let invalid: Value = post(
+            &client,
+            &endpoint,
+            "manager",
+            call("create_my_private_watchlist", args),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_write_error(&invalid, "create_my_private_watchlist", "INVALID_INPUT")?;
+    }
+    for status in [
+        "executed",
+        "executing",
+        "unknown",
+        "awaiting_confirmation",
+        "declined",
+        "expired",
+        "failed",
+        "refused",
+    ] {
+        let _route = Mock::given(method("GET")).and(path(format!("/api/v1/mcp/account/actions/{ACTION}")))
+            .and(matches_header("authorization","Bearer delegated-manager"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"id":ACTION,"status":status,"expires_at":null,"extra":SENTINEL}})))
+            .expect(1).mount_as_scoped(&api).await;
+        let result: Value = post(
+            &client,
+            &endpoint,
+            "manager",
+            call("get_my_action_status", json!({"action_id":ACTION})),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_eq!(
+            result.pointer("/result/structuredContent"),
+            Some(&json!({"action_id":ACTION,"status":status,"expires_at":null}))
+        );
+        assert!(!result.to_string().contains(SENTINEL));
     }
     server.child.kill().await?;
     server.child.wait().await?;

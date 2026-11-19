@@ -158,6 +158,10 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `get_my_offer_history` | Offers permission | Read each step of one offer's negotiation: who acted, the action and the amount |
 | `list_my_watchlists` | Watchlist read permission | List your watchlists with names, item counts and visibility when available |
 | `set_my_watchlist_membership` | Private pilot · `watchlist:write` | Save or remove one listing in one private watchlist you own |
+| `create_my_private_watchlist` | Management profile · `watchlists:write` | Create one private watchlist |
+| `rename_my_private_watchlist` | Management profile · `watchlists:write` | Rename one private, non-default watchlist you own |
+| `delete_my_private_watchlist` | Management profile · `watchlists:write` | Permanently delete one private, non-default watchlist and its memberships |
+| `get_my_action_status` | Write-enabled profile · original action permission | Check one receipt on the connection that submitted it |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |
 | `list_my_saved_searches` | Watchlist permission | List your saved searches with their criteria, alerts and unseen matches |
 | `list_my_saved_search_matches` | Watchlist permission | List the listings one of your saved searches matches now |
@@ -207,7 +211,7 @@ The pilot requires an operator-enabled deployment, a supported API and explicit 
 
 ### Where Budna MCP is going
 
-The private watchlist pilot is the first account write. Bidding, making offers, buying, managing listings and messaging are planned separately. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. The pilot does not grant any of those permissions.
+The private watchlist pilot supports saving and removing listings. A separate opt-in profile adds private list management and requires fresh consent. Bidding, making offers, buying, managing listings and messaging are planned separately. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. The pilot does not grant any of those permissions. [Account action plan](docs/account-write-plan.md)
 
 ## Connect your Budna account
 

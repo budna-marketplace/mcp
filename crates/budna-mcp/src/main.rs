@@ -43,6 +43,11 @@ async fn main() -> Result<()> {
                 .policy()
                 .allows(ToolCapability::PrivateWatchlistWrite),
         );
+        let client = client.with_private_watchlist_management(
+            account
+                .policy()
+                .allows(ToolCapability::PrivateWatchlistManagement),
+        );
         let mut server = AccountMcpServer::new(client.clone(), settings.request_timeout());
         if account_public_explore {
             let public = BudnaMcpServer::new(PublicApiClient::new(client_config)?)

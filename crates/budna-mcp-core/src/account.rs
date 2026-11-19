@@ -38,6 +38,11 @@ impl AccountSettings {
         self
     }
 
+    pub fn with_private_watchlist_management(mut self) -> Self {
+        self.policy = ToolPolicy::AccountWatchlistManagement;
+        self
+    }
+
     pub fn policy(&self) -> ToolPolicy {
         self.policy
     }

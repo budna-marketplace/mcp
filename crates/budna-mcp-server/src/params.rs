@@ -148,6 +148,38 @@ impl WatchlistMembershipParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct AccountActionStatusParams {
+    /// Canonical action reference from a receipt on this connection.
+    #[schemars(length(min = 36, max = 36))]
+    pub action_id: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CreateWatchlistParams {
+    /// Private list name, up to 255 UTF-8 bytes.
+    #[schemars(length(min = 1, max = 255))]
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RenameWatchlistParams {
+    #[schemars(range(min = 1))]
+    pub watchlist_id: i64,
+    #[schemars(length(min = 1, max = 255))]
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteWatchlistParams {
+    #[schemars(range(min = 1))]
+    pub watchlist_id: i64,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AccountConversationsParams {
     /// Return only conversations with unread messages.
     pub unread_only: Option<bool>,

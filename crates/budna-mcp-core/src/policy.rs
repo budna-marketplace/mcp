@@ -4,6 +4,7 @@ pub enum ToolCapability {
     PublicExplore,
     AccountRead,
     PrivateWatchlistWrite,
+    PrivateWatchlistManagement,
 }
 
 /// The concrete capability profile exposed by a server instance.
@@ -17,6 +18,7 @@ pub enum ToolPolicy {
     PublicExplore,
     AccountRead,
     AccountWatchlistPilot,
+    AccountWatchlistManagement,
 }
 
 impl ToolPolicy {
@@ -28,7 +30,10 @@ impl ToolPolicy {
         matches!(
             (self, capability),
             (
-                Self::AccountWatchlistPilot,
+                Self::AccountWatchlistManagement,
+                ToolCapability::PrivateWatchlistManagement
+            ) | (
+                Self::AccountWatchlistPilot | Self::AccountWatchlistManagement,
                 ToolCapability::AccountRead
                     | ToolCapability::PublicExplore
                     | ToolCapability::PrivateWatchlistWrite
