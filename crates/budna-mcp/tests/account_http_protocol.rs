@@ -2362,9 +2362,17 @@ mod automatic_bids;
 #[path = "account_http_protocol/bid_submission.rs"]
 mod bid_submission;
 
+#[path = "account_http_protocol/parcel.rs"]
+mod parcel;
 #[path = "account_http_protocol/seller_authoring.rs"]
 mod seller_authoring;
 #[path = "account_http_protocol/showcase_authoring.rs"]
 mod showcase_authoring;
 #[path = "account_http_protocol/stream_authoring.rs"]
 mod stream_authoring;
+
+#[path = "account_http_protocol/cases_and_listing.rs"]
+mod cases_and_listing;
+
+#[path = "account_http_protocol/offer_actions.rs"]
+mod offer_actions;

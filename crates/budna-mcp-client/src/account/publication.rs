@@ -81,7 +81,7 @@ impl PublicationReadiness {
             }
     }
 }
-fn valid_quote(id: &str) -> bool {
+pub(super) fn valid_quote(id: &str) -> bool {
     id.strip_prefix("quote_")
         .is_some_and(super::shipping::valid_revision)
 }

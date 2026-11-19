@@ -487,3 +487,23 @@ Publication uses its own fresh grant. Review the seller’s draft, eligible medi
 ### Seller stream schedules and announced listings
 
 Use `get_my_stream_authoring` with `streamauthoring:read` to review your shop, listing or showcase before scheduling. For an existing stream, select its stream ID to review the schedule, follower notification setting and full ordered lineup. With `streamplans:write`, submit one change with the reviewed revision and a request UUID. Scheduling requires an eligible target, verified seller and selling readiness. Complete identity or payout steps on Budna. A scheduled stream can appear publicly and followers can receive notifications. Choose eligible listings from your active inventory. Change the lineup one listing at a time. Use the Budna app to start and host the broadcast.
+
+### Combined shipping
+
+Select two to 25 unpaid orders in ascending order for a combined shipping review. The review shows the seller, each item amount and quantity, applicable fees, current and proposed deadlines and whether a seller rule supplies a package. A buyer request always opens a Budna approval. Approving groups the orders and clears previous delivery selections. The buyer chooses delivery, protection and payment in Budna. The seller can quote or decline and the buyer can dissolve an eligible group using its latest revision. Revising a quote can clear a previous carrier selection. Reuse the request UUID when recovering an interrupted request.
+
+### Offer negotiations
+
+With the offer capability enabled, `offers:read` can prepare one move on a listing. The quote identifies the buyer or seller role and shows the total for all units, the amounts on the table before and after the move, the next responder and any applicable fees or payment deadline. New proposals leave the stock available. Acceptance reserves the offered quantity and creates a binding unpaid order. Delivery and payment take place in Budna.
+
+Submitting the reviewed move requires `offers:write`. Budna applies the customer's connected-app spending and approval settings to a new offer, raise, counter, lowered counter or acceptance. Rejecting an incoming proposal and withdrawing one's own proposal are direct actions. Use the original quote ID, digest and proposal for retries. A completed acceptance receipt contains the order reference.
+
+## Changes to existing listings
+
+Enable `listingmanagement:write` for eligible edits, extensions, relisting and deletion. Preview the proposed change under `selling:read`. Show the seller any fee, time change and watcher notification, then send the identical operation with its quote, revision and request ID. A relist opens a new round and keeps the listing identity. An exceptional withdrawal belongs in Budna.
+
+## Order disputes
+
+Use `orders:read` to check the connected party’s available actions, current case and order revisions, offer ID, exact discount and deadline. With `disputecases:write` the customer can open a case or send their exact statement to the parties and Budna. Opening a case can hold a payout. The claimant must approve withdrawing the case in Budna.
+
+With `disputesettlements:write` the buyer can decline the current discount or the seller can withdraw their proposal. A new proposal and a buyer’s acceptance each require first-party confirmation of the amount and currency. A seller proposal stays open for 24 hours from approval. Acceptance requests the native refund. The provider processes the transfer separately. The app and MCP can read the resulting order and case. Use Budna to submit evidence or reach support.

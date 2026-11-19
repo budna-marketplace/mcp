@@ -48,7 +48,7 @@ pub struct ListingPrice {
     pub currency_code: BidCurrency,
 }
 impl ListingPrice {
-    fn valid(&self) -> bool {
+    pub(super) fn valid(&self) -> bool {
         let (whole, fraction) = self.amount.split_once('.').unwrap_or((&self.amount, ""));
         is_exact_decimal(&self.amount)
             && (whole == "0" || !whole.starts_with('0'))
@@ -56,7 +56,9 @@ impl ListingPrice {
             && decimal_is_less_than_or_equal(&self.amount, "99999999.99")
     }
 }
-fn supplied<'de, D: Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<Option<T>, D::Error> {
+pub(super) fn supplied<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    d: D,
+) -> Result<Option<T>, D::Error> {
     T::deserialize(d).map(Some)
 }
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize, schemars::JsonSchema)]

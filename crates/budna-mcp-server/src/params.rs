@@ -1,6 +1,7 @@
 pub(crate) mod automatic_bids;
 pub(crate) mod bid_submission;
 pub(crate) mod messages;
+pub(crate) mod offer_actions;
 pub(crate) mod personal;
 pub(crate) mod room_activity;
 mod saved_search;

@@ -25,8 +25,11 @@ use thiserror::Error;
 
 pub use account::BIDS_WRITE_SCOPE;
 pub use account::CHAT_ROOMS_READ_SCOPE;
+pub use account::DISPUTE_CASES_WRITE_SCOPE;
+pub use account::DISPUTE_SETTLEMENTS_WRITE_SCOPE;
 pub use account::DRAFT_AUTHORING_SCOPE;
 pub use account::INVENTORY_WRITE_SCOPE;
+pub use account::LISTING_MANAGEMENT_WRITE_SCOPE;
 pub use account::LIVE_REPORTS_WRITE_SCOPE;
 pub use account::PUBLICATION_WRITE_SCOPE;
 pub use account::PublicRoomMessage;
@@ -94,11 +97,26 @@ pub use account::{
 };
 pub use account::{BidAmount, BidCurrency, BidQuote, BidSubmissionReceipt};
 pub use account::{
+    CaseActionReceipt, CaseAudience, CaseChange, CaseCurrency, CaseDecision, CaseDiscount,
+    CaseOffer, CaseReason, CaseRemedy, CaseSide, CaseTerms, DisputeOptions,
+};
+pub use account::{
+    CombinedParcelMember, CombinedParcelReceipt, CombinedParcelTerms, ParcelManagement,
+    ParcelPrice, ParcelRole, ParcelSelection, ParcelStatus,
+};
+pub use account::{
     DraftAttribute, DraftAttributeValue, DraftAuthoringState, DraftCondition, DraftEdit,
     DraftFieldChanges, DraftFieldState, DraftListingType, DraftMarket, DraftVatChoice,
     ListingPrice, ShippingCarrier,
 };
 pub use account::{InventoryChange, InventoryReceipt, InventoryReview, StockOperation};
+pub use account::{
+    ListingChangeKind, ListingManagementBlocker, ListingManagementChange, ListingManagementReview,
+};
+pub use account::{
+    NegotiationChange, NegotiationMove, NegotiationParty, NegotiationPreview, NegotiationReceipt,
+    NegotiationTerms, OFFERS_WRITE_SCOPE, OfferTotal,
+};
 pub use account::{OrderReviewFacts, OrderReviewReceipt, ReviewAudience};
 pub use account::{
     PUBLIC_CHAT_WRITE_SCOPE, PublicChatAudience, PublicChatBlocker, PublicChatPosting,
@@ -118,6 +136,9 @@ pub use account::{
     RoomReceiptTarget, RoomTargetKind, RoomTargets,
 };
 pub use account::{RoomParticipant, RoomReactionTarget, RoomTally};
+pub use budna_mcp_core::write_permissions::{
+    PARCEL_MANAGEMENT_SCOPE, PARCEL_REQUESTS_SCOPE, PARCEL_REVIEW_SCOPE,
+};
 pub use budna_mcp_core::write_permissions::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
 pub use budna_mcp_core::write_permissions::{
     STREAM_AUTHORING_READ_SCOPE, STREAM_PLANS_WRITE_SCOPE,

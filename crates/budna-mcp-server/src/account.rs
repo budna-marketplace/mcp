@@ -53,11 +53,16 @@ mod bid_submission;
 mod blocks;
 mod destinations;
 mod direct_messages;
+mod dispute_cases;
+mod dispute_settlements;
 mod draft;
 mod draft_authoring;
 mod inventory;
+mod listing_management;
 mod notification_state;
+mod offer_actions;
 mod order_review;
+mod parcel;
 mod personal;
 mod public_chat;
 mod publication;
@@ -157,6 +162,9 @@ impl AccountMcpServer {
         if client.write_permissions().room_moderation {
             routes += Self::room_moderation_router();
         }
+        if client.write_permissions().offers {
+            routes += Self::offer_actions_router();
+        }
         if client.write_permissions().automatic_bids {
             routes += Self::automatic_bids_router();
         }
@@ -168,6 +176,15 @@ impl AccountMcpServer {
         }
         if client.write_permissions().shipping_rules {
             routes += Self::shipping_rule_write_router();
+        }
+        if client.write_permissions().parcel_review {
+            routes += Self::parcel_review_router();
+        }
+        if client.write_permissions().parcel_requests {
+            routes += Self::parcel_request_router();
+        }
+        if client.write_permissions().parcel_management {
+            routes += Self::parcel_management_router();
         }
         if client.write_permissions().stream_authoring {
             routes += Self::stream_authoring_read_router();
@@ -192,6 +209,20 @@ impl AccountMcpServer {
         }
         if client.write_permissions().publication {
             routes += Self::publication_router();
+        }
+        if client.write_permissions().listing_management {
+            routes += Self::listing_management_router();
+        }
+        if client.write_permissions().dispute_cases
+            || client.write_permissions().dispute_settlements
+        {
+            routes += Self::case_options_router();
+        }
+        if client.write_permissions().dispute_cases {
+            routes += Self::dispute_cases_router();
+        }
+        if client.write_permissions().dispute_settlements {
+            routes += Self::dispute_settlements_router();
         }
         if client.write_permissions().inbox {
             routes += Self::inbox_actions_router();
@@ -1788,6 +1819,17 @@ impl ServerHandler for AccountMcpServer {
                     " Use change_my_shipping_rule for one revision-checked goods or parcel change.",
                 );
             }
+            if self.client.write_permissions().parcel_review {
+                text.push_str(" Review combined parcel terms and deadlines with get_my_combined_parcel_terms.");
+            }
+            if self.client.write_permissions().parcel_requests {
+                text.push_str(" Use request_my_combined_parcel to obtain buyer approval in Budna.");
+            }
+            if self.client.write_permissions().parcel_management {
+                text.push_str(
+                    " change_my_combined_parcel applies one eligible seller or buyer change.",
+                );
+            }
             if self.client.write_permissions().stream_authoring {
                 text.push_str(
                     " Use get_my_stream_authoring to review stream readiness, schedule and lineup.",
@@ -1815,6 +1857,15 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.client.write_permissions().publication {
                 text.push_str(" get_my_publication_readiness shows publishing terms or a first-party step. publish_my_quoted_draft publishes the same verified draft on explicit request.");
+            }
+            if self.client.write_permissions().listing_management {
+                text.push_str(" prepare_my_listing_change checks a specific seller edit and its fees. apply_my_quoted_listing_change applies that reviewed change with listingmanagement:write.");
+            }
+            if self.client.write_permissions().dispute_cases {
+                text.push_str(" Review case eligibility with get_my_order_dispute_options. Opening or adding a statement needs disputecases:write. Withdrawing a claim requires a decision in Budna.");
+            }
+            if self.client.write_permissions().dispute_settlements {
+                text.push_str(" disputesettlements:write allows a party to answer an outstanding settlement. Proposing or accepting a discount requires confirmation in Budna.");
             }
             if self.client.write_permissions().inbox {
                 text.push_str(" get_my_conversation_settings and get_my_listing_chat_notification_setting check your own preferences. With inbox:write, set_my_conversation_setting, set_my_listing_chat_muted and hide_my_message_copy organize your own inbox.");

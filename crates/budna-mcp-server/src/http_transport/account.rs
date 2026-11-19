@@ -9,8 +9,11 @@ use axum::{
     routing::get,
 };
 use budna_mcp_client::CHAT_ROOMS_READ_SCOPE;
+use budna_mcp_client::DISPUTE_CASES_WRITE_SCOPE;
+use budna_mcp_client::DISPUTE_SETTLEMENTS_WRITE_SCOPE;
 use budna_mcp_client::DRAFT_AUTHORING_SCOPE;
 use budna_mcp_client::INVENTORY_WRITE_SCOPE;
+use budna_mcp_client::LISTING_MANAGEMENT_WRITE_SCOPE;
 use budna_mcp_client::LIVE_REPORTS_WRITE_SCOPE;
 use budna_mcp_client::PUBLIC_CHAT_WRITE_SCOPE;
 use budna_mcp_client::PUBLICATION_WRITE_SCOPE;
@@ -31,7 +34,8 @@ use budna_mcp_client::{
     SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
     WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
-use budna_mcp_client::{AUTOBIDS_WRITE_SCOPE, BIDS_WRITE_SCOPE};
+use budna_mcp_client::{AUTOBIDS_WRITE_SCOPE, BIDS_WRITE_SCOPE, OFFERS_WRITE_SCOPE};
+use budna_mcp_client::{PARCEL_MANAGEMENT_SCOPE, PARCEL_REQUESTS_SCOPE, PARCEL_REVIEW_SCOPE};
 use budna_mcp_client::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
 use budna_mcp_client::{STREAM_AUTHORING_READ_SCOPE, STREAM_PLANS_WRITE_SCOPE};
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
@@ -224,6 +228,8 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
         "get_my_automatic_bid_state" | "prepare_my_automatic_bid_maximum" => BIDS_READ_SCOPE,
         "set_my_quoted_automatic_bid_maximum" | "pause_my_automatic_bid" => AUTOBIDS_WRITE_SCOPE,
+        "prepare_my_offer_change" => OFFERS_READ_SCOPE,
+        "submit_my_quoted_offer_change" => OFFERS_WRITE_SCOPE,
         "prepare_my_bid" => BIDS_READ_SCOPE,
         "submit_my_quoted_bid" => BIDS_WRITE_SCOPE,
         "get_my_draft_authoring" => LISTINGS_READ_SCOPE,
@@ -235,6 +241,9 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "change_my_shipping_defaults" => SHIPPING_DEFAULTS_SCOPE,
         "get_my_shipping_rules" | "list_my_shipping_rule_listings" => SHIPPING_RULES_READ_SCOPE,
         "change_my_shipping_rule" => SHIPPING_RULES_WRITE_SCOPE,
+        "get_my_combined_parcel_terms" => PARCEL_REVIEW_SCOPE,
+        "request_my_combined_parcel" => PARCEL_REQUESTS_SCOPE,
+        "change_my_combined_parcel" => PARCEL_MANAGEMENT_SCOPE,
         "get_my_stream_authoring" => STREAM_AUTHORING_READ_SCOPE,
         "change_my_stream_plan" => STREAM_PLANS_WRITE_SCOPE,
         "get_my_showcase_authoring" => SHOWCASE_AUTHORING_READ_SCOPE,
@@ -254,6 +263,16 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         | "report_my_room_participant"
         | "ban_my_room_participant"
         | "unban_my_room_participant" => ROOM_MODERATION_WRITE_SCOPE,
+        "prepare_my_listing_change" => SELLING_READ_SCOPE,
+        "apply_my_quoted_listing_change" => LISTING_MANAGEMENT_WRITE_SCOPE,
+        "get_my_order_dispute_options" => ORDERS_READ_SCOPE,
+        "open_my_order_dispute" | "add_my_dispute_statement" | "request_withdraw_my_dispute" => {
+            DISPUTE_CASES_WRITE_SCOPE
+        }
+        "decline_my_dispute_settlement"
+        | "withdraw_my_settlement_offer"
+        | "propose_my_dispute_settlement"
+        | "accept_my_dispute_settlement" => DISPUTE_SETTLEMENTS_WRITE_SCOPE,
         "get_my_conversation_settings" | "get_my_listing_chat_notification_setting" => {
             MESSAGES_READ_SCOPE
         }

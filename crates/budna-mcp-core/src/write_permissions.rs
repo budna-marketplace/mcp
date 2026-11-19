@@ -11,11 +11,15 @@ pub const ROOM_MODERATION_READ_SCOPE: &str = "roommoderation:read";
 pub const ROOM_REACTIONS_WRITE_SCOPE: &str = "roomreactions:write";
 pub const LIVE_REPORTS_WRITE_SCOPE: &str = "livereports:write";
 pub const ROOM_MODERATION_WRITE_SCOPE: &str = "roommoderation:write";
+pub const OFFERS_WRITE_SCOPE: &str = "offers:write";
 pub const AUTOBIDS_WRITE_SCOPE: &str = "autobids:write";
 pub const BIDS_WRITE_SCOPE: &str = "bids:write";
 pub const DRAFT_AUTHORING_SCOPE: &str = "draftauthoring:write";
 pub const SHIPPING_RULES_WRITE_SCOPE: &str = "shippingrules:write";
 pub const SHIPPING_RULES_READ_SCOPE: &str = "shippingrules:read";
+pub const PARCEL_REVIEW_SCOPE: &str = "parcelreview:read";
+pub const PARCEL_REQUESTS_SCOPE: &str = "parcelrequests:write";
+pub const PARCEL_MANAGEMENT_SCOPE: &str = "parcelmanagement:write";
 pub const STREAM_AUTHORING_READ_SCOPE: &str = "streamauthoring:read";
 pub const STREAM_PLANS_WRITE_SCOPE: &str = "streamplans:write";
 pub const SHOWCASE_AUTHORING_READ_SCOPE: &str = "showcaseauthoring:read";
@@ -23,6 +27,9 @@ pub const SHOWCASES_WRITE_SCOPE: &str = "showcases:write";
 pub const SHIPPING_DEFAULTS_SCOPE: &str = "shippingdefaults:write";
 pub const INVENTORY_WRITE_SCOPE: &str = "inventory:write";
 pub const PUBLICATION_WRITE_SCOPE: &str = "listingpublication:write";
+pub const LISTING_MANAGEMENT_WRITE_SCOPE: &str = "listingmanagement:write";
+pub const DISPUTE_CASES_WRITE_SCOPE: &str = "disputecases:write";
+pub const DISPUTE_SETTLEMENTS_WRITE_SCOPE: &str = "disputesettlements:write";
 pub const INBOX_WRITE_SCOPE: &str = "inbox:write";
 pub const PROFILE_WRITE_SCOPE: &str = "profile:write";
 pub const FOLLOWING_WRITE_SCOPE: &str = "following:write";
@@ -49,18 +56,25 @@ pub struct AccountWritePermissions {
     pub room_reactions: bool,
     pub live_reports: bool,
     pub room_moderation: bool,
+    pub offers: bool,
     pub automatic_bids: bool,
     pub bids: bool,
     pub draft_authoring: bool,
     pub shipping_rules: bool,
     pub shipping_rules_read: bool,
     pub shipping_defaults: bool,
+    pub parcel_review: bool,
+    pub parcel_requests: bool,
+    pub parcel_management: bool,
     pub stream_authoring: bool,
     pub stream_plans: bool,
     pub showcase_authoring: bool,
     pub showcases: bool,
     pub inventory: bool,
     pub publication: bool,
+    pub listing_management: bool,
+    pub dispute_cases: bool,
+    pub dispute_settlements: bool,
     pub inbox: bool,
     pub profile: bool,
     pub following: bool,
@@ -85,18 +99,25 @@ impl AccountWritePermissions {
         room_reactions: false,
         live_reports: false,
         room_moderation: false,
+        offers: false,
         automatic_bids: false,
         bids: false,
         draft_authoring: false,
         shipping_rules: false,
         shipping_rules_read: false,
         shipping_defaults: false,
+        parcel_review: false,
+        parcel_requests: false,
+        parcel_management: false,
         stream_authoring: false,
         stream_plans: false,
         showcase_authoring: false,
         showcases: false,
         inventory: false,
         publication: false,
+        listing_management: false,
+        dispute_cases: false,
+        dispute_settlements: false,
         inbox: false,
         profile: false,
         following: false,
@@ -125,11 +146,15 @@ impl AccountWritePermissions {
                 ROOM_REACTIONS_WRITE_SCOPE => &mut permissions.room_reactions,
                 LIVE_REPORTS_WRITE_SCOPE => &mut permissions.live_reports,
                 ROOM_MODERATION_WRITE_SCOPE => &mut permissions.room_moderation,
+                OFFERS_WRITE_SCOPE => &mut permissions.offers,
                 AUTOBIDS_WRITE_SCOPE => &mut permissions.automatic_bids,
                 BIDS_WRITE_SCOPE => &mut permissions.bids,
                 DRAFT_AUTHORING_SCOPE => &mut permissions.draft_authoring,
                 SHIPPING_RULES_WRITE_SCOPE => &mut permissions.shipping_rules,
                 SHIPPING_RULES_READ_SCOPE => &mut permissions.shipping_rules_read,
+                PARCEL_REVIEW_SCOPE => &mut permissions.parcel_review,
+                PARCEL_REQUESTS_SCOPE => &mut permissions.parcel_requests,
+                PARCEL_MANAGEMENT_SCOPE => &mut permissions.parcel_management,
                 STREAM_AUTHORING_READ_SCOPE => &mut permissions.stream_authoring,
                 STREAM_PLANS_WRITE_SCOPE => &mut permissions.stream_plans,
                 SHOWCASE_AUTHORING_READ_SCOPE => &mut permissions.showcase_authoring,
@@ -137,6 +162,9 @@ impl AccountWritePermissions {
                 SHIPPING_DEFAULTS_SCOPE => &mut permissions.shipping_defaults,
                 INVENTORY_WRITE_SCOPE => &mut permissions.inventory,
                 PUBLICATION_WRITE_SCOPE => &mut permissions.publication,
+                LISTING_MANAGEMENT_WRITE_SCOPE => &mut permissions.listing_management,
+                DISPUTE_CASES_WRITE_SCOPE => &mut permissions.dispute_cases,
+                DISPUTE_SETTLEMENTS_WRITE_SCOPE => &mut permissions.dispute_settlements,
                 INBOX_WRITE_SCOPE => &mut permissions.inbox,
                 PROFILE_WRITE_SCOPE => &mut permissions.profile,
                 FOLLOWING_WRITE_SCOPE => &mut permissions.following,
@@ -160,6 +188,7 @@ impl AccountWritePermissions {
         [
             self.personal_blocks_read
                 .then_some(PERSONAL_BLOCKS_READ_SCOPE),
+            self.parcel_review.then_some(PARCEL_REVIEW_SCOPE),
             self.stream_authoring.then_some(STREAM_AUTHORING_READ_SCOPE),
             self.showcase_authoring
                 .then_some(SHOWCASE_AUTHORING_READ_SCOPE),
@@ -187,14 +216,22 @@ impl AccountWritePermissions {
             self.live_reports.then_some(LIVE_REPORTS_WRITE_SCOPE),
             self.room_moderation.then_some(ROOM_MODERATION_WRITE_SCOPE),
             self.bids.then_some(BIDS_WRITE_SCOPE),
+            self.offers.then_some(OFFERS_WRITE_SCOPE),
             self.automatic_bids.then_some(AUTOBIDS_WRITE_SCOPE),
             self.draft_authoring.then_some(DRAFT_AUTHORING_SCOPE),
             self.shipping_rules.then_some(SHIPPING_RULES_WRITE_SCOPE),
+            self.parcel_requests.then_some(PARCEL_REQUESTS_SCOPE),
+            self.parcel_management.then_some(PARCEL_MANAGEMENT_SCOPE),
             self.stream_plans.then_some(STREAM_PLANS_WRITE_SCOPE),
             self.showcases.then_some(SHOWCASES_WRITE_SCOPE),
             self.shipping_defaults.then_some(SHIPPING_DEFAULTS_SCOPE),
             self.inventory.then_some(INVENTORY_WRITE_SCOPE),
             self.publication.then_some(PUBLICATION_WRITE_SCOPE),
+            self.listing_management
+                .then_some(LISTING_MANAGEMENT_WRITE_SCOPE),
+            self.dispute_cases.then_some(DISPUTE_CASES_WRITE_SCOPE),
+            self.dispute_settlements
+                .then_some(DISPUTE_SETTLEMENTS_WRITE_SCOPE),
             self.inbox.then_some(INBOX_WRITE_SCOPE),
             self.profile.then_some(PROFILE_WRITE_SCOPE),
             self.following.then_some(FOLLOWING_WRITE_SCOPE),
@@ -221,18 +258,25 @@ impl AccountWritePermissions {
             room_reactions: self.room_reactions && other.room_reactions,
             live_reports: self.live_reports && other.live_reports,
             room_moderation: self.room_moderation && other.room_moderation,
+            offers: self.offers && other.offers,
             automatic_bids: self.automatic_bids && other.automatic_bids,
             bids: self.bids && other.bids,
             draft_authoring: self.draft_authoring && other.draft_authoring,
             shipping_rules: self.shipping_rules && other.shipping_rules,
             shipping_rules_read: self.shipping_rules_read && other.shipping_rules_read,
             shipping_defaults: self.shipping_defaults && other.shipping_defaults,
+            parcel_review: self.parcel_review && other.parcel_review,
+            parcel_requests: self.parcel_requests && other.parcel_requests,
+            parcel_management: self.parcel_management && other.parcel_management,
             stream_authoring: self.stream_authoring && other.stream_authoring,
             stream_plans: self.stream_plans && other.stream_plans,
             showcase_authoring: self.showcase_authoring && other.showcase_authoring,
             showcases: self.showcases && other.showcases,
             inventory: self.inventory && other.inventory,
             publication: self.publication && other.publication,
+            listing_management: self.listing_management && other.listing_management,
+            dispute_cases: self.dispute_cases && other.dispute_cases,
+            dispute_settlements: self.dispute_settlements && other.dispute_settlements,
             inbox: self.inbox && other.inbox,
             profile: self.profile && other.profile,
             following: self.following && other.following,

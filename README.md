@@ -220,8 +220,15 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `submit_my_quoted_bid` | Account actions · `bids:write` | Submit the exact quoted bid under the customer’s connected-app approval policy |
 | `get_my_automatic_bid_state` | Account actions · `bids:read` | Read the customer’s own maximum and its current revision for one auction |
 | `prepare_my_automatic_bid_maximum` | Account actions · `bids:read` | Quote a private standing maximum and show the effect of an immediate bid |
+| `prepare_my_offer_change` | Account actions · `offers:read` | Review the exact amount, units, parties’ standing proposals and order terms |
+| `submit_my_quoted_offer_change` | Account actions · `offers:write` | Make, raise, counter, lower, accept, reject or withdraw the reviewed proposal |
 | `set_my_quoted_automatic_bid_maximum` | Account actions · `autobids:write` | Authorize future bids up to the quoted maximum under the customer’s approval policy |
 | `pause_my_automatic_bid` | Account actions · `autobids:write` | Pause future automatic bids for the reviewed instruction |
+| `get_my_order_dispute_options` | Account actions · `orders:read` | Check the party’s remedies, current case, outstanding discount and decision deadline |
+| `open_my_order_dispute`, `add_my_dispute_statement` | Account actions · `disputecases:write` | Open a case or send the party’s exact statement to the parties and Budna |
+| `request_withdraw_my_dispute` | Account actions · `disputecases:write` | Request first-party confirmation to close the claimant’s dispute |
+| `decline_my_dispute_settlement`, `withdraw_my_settlement_offer` | Account actions · `disputesettlements:write` | Decline a received discount or withdraw the seller’s outstanding proposal |
+| `propose_my_dispute_settlement`, `accept_my_dispute_settlement` | Account actions · `disputesettlements:write` | Request confirmation in Budna of the exact discount or its acceptance |
 | `rate_my_order_counterparty` | Account actions · `ratings:write` | Submit the customer’s stars and chosen comment or star-only rating |
 | `list_my_ratings` | Ratings permission | List ratings you received or gave, with the other party's public username, stars, comment and listing |
 | `get_my_money_summary` | Payments permission | Read your money totals per currency: proceeds pending, on the way, paid out, on hold or in balance, and payments made and refunded |
@@ -240,10 +247,15 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `change_my_shipping_defaults` | Account actions · `shippingdefaults:write` | Change carrier or combined-shipping defaults for future listings |
 | `get_my_shipping_rules` / `list_my_shipping_rule_listings` | Account actions · `shippingrules:read` | Read kinds of goods, parcel capacities and paged listing assignments |
 | `change_my_shipping_rule` | Account actions · `shippingrules:write` | Apply one reviewed change to a kind, listing assignment or parcel |
+| `get_my_combined_parcel_terms` | Account actions · `parcelreview:read` | Review compatible unpaid orders or a parcel you participate in, including all member terms |
+| `request_my_combined_parcel` | Account actions · `parcelrequests:write` | Request buyer confirmation on Budna to combine the reviewed orders |
+| `change_my_combined_parcel` | Account actions · `parcelmanagement:write` | Declare or decline a parcel as seller, or dissolve it as buyer |
 | `get_my_stream_authoring` | Account actions · `streamauthoring:read` | Review an owned target or an existing stream, its schedule and announced lineup |
 | `change_my_stream_plan` | Account actions · `streamplans:write` | Schedule, reschedule or cancel one stream, or add, remove or move one announced shop listing |
 | `get_my_showcase_authoring` | Account actions · `showcaseauthoring:read` | Review seller verification, a showcase, affected listing deadlines and related streams |
 | `change_my_showcase` | Account actions · `showcases:write` | Create, edit or delete a draft, add one reviewed listing, publish or cancel |
+| `prepare_my_listing_change` | Account actions · `selling:read` | Review terms, fees and watcher notifications for an active listing edit, extension, relist or deletion |
+| `apply_my_quoted_listing_change` | Account actions · `listingmanagement:write` | Apply the seller’s reviewed change to one current listing revision |
 | `get_my_listing_inventory` | Account actions · `listings:read` | Review available stock, checkout reservations and open offers on an owned listing |
 | `set_my_listing_stock` / `record_my_listing_sold_elsewhere` | Account actions · `inventory:write` | Set an eligible shelf count or record a reviewed outside sale |
 | `get_my_shipping_settings` | Selling permission | Read your default carriers and combined-shipping choice |
