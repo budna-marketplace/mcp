@@ -14,7 +14,8 @@ mod taxonomy;
 pub(crate) use account::{
     AccountListingsOutput, AccountOutput, ActionStatusOutput, DraftEligibilityOutput,
     DraftReceiptOutput, LiveReminderReceiptOutput, NotificationReadBatchOutput,
-    NotificationReadReceiptOutput, PrivateWatchlistOutput, WatchlistMembershipOutput,
+    NotificationReadReceiptOutput, PrivateWatchlistOutput, SavedSearchAuthoringOutput,
+    SavedSearchReceiptOutput, WatchlistMembershipOutput,
 };
 pub(crate) use account_detail::AccountListingDetailOutput;
 pub(crate) use activity::{

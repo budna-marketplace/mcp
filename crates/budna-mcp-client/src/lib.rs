@@ -56,9 +56,11 @@ pub use account::{
     LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, LiveReminderReceipt, MESSAGES_READ_SCOPE,
     NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, NotificationReadBatch,
     NotificationReadReceipt, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
-    PROFILE_READ_SCOPE, PrivateWatchlistChange, RATINGS_READ_SCOPE, SELLING_READ_SCOPE,
-    WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
-    is_action_id, is_watchlist_name,
+    PROFILE_READ_SCOPE, PrivateWatchlistChange, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE,
+    SELLING_READ_SCOPE, SavedSearchAuthoring, SavedSearchChange, SavedSearchChanges,
+    SavedSearchReceipt, SearchCriteriaPatch, SearchPrice, WATCHLIST_MANAGE_SCOPE,
+    WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token, is_action_id,
+    is_watchlist_name,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};

@@ -10,6 +10,7 @@ pub enum ToolCapability {
     ListingDraftCreate,
     LiveReminderWrite,
     NotificationStateWrite,
+    SavedSearchWrite,
 }
 
 /// The concrete capability profile exposed by a server instance.
@@ -62,6 +63,7 @@ impl ToolPolicy {
             ToolCapability::PrivateWatchlistWrite => writes.watchlist_membership,
             ToolCapability::PrivateWatchlistManagement => writes.watchlist_management,
             ToolCapability::ListingDraftCreate => writes.listing_drafts,
+            ToolCapability::SavedSearchWrite => writes.saved_searches,
             ToolCapability::NotificationStateWrite => writes.notification_state,
             ToolCapability::LiveReminderWrite => writes.live_reminders,
         }

@@ -5,12 +5,14 @@ mod draft;
 mod listing;
 mod models;
 mod notification_state;
+mod search_writes;
+pub use search_writes::*;
 mod records;
 mod reminder;
 use budna_mcp_core::AccountWritePermissions;
 pub use budna_mcp_core::write_permissions::{
     DRAFT_CREATE_SCOPE, LIVE_REMINDER_WRITE_SCOPE, NOTIFICATION_STATE_SCOPE,
-    WATCHLIST_MANAGE_SCOPE, WATCHLIST_WRITE_SCOPE,
+    SAVED_SEARCH_WRITE_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_WRITE_SCOPE,
 };
 pub use notification_state::{NotificationReadBatch, NotificationReadReceipt};
 pub use reminder::LiveReminderReceipt;

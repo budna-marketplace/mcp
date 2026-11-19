@@ -5,6 +5,7 @@ use crate::ConfigError;
 pub const WATCHLIST_WRITE_SCOPE: &str = "watchlist:write";
 pub const WATCHLIST_MANAGE_SCOPE: &str = "watchlists:write";
 pub const DRAFT_CREATE_SCOPE: &str = "listingdrafts:write";
+pub const SAVED_SEARCH_WRITE_SCOPE: &str = "savedsearches:write";
 pub const NOTIFICATION_STATE_SCOPE: &str = "notificationstate:write";
 pub const LIVE_REMINDER_WRITE_SCOPE: &str = "livereminders:write";
 
@@ -15,6 +16,7 @@ pub struct AccountWritePermissions {
     pub listing_drafts: bool,
     pub live_reminders: bool,
     pub notification_state: bool,
+    pub saved_searches: bool,
 }
 
 impl AccountWritePermissions {
@@ -24,6 +26,7 @@ impl AccountWritePermissions {
         listing_drafts: false,
         live_reminders: false,
         notification_state: false,
+        saved_searches: false,
     };
 
     pub fn from_scopes(value: &str) -> Result<Self, ConfigError> {
@@ -33,6 +36,7 @@ impl AccountWritePermissions {
                 WATCHLIST_WRITE_SCOPE => &mut permissions.watchlist_membership,
                 WATCHLIST_MANAGE_SCOPE => &mut permissions.watchlist_management,
                 DRAFT_CREATE_SCOPE => &mut permissions.listing_drafts,
+                SAVED_SEARCH_WRITE_SCOPE => &mut permissions.saved_searches,
                 NOTIFICATION_STATE_SCOPE => &mut permissions.notification_state,
                 LIVE_REMINDER_WRITE_SCOPE => &mut permissions.live_reminders,
                 _ => return Err(ConfigError::InvalidAccountSettings),
@@ -55,6 +59,7 @@ impl AccountWritePermissions {
             self.listing_drafts.then_some(DRAFT_CREATE_SCOPE),
             self.live_reminders.then_some(LIVE_REMINDER_WRITE_SCOPE),
             self.notification_state.then_some(NOTIFICATION_STATE_SCOPE),
+            self.saved_searches.then_some(SAVED_SEARCH_WRITE_SCOPE),
         ]
         .into_iter()
         .flatten()
@@ -67,6 +72,7 @@ impl AccountWritePermissions {
             listing_drafts: self.listing_drafts && other.listing_drafts,
             live_reminders: self.live_reminders && other.live_reminders,
             notification_state: self.notification_state && other.notification_state,
+            saved_searches: self.saved_searches && other.saved_searches,
         }
     }
 }

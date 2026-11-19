@@ -270,3 +270,37 @@ impl From<budna_mcp_client::NotificationReadReceipt> for NotificationReadReceipt
         }
     }
 }
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct SavedSearchAuthoringOutput {
+    pub used: i64,
+    pub limit: i64,
+    #[schemars(length(min = 3, max = 3))]
+    pub notification_frequencies: Vec<String>,
+}
+
+impl From<budna_mcp_client::SavedSearchAuthoring> for SavedSearchAuthoringOutput {
+    fn from(value: budna_mcp_client::SavedSearchAuthoring) -> Self {
+        Self {
+            used: value.used,
+            limit: value.limit,
+            notification_frequencies: value.notification_frequencies,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct SavedSearchReceiptOutput {
+    pub action_id: String,
+    pub search_id: Option<i64>,
+    pub status: WatchlistActionStatusOutput,
+}
+impl From<budna_mcp_client::SavedSearchReceipt> for SavedSearchReceiptOutput {
+    fn from(value: budna_mcp_client::SavedSearchReceipt) -> Self {
+        Self {
+            action_id: value.action_id,
+            search_id: value.search_id,
+            status: value.status.into(),
+        }
+    }
+}

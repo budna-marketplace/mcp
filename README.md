@@ -165,6 +165,10 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `create_my_listing_draft` | Draft pilot · `listingdrafts:write` | Save one unpublished initial draft as the verified seller |
 | `get_my_notification_read_batch` | Account actions · `notifications:read` | Preview up to 50 eligible unread ordinary notifications |
 | `mark_my_notifications_read` | Account actions · `notificationstate:write` | Acknowledge the ordinary notification IDs the customer selected |
+| `get_my_saved_search_authoring` | Account actions · `watchlist:read` | Read current saved-search usage, limit and supported alert frequencies |
+| `create_my_saved_search` | Account actions · `savedsearches:write` | Save a named search with validated criteria |
+| `update_my_saved_search` | Account actions · `savedsearches:write` | Edit selected criteria, change frequency, or pause or resume alerts using the observed revision |
+| `delete_my_saved_search` | Account actions · `savedsearches:write` | Delete one owned saved search at its observed revision |
 | `set_my_live_reminder` | Account actions · `livereminders:write` | Set or remove a personal reminder for one live session |
 | `get_my_action_status` | Write-enabled profile · original action permission | Check one receipt on the connection that submitted it |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |

@@ -1,3 +1,5 @@
+mod saved_search;
+pub(crate) use saved_search::{CreateSearchParams, DeleteSearchParams, UpdateSearchParams};
 use std::{
     borrow::Cow,
     collections::BTreeMap,

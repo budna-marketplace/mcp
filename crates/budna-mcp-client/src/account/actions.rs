@@ -6,6 +6,12 @@ use super::{
     WATCHLIST_MANAGE_SCOPE, invalid_input, invalid_response, is_canonical_uuid,
 };
 
+pub(super) fn valid_action_text(value: &str, limit: usize) -> bool {
+    !value.trim().is_empty() && value.chars().count() <= limit && !value.chars().any(|ch| {
+        ch.is_control() || matches!(ch, '\u{061C}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2064}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}' | '\u{E0000}'..='\u{E007F}')
+    })
+}
+
 pub fn is_action_id(value: &str) -> bool {
     is_canonical_uuid(value) && value != "00000000-0000-0000-0000-000000000000"
 }

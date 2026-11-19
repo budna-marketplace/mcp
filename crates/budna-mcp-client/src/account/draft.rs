@@ -36,12 +36,6 @@ pub struct DraftReceipt {
     pub status: AccountWatchlistActionStatus,
 }
 
-fn valid_text(value: &str, limit: usize) -> bool {
-    !value.trim().is_empty() && value.chars().count() <= limit && !value.chars().any(|ch| {
-        ch.is_control() || matches!(ch, '\u{061C}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2064}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}' | '\u{E0000}'..='\u{E007F}')
-    })
-}
-
 impl AccountApiClient {
     pub async fn draft_eligibility(
         &self,
@@ -75,10 +69,12 @@ impl AccountApiClient {
         if !is_action_id(key)
             || !matches!(input.market, "swedish" | "norwegian")
             || input.currency != "SEK"
-            || input.title.is_some_and(|text| !valid_text(text, 200))
+            || input
+                .title
+                .is_some_and(|text| !super::actions::valid_action_text(text, 200))
             || input
                 .description
-                .is_some_and(|text| !valid_text(text, 10_000))
+                .is_some_and(|text| !super::actions::valid_action_text(text, 10_000))
         {
             return Err(invalid_input(
                 OPERATION,

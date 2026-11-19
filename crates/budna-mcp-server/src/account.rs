@@ -49,6 +49,13 @@ use crate::{
 mod actions;
 mod draft;
 mod notification_state;
+mod saved_search;
+pub(crate) const SEARCH_AUTHORING_TOOL: &str = "get_my_saved_search_authoring";
+pub(crate) const SEARCH_WRITE_TOOLS: [&str; 3] = [
+    "create_my_saved_search",
+    "update_my_saved_search",
+    "delete_my_saved_search",
+];
 pub(crate) const NOTIFICATION_BATCH_TOOL: &str = "get_my_notification_read_batch";
 pub(crate) const NOTIFICATION_READ_TOOL: &str = "mark_my_notifications_read";
 pub(crate) const REMINDER_TOOL: &str = "set_my_live_reminder";
@@ -100,6 +107,9 @@ impl AccountMcpServer {
         if client.listing_draft_creation_enabled() {
             routes += Self::listing_draft_router();
         }
+        if client.write_permissions().saved_searches {
+            routes += Self::saved_search_router();
+        }
         if client.write_permissions().notification_state {
             routes += Self::notification_state_router();
         }
@@ -110,6 +120,16 @@ impl AccountMcpServer {
             routes += Self::action_status_router();
         }
         routes
+    }
+
+    pub(crate) fn enabled_account_tools(
+        &self,
+    ) -> std::collections::HashSet<std::borrow::Cow<'static, str>> {
+        self.routes
+            .list_all()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect()
     }
 
     pub(crate) fn has_watchlist_write(&self) -> bool {
@@ -194,12 +214,11 @@ impl AccountMcpServer {
         })
         .await
         .map_err(|_| {
-            if operation == NOTIFICATION_READ_TOOL
-                || operation == REMINDER_TOOL
-                || operation == DRAFT_CREATE_TOOL
-                || operation == WATCHLIST_MEMBERSHIP_TOOL
-                || WATCHLIST_MANAGEMENT_TOOLS.contains(&operation)
-            {
+            if crate::http_transport::account_tool_scope(operation).is_some_and(|required| {
+                self.client
+                    .supported_write_scopes()
+                    .any(|scope| scope == required)
+            }) {
                 return tool_error(
                     operation,
                     "ACTION_OUTCOME_UNKNOWN",
@@ -1612,6 +1631,9 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.client.write_permissions().notification_state {
                 text.push_str(" get_my_notification_read_batch previews eligible ordinary notification IDs. mark_my_notifications_read acknowledges only explicitly selected IDs with notificationstate:write.");
+            }
+            if self.client.write_permissions().saved_searches {
+                text.push_str(" get_my_saved_search_authoring reads account limits. With savedsearches:write, create_my_saved_search, update_my_saved_search and delete_my_saved_search can change one saved search. Use the observed revision for edits and deletion.");
             }
             text.push_str(" Use get_my_action_status to reconcile a receipt on its original connection. Only executed confirms success.");
             text

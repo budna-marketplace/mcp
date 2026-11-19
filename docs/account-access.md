@@ -165,6 +165,23 @@ Protected, foreign or unavailable IDs reject the entire request. The receipt
 contains `action_id`, `status` and `requested_count`. The count includes
 eligible IDs that another client already acknowledged.
 
+### Saved searches
+
+Enable `savedsearches:write` on the account-actions deployment.
+`get_my_saved_search_authoring` uses `watchlist:read` to return usage, the
+account limit and allowed frequencies. Resolve category, filter and location
+choices using the marketplace reads. For creation, give the new search a
+name and supply the criteria. Monetary bounds use exact decimal strings and
+currency code SEK. Frequencies are immediate, daily or weekly.
+
+Read the saved search to obtain its current `updated_at`. Send that value as
+`expected_updated_at` to edit or delete. On edit, omitted scalar criteria are
+preserved and an explicit null clears the supplied criterion. Set or remove
+individual taxonomy filters with entries such as `{"field":"brand","value":null}`.
+Changing `active` pauses or resumes alerts. A stale revision requires reading
+the search again. Receipts contain `action_id`, `search_id` and `status`.
+Browsing and editing leave match acknowledgement in Budna.
+
 ## Private watchlist management
 
 Select `BUDNA_MCP_PROFILE=account-watchlist-management` on a designated

@@ -13,8 +13,8 @@ use budna_mcp_client::{
     DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
     MESSAGES_READ_SCOPE, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE,
     ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE,
-    SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE,
-    is_account_access_token,
+    SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
+    WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -31,14 +31,15 @@ use crate::{
     AccountMcpServer,
     account::{
         ACTION_STATUS_TOOL, DRAFT_CREATE_TOOL, DRAFT_ELIGIBILITY_TOOL, NOTIFICATION_BATCH_TOOL,
-        NOTIFICATION_READ_TOOL, REMINDER_TOOL, WATCHLIST_MANAGEMENT_TOOLS,
-        WATCHLIST_MEMBERSHIP_TOOL,
+        NOTIFICATION_READ_TOOL, REMINDER_TOOL, SEARCH_AUTHORING_TOOL, SEARCH_WRITE_TOOLS,
+        WATCHLIST_MANAGEMENT_TOOLS, WATCHLIST_MEMBERSHIP_TOOL,
     },
 };
 
 #[derive(Clone)]
 struct AccountAuth {
     client: AccountApiClient,
+    enabled_tools: Arc<std::collections::HashSet<std::borrow::Cow<'static, str>>>,
     challenge: HeaderValue,
     metadata_url: Arc<str>,
     slots: Arc<Semaphore>,
@@ -60,6 +61,7 @@ pub fn account_http_router(
     let permissions = server.limit_permissions(configured);
     let client = client.with_write_permissions(permissions);
     let scopes: Vec<_> = client.supported_scopes().collect();
+    let enabled_tools = Arc::new(server.enabled_account_tools());
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
         Arc::new(NeverSessionManager::default()),
@@ -77,6 +79,7 @@ pub fn account_http_router(
     let has_writes = client.supported_write_scopes().next().is_some();
     let auth = AccountAuth {
         client,
+        enabled_tools,
         challenge,
         metadata_url: metadata_url.into(),
         slots: Arc::new(Semaphore::new(8)),
@@ -138,18 +141,17 @@ async fn authenticate(
                             message
                                 .pointer("/params/name")
                                 .and_then(|value| value.as_str())
+                                .filter(|name| auth.enabled_tools.contains(*name))
                                 .and_then(|name| {
                                     if name == ACTION_STATUS_TOOL {
-                                        // The stored action determines the required scope. The API
-                                        // enforces that scope and grant without leaking its owners.
+                                        // The API checks the specific grant and scope of the stored receipt.
                                         if auth.client.supported_write_scopes().any(|scope| access.allows(scope)) {
                                             None
                                         } else {
                                             auth.client.supported_write_scopes().next()
                                         }
                                     } else {
-                                        if (name == NOTIFICATION_BATCH_TOOL && !auth.client.write_permissions().notification_state) || (name == DRAFT_ELIGIBILITY_TOOL && !auth.client.listing_draft_creation_enabled()) { return None; }
-                                        account_tool_scope(name).filter(|scope| auth.client.supported_scopes().any(|allowed| allowed == *scope))
+                                        account_tool_scope(name)
                                     }
                                 })
                         } else {
@@ -191,6 +193,8 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        SEARCH_AUTHORING_TOOL => WATCHLIST_READ_SCOPE,
+        name if SEARCH_WRITE_TOOLS.contains(&name) => SAVED_SEARCH_WRITE_SCOPE,
         NOTIFICATION_BATCH_TOOL => NOTIFICATIONS_READ_SCOPE,
         NOTIFICATION_READ_TOOL => NOTIFICATION_STATE_SCOPE,
         REMINDER_TOOL => LIVE_REMINDER_WRITE_SCOPE,

@@ -1787,3 +1787,129 @@ async fn notice_batch_previews_exact_ids_and_refusals_preserve_privacy() -> Resu
     server.child.wait().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn saved_search_authoring_and_lifecycle_preserve_omitted_criteria() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000005";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "search-owner",
+        "search-downstream",
+        USER_A,
+        "savedsearches:write watchlist:read",
+    )
+    .await;
+    exchange(&api, "reader", "reader-scope", USER_B, "watchlist:read").await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("savedsearches:write"),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let facts =
+        json!({"limit":40,"used":2,"notification_frequencies":["immediate","daily","weekly"]});
+    Mock::given(method("GET"))
+        .and(path("/api/v1/mcp/account/saved-search-authoring"))
+        .and(matches_header("authorization", "Bearer reader-scope"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":facts})),
+        )
+        .expect(1)
+        .mount(&api)
+        .await;
+    let result: Value = post(
+        &client,
+        &endpoint,
+        "reader",
+        call("get_my_saved_search_authoring", json!({})),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    assert_eq!(result.pointer("/result/structuredContent"), Some(&facts));
+    let price = json!({"amount":"15.90","currency_code":"SEK"});
+    let create = json!({"name":"Camera","criteria":{"text":"camera","max_price":price,"filters":[{"field":"lens","value":"wide"}]},"notification_frequency":"daily"});
+    let edit = json!({"search_id":7,"expected_updated_at":123,"criteria":{"text":null,"filters":[{"field":"lens","value":null}]},"active":false});
+    for (name, verb, suffix, input, body) in [
+        (
+            "create_my_saved_search",
+            "POST",
+            "",
+            create,
+            json!({"name":"Camera","criteria":{"text":"camera","max_price":price,"filters":{"lens":"wide"}},"notification_frequency":"daily"}),
+        ),
+        (
+            "update_my_saved_search",
+            "PATCH",
+            "/7",
+            edit,
+            json!({"expected_updated_at":123,"criteria":{"text":null,"filters":{"lens":null}},"active":false}),
+        ),
+        (
+            "delete_my_saved_search",
+            "DELETE",
+            "/7",
+            json!({"search_id":7,"expected_updated_at":321}),
+            json!({"expected_updated_at":321}),
+        ),
+    ] {
+        let denied = post(&client, &endpoint, "reader", call(name, input.clone())).await?;
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        assert!(
+            denied.headers()[header::WWW_AUTHENTICATE]
+                .to_str()?
+                .contains("savedsearches:write")
+        );
+        let receipt = json!({"action_id":ACTION,"status":"executed","search_id":7});
+        let mut wire = receipt.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = Mock::given(method(verb))
+            .and(path(format!("/api/v1/mcp/account/saved-searches{suffix}")))
+            .and(body_json(body))
+            .and(matches_header("authorization", "Bearer search-downstream"))
+            .and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(&client, &endpoint, "search-owner", call(name, input))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    for criteria in [
+        json!({}),
+        json!({"max_price":{"amount":5,"currency_code":"SEK"}}),
+        json!({"max_price":{"amount":"5.001","currency_code":"SEK"}}),
+        json!({"filters":[{"field":"one","value":"a"},{"field":"one","value":null}]}),
+        json!({"account_id":7}),
+    ] {
+        let update = call(
+            "update_my_saved_search",
+            json!({"search_id":7,"expected_updated_at":123,"criteria":criteria}),
+        );
+        let invalid: Value = post(&client, &endpoint, "search-owner", update)
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&invalid, "update_my_saved_search", "INVALID_INPUT")?;
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
