@@ -218,6 +218,10 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `get_my_order_rating_eligibility` | Account actions · `orders:read` | Preview the counterparty and rating eligibility for one owned order |
 | `prepare_my_bid` | Account actions · `bids:read` | Prepare one nonbinding, short-lived quote in SEK for the current auction round |
 | `submit_my_quoted_bid` | Account actions · `bids:write` | Submit the exact quoted bid under the customer’s connected-app approval policy |
+| `get_my_automatic_bid_state` | Account actions · `bids:read` | Read the customer’s own maximum and its current revision for one auction |
+| `prepare_my_automatic_bid_maximum` | Account actions · `bids:read` | Quote a private standing maximum and show the effect of an immediate bid |
+| `set_my_quoted_automatic_bid_maximum` | Account actions · `autobids:write` | Authorize future bids up to the quoted maximum under the customer’s approval policy |
+| `pause_my_automatic_bid` | Account actions · `autobids:write` | Pause future automatic bids for the reviewed instruction |
 | `rate_my_order_counterparty` | Account actions · `ratings:write` | Submit the customer’s stars and chosen comment or star-only rating |
 | `list_my_ratings` | Ratings permission | List ratings you received or gave, with the other party's public username, stars, comment and listing |
 | `get_my_money_summary` | Payments permission | Read your money totals per currency: proceeds pending, on the way, paid out, on hold or in balance, and payments made and refunded |
@@ -236,6 +240,8 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `change_my_shipping_defaults` | Account actions · `shippingdefaults:write` | Change carrier or combined-shipping defaults for future listings |
 | `get_my_shipping_rules` / `list_my_shipping_rule_listings` | Account actions · `shippingrules:read` | Read kinds of goods, parcel capacities and paged listing assignments |
 | `change_my_shipping_rule` | Account actions · `shippingrules:write` | Apply one reviewed change to a kind, listing assignment or parcel |
+| `get_my_stream_authoring` | Account actions · `streamauthoring:read` | Review an owned target or an existing stream, its schedule and announced lineup |
+| `change_my_stream_plan` | Account actions · `streamplans:write` | Schedule, reschedule or cancel one stream, or add, remove or move one announced shop listing |
 | `get_my_showcase_authoring` | Account actions · `showcaseauthoring:read` | Review seller verification, a showcase, affected listing deadlines and related streams |
 | `change_my_showcase` | Account actions · `showcases:write` | Create, edit or delete a draft, add one reviewed listing, publish or cancel |
 | `get_my_listing_inventory` | Account actions · `listings:read` | Review available stock, checkout reservations and open offers on an owned listing |

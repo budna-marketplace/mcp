@@ -1,3 +1,4 @@
+pub(crate) mod automatic_bids;
 pub(crate) mod bid_submission;
 pub(crate) mod messages;
 pub(crate) mod personal;
@@ -561,6 +562,17 @@ impl schemars::JsonSchema for CustomFiltersParam {
             }
         })
     }
+}
+
+/// Binds one explicit customer intent to one durable account action, including across reconnections.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WithRequestId<T> {
+    /// Allocate one UUID per intended change. Reuse the same UUID and arguments on retries.
+    #[schemars(length(min = 36, max = 36))]
+    pub request_id: String,
+    #[serde(flatten)]
+    pub fields: T,
 }
 
 #[derive(Debug)]

@@ -84,6 +84,10 @@ pub use account::{
     is_action_id, is_watchlist_name,
 };
 pub use account::{
+    AUTOBIDS_WRITE_SCOPE, PauseMaximumReceipt, SetMaximumReceipt, StandingBidQuote,
+    StandingBidState, StandingBidStatus,
+};
+pub use account::{
     AuthoringShowcaseKind, AuthoringShowcaseStatus, ShowcaseAuthoring, ShowcaseAuthoringDetails,
     ShowcaseCandidateTerms, ShowcaseChange, ShowcaseChangeReceipt, ShowcaseListingRefusal,
     ShowcaseMemberTerms,
@@ -104,6 +108,10 @@ pub use account::{
     PackageSize, ShippingDefaultEdit, ShippingListingPage, ShippingReceipt, ShippingRuleCatalog,
     ShippingRuleEdit,
 };
+pub use account::{
+    PlannedStreamStatus, StreamAuthoring, StreamPlanChange, StreamPlanDetails, StreamPlanReceipt,
+    StreamPlanTarget,
+};
 pub use account::{PublicationBlocker, PublicationPriority, PublicationReadiness};
 pub use account::{
     RoomActionName, RoomBanScope, RoomModerationView, RoomOperation, RoomReceipt,
@@ -111,6 +119,9 @@ pub use account::{
 };
 pub use account::{RoomParticipant, RoomReactionTarget, RoomTally};
 pub use budna_mcp_core::write_permissions::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
+pub use budna_mcp_core::write_permissions::{
+    STREAM_AUTHORING_READ_SCOPE, STREAM_PLANS_WRITE_SCOPE,
+};
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
 pub use explore::{

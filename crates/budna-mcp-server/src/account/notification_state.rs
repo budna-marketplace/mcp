@@ -38,26 +38,26 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn mark_my_notifications_read(
         &self,
-        Parameters(input): Parameters<SafeToolParams<NotificationReadParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<NotificationReadParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<NotificationReadReceiptOutput>, CallToolResult> {
-        let args = input
+        let WithRequestId {
+            fields: args,
+            request_id,
+        } = input
             .parse()
             .map_err(|e| input_error(NOTIFICATION_READ_TOOL, &e))?;
         let access = request_access(&context, NOTIFICATION_READ_TOOL)?;
         self.execute(
             NOTIFICATION_READ_TOOL,
-            self.client.mark_notifications_read(
-                &access,
-                &args.notification_ids,
-                &uuid::Uuid::new_v4().to_string(),
-            ),
+            self.client
+                .mark_notifications_read(&access, &args.notification_ids, &request_id),
         )
         .await
     }

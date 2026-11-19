@@ -80,17 +80,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn set_my_room_reaction(
         &self,
-        Parameters(i): Parameters<SafeToolParams<RoomReactParams>>,
+        Parameters(i): Parameters<SafeToolParams<WithRequestId<RoomReactParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<RoomReceiptOutput>, CallToolResult> {
         const OP: &str = "set_my_room_reaction";
-        let i = i.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: i,
+            request_id,
+        } = i.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -103,7 +106,7 @@ impl AccountMcpServer {
                     emoji: i.emoji,
                     reacted: i.reacted,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -118,17 +121,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn report_live_chat_post(
         &self,
-        Parameters(i): Parameters<SafeToolParams<RoomMessageParams>>,
+        Parameters(i): Parameters<SafeToolParams<WithRequestId<RoomMessageParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<RoomReceiptOutput>, CallToolResult> {
         const OP: &str = "report_live_chat_post";
-        let i = i.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: i,
+            request_id,
+        } = i.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -138,7 +144,7 @@ impl AccountMcpServer {
                 RoomOperation::ReportPost {
                     message_id: i.message_id,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -153,17 +159,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn set_my_room_message_pinned(
         &self,
-        Parameters(i): Parameters<SafeToolParams<RoomPinParams>>,
+        Parameters(i): Parameters<SafeToolParams<WithRequestId<RoomPinParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<RoomReceiptOutput>, CallToolResult> {
         const OP: &str = "set_my_room_message_pinned";
-        let i = i.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: i,
+            request_id,
+        } = i.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -174,7 +183,7 @@ impl AccountMcpServer {
                     message_id: i.message_id,
                     pinned: i.pinned,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -186,17 +195,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn hide_my_room_message(
         &self,
-        Parameters(i): Parameters<SafeToolParams<RoomMessageParams>>,
+        Parameters(i): Parameters<SafeToolParams<WithRequestId<RoomMessageParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<RoomReceiptOutput>, CallToolResult> {
         const OP: &str = "hide_my_room_message";
-        let i = i.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: i,
+            request_id,
+        } = i.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -206,7 +218,7 @@ impl AccountMcpServer {
                 RoomOperation::Hide {
                     message_id: i.message_id,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -218,17 +230,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn report_my_room_participant(
         &self,
-        Parameters(i): Parameters<SafeToolParams<RoomParticipantReportParams>>,
+        Parameters(i): Parameters<SafeToolParams<WithRequestId<RoomParticipantReportParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<RoomReceiptOutput>, CallToolResult> {
         const OP: &str = "report_my_room_participant";
-        let i = i.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: i,
+            request_id,
+        } = i.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -239,7 +254,7 @@ impl AccountMcpServer {
                     user_id: &i.user_id,
                     message_id: i.message_id,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -251,17 +266,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn ban_my_room_participant(
         &self,
-        Parameters(i): Parameters<SafeToolParams<RoomMemberParams>>,
+        Parameters(i): Parameters<SafeToolParams<WithRequestId<RoomMemberParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<RoomReceiptOutput>, CallToolResult> {
         const OP: &str = "ban_my_room_participant";
-        let i = i.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: i,
+            request_id,
+        } = i.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -271,7 +289,7 @@ impl AccountMcpServer {
                 RoomOperation::Ban {
                     user_id: &i.user_id,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -283,17 +301,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn unban_my_room_participant(
         &self,
-        Parameters(i): Parameters<SafeToolParams<RoomMemberParams>>,
+        Parameters(i): Parameters<SafeToolParams<WithRequestId<RoomMemberParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<RoomReceiptOutput>, CallToolResult> {
         const OP: &str = "unban_my_room_participant";
-        let i = i.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: i,
+            request_id,
+        } = i.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -303,7 +324,7 @@ impl AccountMcpServer {
                 RoomOperation::Unban {
                     user_id: &i.user_id,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await

@@ -85,17 +85,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn start_my_conversation(
         &self,
-        Parameters(input): Parameters<SafeToolParams<StartConversationParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<StartConversationParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<MessageActionReceiptOutput>, CallToolResult> {
         const OP: &str = "start_my_conversation";
-        let input = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -109,7 +112,7 @@ impl AccountMcpServer {
                     recipient_user_id: &input.recipient_user_id,
                     text: &input.text,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -121,17 +124,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn send_my_message(
         &self,
-        Parameters(input): Parameters<SafeToolParams<SendMessageParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<SendMessageParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<MessageActionReceiptOutput>, CallToolResult> {
         const OP: &str = "send_my_message";
-        let input = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -145,7 +151,7 @@ impl AccountMcpServer {
                     recipient_user_id: &input.recipient_user_id,
                     text: &input.text,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -157,17 +163,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn reply_to_my_message(
         &self,
-        Parameters(input): Parameters<SafeToolParams<ReplyMessageParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<ReplyMessageParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<MessageActionReceiptOutput>, CallToolResult> {
         const OP: &str = "reply_to_my_message";
-        let input = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -182,7 +191,7 @@ impl AccountMcpServer {
                     recipient_user_id: &input.recipient_user_id,
                     text: &input.text,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await
@@ -194,17 +203,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn edit_my_message(
         &self,
-        Parameters(input): Parameters<SafeToolParams<EditMessageParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<EditMessageParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<MessageActionReceiptOutput>, CallToolResult> {
         const OP: &str = "edit_my_message";
-        let input = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -220,7 +232,7 @@ impl AccountMcpServer {
                     recipient_user_id: &input.recipient_user_id,
                     text: &input.text,
                 },
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await

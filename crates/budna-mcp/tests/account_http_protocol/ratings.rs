@@ -49,7 +49,7 @@ async fn ratings_bind_an_owned_order_stars_and_the_customers_exact_comment_choic
     assert_eq!(preview.pointer("/result/structuredContent"), Some(&facts));
     let name = "rate_my_order_counterparty";
     assert_eq!(
-        post(&client, &endpoint, "reader", call(name, json!({})))
+        post(&client, &endpoint, "reader", write_call(name, json!({})))
             .await?
             .status(),
         StatusCode::FORBIDDEN
@@ -60,7 +60,7 @@ async fn ratings_bind_an_owned_order_stars_and_the_customers_exact_comment_choic
         json!({"order_id":7,"stars":6,"audience":"marketplace","comment":null}),
         json!({"order_id":7,"stars":2,"audience":"private","comment":"Great"}),
     ] {
-        let r = post(&client, &endpoint, "owner", call(name, bad))
+        let r = post(&client, &endpoint, "owner", write_call(name, bad))
             .await?
             .error_for_status()?
             .json()
@@ -88,7 +88,7 @@ async fn ratings_bind_an_owned_order_stars_and_the_customers_exact_comment_choic
             &client,
             &endpoint,
             "owner",
-            call(
+            write_call(
                 name,
                 json!({"order_id":7,"stars":4,"comment":comment,"audience":"marketplace"}),
             ),

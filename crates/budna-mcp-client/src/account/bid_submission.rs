@@ -105,6 +105,9 @@ impl BidQuote {
             && self.delivery_at_checkout
             && self.ends_at > 0
             && self.expires_at > 0
+            && self.expires_at <= self.ends_at
+            && !decimal_is_less_than_or_equal(&self.increment.amount, "0")
+            && decimal_is_less_than_or_equal(&self.minimum_bid.amount, &self.bid.amount)
     }
 }
 

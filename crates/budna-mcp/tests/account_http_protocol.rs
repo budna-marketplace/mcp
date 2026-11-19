@@ -69,6 +69,13 @@ async fn post(
         .await?)
 }
 
+const REQUEST_ID: &str = "2b27deac-9422-465d-b498-f1642f898668";
+
+fn write_call(name: &str, mut arguments: Value) -> Value {
+    arguments["request_id"] = json!(REQUEST_ID);
+    call(name, arguments)
+}
+
 fn call(name: &str, arguments: Value) -> Value {
     json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":name,"arguments":arguments}})
 }
@@ -1299,6 +1306,21 @@ async fn watchlist_management_requires_separate_consent_and_returns_scoped_recei
         .pointer("/result/tools")
         .and_then(Value::as_array)
         .context("tools")?;
+    for args in [
+        json!({"name":"Books"}),
+        json!({"name":"Books","request_id":"bad"}),
+    ] {
+        let response = post(
+            &client,
+            &endpoint,
+            "manager",
+            call("create_my_private_watchlist", args),
+        )
+        .await?
+        .json()
+        .await?;
+        assert_write_error(&response, "create_my_private_watchlist", "INVALID_INPUT")?;
+    }
     for (name, verb, suffix, arguments, body) in [
         (
             "create_my_private_watchlist",
@@ -1332,7 +1354,13 @@ async fn watchlist_management_requires_separate_consent_and_returns_scoped_recei
             tool["annotations"]["destructiveHint"],
             name != "create_my_private_watchlist"
         );
-        let denied = post(&client, &endpoint, "saver", call(name, arguments.clone())).await?;
+        let denied = post(
+            &client,
+            &endpoint,
+            "saver",
+            write_call(name, arguments.clone()),
+        )
+        .await?;
         assert_eq!(denied.status(), StatusCode::FORBIDDEN);
         assert!(
             denied.headers()[header::WWW_AUTHENTICATE]
@@ -1344,7 +1372,7 @@ async fn watchlist_management_requires_separate_consent_and_returns_scoped_recei
                 "/api/v1/mcp/account/private-watchlists{suffix}"
             )))
             .and(matches_header("authorization", "Bearer delegated-manager"))
-            .and(header_regex("idempotency-key", "^[0-9a-f-]{36}$"));
+            .and(matches_header("idempotency-key", REQUEST_ID));
         if let Some(body) = body {
             route = route.and(body_json(body));
         } else {
@@ -1360,7 +1388,7 @@ async fn watchlist_management_requires_separate_consent_and_returns_scoped_recei
             .expect(1)
             .mount_as_scoped(&api)
             .await;
-        let result: Value = post(&client, &endpoint, "manager", call(name, arguments))
+        let result: Value = post(&client, &endpoint, "manager", write_call(name, arguments))
             .await?
             .error_for_status()?
             .json()
@@ -1386,7 +1414,7 @@ async fn watchlist_management_requires_separate_consent_and_returns_scoped_recei
             &client,
             &endpoint,
             "manager",
-            call("create_my_private_watchlist", args),
+            write_call("create_my_private_watchlist", args),
         )
         .await?
         .error_for_status()?
@@ -1464,7 +1492,13 @@ async fn draft_profile_requires_fresh_consent_and_recovers_verification_on_web()
         .timeout(Duration::from_secs(10))
         .build()?;
     let body = json!({"currency":"SEK","market":"swedish"});
-    let denied = post(&client, &endpoint, "profile", call(CREATE, body.clone())).await?;
+    let denied = post(
+        &client,
+        &endpoint,
+        "profile",
+        write_call(CREATE, body.clone()),
+    )
+    .await?;
     assert_eq!(denied.status(), StatusCode::FORBIDDEN);
     assert!(
         denied.headers()[header::WWW_AUTHENTICATE]
@@ -1511,11 +1545,16 @@ async fn draft_profile_requires_fresh_consent_and_recovers_verification_on_web()
                 .expect(1)
                 .mount_as_scoped(&api)
                 .await;
-        let refused: Value = post(&client, &endpoint, "seller", call(CREATE, body.clone()))
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+        let refused: Value = post(
+            &client,
+            &endpoint,
+            "seller",
+            write_call(CREATE, body.clone()),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
         assert_write_error(&refused, CREATE, "SELLER_VERIFICATION_REQUIRED")?;
         assert!(!refused.to_string().contains(SENTINEL));
     }
@@ -1524,7 +1563,7 @@ async fn draft_profile_requires_fresh_consent_and_recovers_verification_on_web()
         json!({"currency":"NOK","market":"norwegian"}),
         json!({"currency":"SEK","market":"swedish","title":"\u{202e}incorrect"}),
     ] {
-        let result: Value = post(&client, &endpoint, "seller", call(CREATE, bad))
+        let result: Value = post(&client, &endpoint, "seller", write_call(CREATE, bad))
             .await?
             .error_for_status()?
             .json()
@@ -1539,11 +1578,16 @@ async fn draft_profile_requires_fresh_consent_and_recovers_verification_on_web()
         .expect(1)
         .mount_as_scoped(&api)
         .await;
-    let result: Value = post(&client, &endpoint, "seller", call(CREATE, body.clone()))
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
+    let result: Value = post(
+        &client,
+        &endpoint,
+        "seller",
+        write_call(CREATE, body.clone()),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
     assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
     server.child.kill().await?;
     server.child.wait().await?;
@@ -1666,7 +1710,7 @@ async fn combined_profile_advertises_only_configured_families_and_requires_each_
             &client,
             &endpoint,
             "saver",
-            call("set_my_live_reminder", args.clone()),
+            write_call("set_my_live_reminder", args.clone()),
         )
         .await?;
         assert_eq!(denied.status(), StatusCode::FORBIDDEN);
@@ -1698,7 +1742,7 @@ async fn combined_profile_advertises_only_configured_families_and_requires_each_
             &client,
             &endpoint,
             "reminder",
-            call("set_my_live_reminder", args),
+            write_call("set_my_live_reminder", args),
         )
         .await?
         .error_for_status()?
@@ -1765,7 +1809,7 @@ async fn notice_batch_previews_exact_ids_and_refusals_preserve_privacy() -> Resu
     assert_eq!(preview.pointer("/result/structuredContent"), Some(&batch));
     let args = json!({"notification_ids":[7,8]});
     assert_eq!(
-        post(&client, &endpoint, "reader", call(MARK, args.clone()))
+        post(&client, &endpoint, "reader", write_call(MARK, args.clone()))
             .await?
             .status(),
         StatusCode::FORBIDDEN
@@ -1776,7 +1820,7 @@ async fn notice_batch_previews_exact_ids_and_refusals_preserve_privacy() -> Resu
         json!({"notification_ids":[-1]}),
         json!({"notification_ids":[7],"all":true}),
     ] {
-        let invalid: Value = post(&client, &endpoint, "both", call(MARK, bad))
+        let invalid: Value = post(&client, &endpoint, "both", write_call(MARK, bad))
             .await?
             .error_for_status()?
             .json()
@@ -1799,7 +1843,7 @@ async fn notice_batch_previews_exact_ids_and_refusals_preserve_privacy() -> Resu
             .expect(1)
             .mount_as_scoped(&api)
             .await;
-        let marked: Value = post(&client, &endpoint, "both", call(MARK, args.clone()))
+        let marked: Value = post(&client, &endpoint, "both", write_call(MARK, args.clone()))
             .await?
             .error_for_status()?
             .json()
@@ -1812,7 +1856,7 @@ async fn notice_batch_previews_exact_ids_and_refusals_preserve_privacy() -> Resu
             .expect(1)
             .mount_as_scoped(&api)
             .await;
-        let missing: Value = post(&client, &endpoint, "both", call(MARK, args.clone()))
+        let missing: Value = post(&client, &endpoint, "both", write_call(MARK, args.clone()))
             .await?
             .error_for_status()?
             .json()
@@ -1899,7 +1943,13 @@ async fn saved_search_authoring_and_lifecycle_preserve_omitted_criteria() -> Res
             json!({"expected_updated_at":321}),
         ),
     ] {
-        let denied = post(&client, &endpoint, "reader", call(name, input.clone())).await?;
+        let denied = post(
+            &client,
+            &endpoint,
+            "reader",
+            write_call(name, input.clone()),
+        )
+        .await?;
         assert_eq!(denied.status(), StatusCode::FORBIDDEN);
         assert!(
             denied.headers()[header::WWW_AUTHENTICATE]
@@ -1920,7 +1970,7 @@ async fn saved_search_authoring_and_lifecycle_preserve_omitted_criteria() -> Res
             .expect(1)
             .mount_as_scoped(&api)
             .await;
-        let result: Value = post(&client, &endpoint, "search-owner", call(name, input))
+        let result: Value = post(&client, &endpoint, "search-owner", write_call(name, input))
             .await?
             .error_for_status()?
             .json()
@@ -1935,7 +1985,7 @@ async fn saved_search_authoring_and_lifecycle_preserve_omitted_criteria() -> Res
         json!({"filters":[{"field":"one","value":"a"},{"field":"one","value":null}]}),
         json!({"account_id":7}),
     ] {
-        let update = call(
+        let update = write_call(
             "update_my_saved_search",
             json!({"search_id":7,"expected_updated_at":123,"criteria":criteria}),
         );
@@ -2062,9 +2112,14 @@ async fn personal_settings_bind_actor_and_target_and_never_acknowledge_a_read() 
         if verb != "GET" {
             mock = mock.and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"));
             assert_eq!(
-                post(&client, &endpoint, "reader", call(name, arguments.clone()))
-                    .await?
-                    .status(),
+                post(
+                    &client,
+                    &endpoint,
+                    "reader",
+                    write_call(name, arguments.clone())
+                )
+                .await?
+                .status(),
                 StatusCode::FORBIDDEN
             );
         }
@@ -2077,11 +2132,20 @@ async fn personal_settings_bind_actor_and_target_and_never_acknowledge_a_read() 
             .expect(1)
             .mount_as_scoped(&api)
             .await;
-        let result: Value = post(&client, &endpoint, "personal", call(name, arguments))
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+        let result: Value = post(
+            &client,
+            &endpoint,
+            "personal",
+            if verb == "GET" {
+                call(name, arguments)
+            } else {
+                write_call(name, arguments)
+            },
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
         assert_eq!(
             result.pointer("/result/structuredContent"),
             Some(&expected),
@@ -2138,7 +2202,7 @@ async fn personal_settings_bind_actor_and_target_and_never_acknowledge_a_read() 
             json!({"message_id":11,"for_everyone":true}),
         ),
     ] {
-        let result: Value = post(&client, &endpoint, "personal", call(name, invalid))
+        let result: Value = post(&client, &endpoint, "personal", write_call(name, invalid))
             .await?
             .error_for_status()?
             .json()
@@ -2234,7 +2298,7 @@ async fn block_discovery_and_mutations_require_independent_explicit_grants() -> 
                     &client,
                     &endpoint,
                     "reader",
-                    call("set_my_personal_block", args.clone())
+                    write_call("set_my_personal_block", args.clone())
                 )
                 .await?
                 .status(),
@@ -2270,7 +2334,7 @@ async fn block_discovery_and_mutations_require_independent_explicit_grants() -> 
                 &client,
                 &endpoint,
                 "writer",
-                call("set_my_personal_block", args),
+                write_call("set_my_personal_block", args),
             )
             .await?
             .error_for_status()?
@@ -2293,6 +2357,8 @@ mod ratings;
 #[path = "account_http_protocol/rooms.rs"]
 mod rooms;
 
+#[path = "account_http_protocol/automatic_bids.rs"]
+mod automatic_bids;
 #[path = "account_http_protocol/bid_submission.rs"]
 mod bid_submission;
 
@@ -2300,3 +2366,5 @@ mod bid_submission;
 mod seller_authoring;
 #[path = "account_http_protocol/showcase_authoring.rs"]
 mod showcase_authoring;
+#[path = "account_http_protocol/stream_authoring.rs"]
+mod stream_authoring;

@@ -58,17 +58,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn post_public_chat_message(
         &self,
-        Parameters(input): Parameters<SafeToolParams<PostRoomParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<PostRoomParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<PublicChatReceiptOutput>, CallToolResult> {
         const OP: &str = "post_public_chat_message";
-        let input = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -78,7 +81,7 @@ impl AccountMcpServer {
                 input.audience,
                 &input.text,
                 input.reply_to_message_id,
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await

@@ -37,17 +37,20 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn set_my_message_reaction(
         &self,
-        Parameters(input): Parameters<SafeToolParams<SetReactionParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<SetReactionParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<MessageReactionReceiptOutput>, CallToolResult> {
         const OP: &str = "set_my_message_reaction";
-        let input = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
         self.execute(
             OP,
@@ -56,7 +59,7 @@ impl AccountMcpServer {
                 input.conversation_id,
                 input.message_id,
                 input.reaction,
-                &uuid::Uuid::new_v4().to_string(),
+                &request_id,
             ),
         )
         .await

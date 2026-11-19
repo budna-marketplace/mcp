@@ -35,19 +35,21 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn set_my_conversation_setting(
         &self,
-        Parameters(params): Parameters<SafeToolParams<ConversationSettingParams>>,
+        Parameters(params): Parameters<SafeToolParams<WithRequestId<ConversationSettingParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<ConversationSettingReceiptOutput>, CallToolResult> {
         const OP: &str = "set_my_conversation_setting";
-        let input = params.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = params.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
-        let key = uuid::Uuid::new_v4().to_string();
         self.execute(
             OP,
             self.client.set_conversation_setting(
@@ -59,7 +61,7 @@ impl AccountMcpServer {
                     SettingParam::Muted => ConversationSetting::Muted,
                 },
                 input.enabled,
-                &key,
+                &request_id,
             ),
         )
         .await
@@ -70,23 +72,25 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn hide_my_message_copy(
         &self,
-        Parameters(params): Parameters<SafeToolParams<MessageCopyParams>>,
+        Parameters(params): Parameters<SafeToolParams<WithRequestId<MessageCopyParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<MessageCopyReceiptOutput>, CallToolResult> {
         const OP: &str = "hide_my_message_copy";
-        let input = params.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = params.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
-        let key = uuid::Uuid::new_v4().to_string();
         self.execute(
             OP,
             self.client
-                .hide_message_copy(&access, input.message_id, &key),
+                .hide_message_copy(&access, input.message_id, &request_id),
         )
         .await
     }
@@ -121,23 +125,29 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn set_my_listing_chat_muted(
         &self,
-        Parameters(params): Parameters<SafeToolParams<ListingChatMuteParams>>,
+        Parameters(params): Parameters<SafeToolParams<WithRequestId<ListingChatMuteParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<ListingChatPreferenceReceiptOutput>, CallToolResult> {
         const OP: &str = "set_my_listing_chat_muted";
-        let input = params.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = params.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
-        let key = uuid::Uuid::new_v4().to_string();
         self.execute(
             OP,
-            self.client
-                .set_listing_chat_muted(&access, &input.listing_id, input.muted, &key),
+            self.client.set_listing_chat_muted(
+                &access,
+                &input.listing_id,
+                input.muted,
+                &request_id,
+            ),
         )
         .await
     }
@@ -172,19 +182,21 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn update_my_public_profile(
         &self,
-        Parameters(params): Parameters<SafeToolParams<EditProfileParams>>,
+        Parameters(params): Parameters<SafeToolParams<WithRequestId<EditProfileParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<ProfileEditReceiptOutput>, CallToolResult> {
         const OP: &str = "update_my_public_profile";
-        let input = params.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = params.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
-        let key = uuid::Uuid::new_v4().to_string();
         self.execute(
             OP,
             self.client.edit_public_profile(
@@ -192,7 +204,7 @@ impl AccountMcpServer {
                 input.expected_revision,
                 input.display_name.as_deref(),
                 input.bio.as_deref(),
-                &key,
+                &request_id,
             ),
         )
         .await
@@ -228,19 +240,21 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn set_my_following(
         &self,
-        Parameters(params): Parameters<SafeToolParams<SetFollowingParams>>,
+        Parameters(params): Parameters<SafeToolParams<WithRequestId<SetFollowingParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<FollowReceiptOutput>, CallToolResult> {
         const OP: &str = "set_my_following";
-        let input = params.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = params.parse().map_err(|e| input_error(OP, &e))?;
         let access = request_access(&context, OP)?;
-        let key = uuid::Uuid::new_v4().to_string();
         self.execute(
             OP,
             self.client.set_following(
@@ -248,7 +262,7 @@ impl AccountMcpServer {
                 &input.username,
                 &input.expected_user_id,
                 input.following,
-                &key,
+                &request_id,
             ),
         )
         .await

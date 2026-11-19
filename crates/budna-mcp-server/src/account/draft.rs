@@ -50,16 +50,19 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn create_my_listing_draft(
         &self,
-        Parameters(input): Parameters<SafeToolParams<DraftParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<DraftParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<DraftReceiptOutput>, CallToolResult> {
-        let input = input
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input
             .parse()
             .map_err(|e| input_error(DRAFT_CREATE_TOOL, &e))?;
         let access = request_access(&context, DRAFT_CREATE_TOOL)?;
@@ -71,8 +74,7 @@ impl AccountMcpServer {
         };
         self.execute(
             DRAFT_CREATE_TOOL,
-            self.client
-                .create_draft(&access, &draft, &uuid::Uuid::new_v4().to_string()),
+            self.client.create_draft(&access, &draft, &request_id),
         )
         .await
     }

@@ -173,7 +173,7 @@ async fn private_text_and_reactions_bind_audience_target_and_independent_grants(
             .expect(1)
             .mount_as_scoped(&api)
             .await;
-        let r: Value = post(&client, &endpoint, "writer", call(name, input))
+        let r: Value = post(&client, &endpoint, "writer", write_call(name, input))
             .await?
             .error_for_status()?
             .json()
@@ -204,7 +204,7 @@ async fn private_text_and_reactions_bind_audience_target_and_independent_grants(
             &client,
             &endpoint,
             "reactor",
-            call("set_my_message_reaction", input),
+            write_call("set_my_message_reaction", input),
         )
         .await?
         .error_for_status()?
@@ -239,7 +239,7 @@ async fn private_text_and_reactions_bind_audience_target_and_independent_grants(
             json!({"recipient_username":"maja","recipient_user_id":USER_B,"text":"  "}),
         ),
     ] {
-        let r: Value = post(&client, &endpoint, token, call(name, input))
+        let r: Value = post(&client, &endpoint, token, write_call(name, input))
             .await?
             .error_for_status()?
             .json()
@@ -283,7 +283,7 @@ async fn public_post_requires_its_own_grant_and_an_explicit_public_audience() ->
         &client,
         &endpoint,
         "private",
-        call(post_tool, input.clone()),
+        write_call(post_tool, input.clone()),
     )
     .await?;
     assert_eq!(unauthorized.status(), StatusCode::FORBIDDEN);
@@ -297,7 +297,7 @@ async fn public_post_requires_its_own_grant_and_an_explicit_public_audience() ->
         json!({"room_id":LISTING_A,"audience":"private","text":"hi"}),
         json!({"room_id":USER_A,"audience":"public","text":"hi"}),
     ] {
-        let r = post(&client, &endpoint, "room", call(post_tool, invalid))
+        let r = post(&client, &endpoint, "room", write_call(post_tool, invalid))
             .await?
             .error_for_status()?
             .json()
@@ -361,7 +361,7 @@ async fn public_post_requires_its_own_grant_and_an_explicit_public_audience() ->
         .expect(1)
         .mount_as_scoped(&api)
         .await;
-    let r: Value = post(&client, &endpoint, "room", call(post_tool, input))
+    let r: Value = post(&client, &endpoint, "room", write_call(post_tool, input))
         .await?
         .error_for_status()?
         .json()

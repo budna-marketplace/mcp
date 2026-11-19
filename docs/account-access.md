@@ -143,6 +143,9 @@ review. Use Account Read or Public Explore to turn off the write tool.
 
 ## Configuring account actions
 
+For tools that advertise `request_id`, generate a UUID when the customer requests the change. Keep that UUID and the exact arguments across reconnects, timeouts and retries. A different change gets a fresh UUID. A quote-bound commitment uses its own advertised quote ID. Check the returned action receipt from the original connected app. Only `executed` confirms completion.
+
+
 Use the HTTP profile `account-actions` to enable multiple independently consented
 families on one connection. Set `BUDNA_MCP_WRITE_SCOPES` to the exact
 space-separated permissions approved for the deployment. Include `personalblocks:read`, `chatrooms:read` or `roommoderation:read` explicitly when they are needed. For example,
@@ -457,6 +460,12 @@ Operators can enable `bids:write` on an account-actions deployment with the matc
 
 Submission requires `bids:write` and the original quote, listing and amount. A pending receipt includes a link to the requesting customer’s Budna approval page. Read the action status for its outcome. If the submission response is lost, retry the same terms with the same quote. A new quote represents a new intent.
 
+### Automatic bidding
+
+Automatic bidding requires its own `autobids:write` permission. With the automatic-bid capability enabled, `bids:read` shows the customer’s current instruction and prepares a short-lived quote for one exact maximum. A quote identifies the listing and auction round and shows buyer-protection and nonpayment fees at that maximum. Setting or raising the maximum may place a binding bid immediately and allows subsequent automatic bids up to the cap. Budna applies the customer’s approval policy and spending limits to the full maximum.
+
+Use the quote ID and original maximum for a submission retry. Pausing requires the revision from the current instruction and a stable idempotency key. A successful pause stops future bidding and preserves bids already placed.
+
 ### Similar drafts and shipping rules
 
 To create a similar unpublished draft, the customer selects an owned source, reads its `updated_at`, and grants `draftauthoring:write`. The action checks seller verification and copies the supported source fields. Media, bid history, orders and identity stay outside the copy. Supply one `request_id` UUID per intended draft and reuse it after an interrupted request.
@@ -474,3 +483,7 @@ Read the owner’s inventory review before setting a shelf count or recording an
 ### Listing publication
 
 Publication uses its own fresh grant. Review the seller’s draft, eligible media, current terms, blockers, upfront amount due and the estimated fees and proceeds at the stated sale price. The readiness read issues a quote only for an eligible immediate publication. Future starts require an updated draft. The seller completes identity or payment steps on Budna. Submit the reviewed revision and quote with a stable request ID, then read the action and the owner’s listing. Changing a promotion is a separate first-party choice.
+
+### Seller stream schedules and announced listings
+
+Use `get_my_stream_authoring` with `streamauthoring:read` to review your shop, listing or showcase before scheduling. For an existing stream, select its stream ID to review the schedule, follower notification setting and full ordered lineup. With `streamplans:write`, submit one change with the reviewed revision and a request UUID. Scheduling requires an eligible target, verified seller and selling readiness. Complete identity or payout steps on Budna. A scheduled stream can appear publicly and followers can receive notifications. Choose eligible listings from your active inventory. Change the lineup one listing at a time. Use the Budna app to start and host the broadcast.

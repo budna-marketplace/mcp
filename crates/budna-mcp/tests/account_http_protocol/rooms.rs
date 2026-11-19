@@ -176,7 +176,7 @@ async fn room_actions_honor_separate_grants_target_kind_and_room_boundaries() ->
             .expect(1)
             .mount_as_scoped(&api)
             .await;
-        let r: Value = post(&client, &endpoint, "host", call(name, input))
+        let r: Value = post(&client, &endpoint, "host", write_call(name, input))
             .await?
             .error_for_status()?
             .json()
@@ -209,7 +209,7 @@ async fn room_actions_honor_separate_grants_target_kind_and_room_boundaries() ->
             json!({"room_id":LISTING_A,"message_id":7}),
         ),
     ] {
-        let r = post(&client, &endpoint, "host", call(name, input))
+        let r = post(&client, &endpoint, "host", write_call(name, input))
             .await?
             .error_for_status()?
             .json()

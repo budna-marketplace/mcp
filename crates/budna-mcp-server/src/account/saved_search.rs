@@ -38,22 +38,25 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn create_my_saved_search(
         &self,
-        Parameters(input): Parameters<SafeToolParams<CreateSearchParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<CreateSearchParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<SavedSearchReceiptOutput>, CallToolResult> {
         const OP: &str = "create_my_saved_search";
-        let fields = input
-            .parse()
-            .and_then(CreateSearchParams::changes)
-            .map_err(|e| input_error(OP, &e))?;
-        self.execute_saved_search(OP, context, SavedSearchChange::Create(fields))
-            .await
+        let intent = input.parse().map_err(|e| input_error(OP, &e))?;
+        let fields = intent.fields.changes().map_err(|e| input_error(OP, &e))?;
+        self.execute_saved_search(
+            OP,
+            context,
+            &intent.request_id,
+            SavedSearchChange::Create(fields),
+        )
+        .await
     }
     #[tool(
         title = "Update a saved search or pause its alerts",
@@ -61,23 +64,27 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn update_my_saved_search(
         &self,
-        Parameters(input): Parameters<SafeToolParams<UpdateSearchParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<UpdateSearchParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<SavedSearchReceiptOutput>, CallToolResult> {
         const OP: &str = "update_my_saved_search";
-        let params = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: params,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         let change = SavedSearchChange::Update {
             search_id: params.search_id,
             expected_updated_at: params.expected_updated_at,
             changes: params.changes().map_err(|e| input_error(OP, &e))?,
         };
-        self.execute_saved_search(OP, context, change).await
+        self.execute_saved_search(OP, context, &request_id, change)
+            .await
     }
     #[tool(
         title = "Delete one saved search",
@@ -85,20 +92,24 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn delete_my_saved_search(
         &self,
-        Parameters(input): Parameters<SafeToolParams<DeleteSearchParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<DeleteSearchParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<SavedSearchReceiptOutput>, CallToolResult> {
         const OP: &str = "delete_my_saved_search";
-        let params = input.parse().map_err(|e| input_error(OP, &e))?;
+        let WithRequestId {
+            fields: params,
+            request_id,
+        } = input.parse().map_err(|e| input_error(OP, &e))?;
         self.execute_saved_search(
             OP,
             context,
+            &request_id,
             SavedSearchChange::Delete {
                 search_id: params.search_id,
                 expected_updated_at: params.expected_updated_at,
@@ -112,13 +123,14 @@ impl AccountMcpServer {
         &self,
         op: &'static str,
         context: RequestContext<RoleServer>,
+        request_id: &str,
         change: SavedSearchChange,
     ) -> Result<Json<SavedSearchReceiptOutput>, CallToolResult> {
         let access = request_access(&context, op)?;
         self.execute(
             op,
             self.client
-                .change_saved_search(&access, &change, &uuid::Uuid::new_v4().to_string()),
+                .change_saved_search(&access, &change, request_id),
         )
         .await
     }

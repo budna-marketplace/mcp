@@ -46,20 +46,24 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = false,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn create_my_private_watchlist(
         &self,
-        Parameters(input): Parameters<SafeToolParams<CreateWatchlistParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<CreateWatchlistParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<PrivateWatchlistOutput>, CallToolResult> {
         let operation = "create_my_private_watchlist";
-        let input = input.parse().map_err(|e| input_error(operation, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(operation, &e))?;
         self.manage_watchlist(
             operation,
             context,
+            &request_id,
             PrivateWatchlistChange::Create { name: &input.name },
         )
         .await
@@ -71,20 +75,24 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn rename_my_private_watchlist(
         &self,
-        Parameters(input): Parameters<SafeToolParams<RenameWatchlistParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<RenameWatchlistParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<PrivateWatchlistOutput>, CallToolResult> {
         let operation = "rename_my_private_watchlist";
-        let input = input.parse().map_err(|e| input_error(operation, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(operation, &e))?;
         self.manage_watchlist(
             operation,
             context,
+            &request_id,
             PrivateWatchlistChange::Rename {
                 watchlist_id: input.watchlist_id,
                 name: &input.name,
@@ -99,20 +107,24 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn delete_my_private_watchlist(
         &self,
-        Parameters(input): Parameters<SafeToolParams<DeleteWatchlistParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<DeleteWatchlistParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<PrivateWatchlistOutput>, CallToolResult> {
         let operation = "delete_my_private_watchlist";
-        let input = input.parse().map_err(|e| input_error(operation, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(operation, &e))?;
         self.manage_watchlist(
             operation,
             context,
+            &request_id,
             PrivateWatchlistChange::Delete {
                 watchlist_id: input.watchlist_id,
             },
@@ -126,13 +138,14 @@ impl AccountMcpServer {
         &self,
         operation: &'static str,
         context: RequestContext<RoleServer>,
+        request_id: &str,
         change: PrivateWatchlistChange<'_>,
     ) -> Result<Json<PrivateWatchlistOutput>, CallToolResult> {
         let access = request_access(&context, operation)?;
-        let key = uuid::Uuid::new_v4().to_string();
         self.execute(
             operation,
-            self.client.change_private_watchlist(&access, change, &key),
+            self.client
+                .change_private_watchlist(&access, change, request_id),
         )
         .await
     }
@@ -146,22 +159,24 @@ impl AccountMcpServer {
         annotations(
             read_only_hint = false,
             destructive_hint = true,
-            idempotent_hint = false,
+            idempotent_hint = true,
             open_world_hint = true
         )
     )]
     pub async fn set_my_live_reminder(
         &self,
-        Parameters(input): Parameters<SafeToolParams<LiveReminderParams>>,
+        Parameters(input): Parameters<SafeToolParams<WithRequestId<LiveReminderParams>>>,
         context: RequestContext<RoleServer>,
     ) -> Result<Json<LiveReminderReceiptOutput>, CallToolResult> {
-        let input = input.parse().map_err(|e| input_error(REMINDER_TOOL, &e))?;
+        let WithRequestId {
+            fields: input,
+            request_id,
+        } = input.parse().map_err(|e| input_error(REMINDER_TOOL, &e))?;
         let access = request_access(&context, REMINDER_TOOL)?;
-        let key = uuid::Uuid::new_v4().to_string();
         self.execute(
             REMINDER_TOOL,
             self.client
-                .set_live_reminder(&access, &input.session_id, input.reminded, &key),
+                .set_live_reminder(&access, &input.session_id, input.reminded, &request_id),
         )
         .await
     }

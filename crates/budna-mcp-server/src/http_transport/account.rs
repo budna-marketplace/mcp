@@ -8,7 +8,6 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use budna_mcp_client::BIDS_WRITE_SCOPE;
 use budna_mcp_client::CHAT_ROOMS_READ_SCOPE;
 use budna_mcp_client::DRAFT_AUTHORING_SCOPE;
 use budna_mcp_client::INVENTORY_WRITE_SCOPE;
@@ -32,7 +31,9 @@ use budna_mcp_client::{
     SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
     WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
+use budna_mcp_client::{AUTOBIDS_WRITE_SCOPE, BIDS_WRITE_SCOPE};
 use budna_mcp_client::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
+use budna_mcp_client::{STREAM_AUTHORING_READ_SCOPE, STREAM_PLANS_WRITE_SCOPE};
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
     HeaderValue, StatusCode,
@@ -221,6 +222,8 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "set_my_message_reaction" => MESSAGE_REACTIONS_WRITE_SCOPE,
         "get_my_chat_message" | "get_my_chat_posting" => MESSAGES_READ_SCOPE,
         "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
+        "get_my_automatic_bid_state" | "prepare_my_automatic_bid_maximum" => BIDS_READ_SCOPE,
+        "set_my_quoted_automatic_bid_maximum" | "pause_my_automatic_bid" => AUTOBIDS_WRITE_SCOPE,
         "prepare_my_bid" => BIDS_READ_SCOPE,
         "submit_my_quoted_bid" => BIDS_WRITE_SCOPE,
         "get_my_draft_authoring" => LISTINGS_READ_SCOPE,
@@ -232,6 +235,8 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "change_my_shipping_defaults" => SHIPPING_DEFAULTS_SCOPE,
         "get_my_shipping_rules" | "list_my_shipping_rule_listings" => SHIPPING_RULES_READ_SCOPE,
         "change_my_shipping_rule" => SHIPPING_RULES_WRITE_SCOPE,
+        "get_my_stream_authoring" => STREAM_AUTHORING_READ_SCOPE,
+        "change_my_stream_plan" => STREAM_PLANS_WRITE_SCOPE,
         "get_my_showcase_authoring" => SHOWCASE_AUTHORING_READ_SCOPE,
         "change_my_showcase" => SHOWCASES_WRITE_SCOPE,
         "get_my_listing_inventory" => LISTINGS_READ_SCOPE,

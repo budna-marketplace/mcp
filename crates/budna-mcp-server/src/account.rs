@@ -42,11 +42,13 @@ use crate::{
         AccountPageParams, AccountRatingsParams, AccountSavedSearchMatchesParams,
         AccountWatchlistListingsParams, EmptyAccountParams, ListingIdParams, OfferRoleParam,
         OrderRoleParam, RatingDirectionParam, SafeToolParams, WatchlistMembershipParams,
+        WithRequestId,
     },
     tools::{BidViewer, BudnaMcpServer, client_error, input_error, tool_error},
 };
 
 mod actions;
+mod automatic_bids;
 mod bid_submission;
 mod blocks;
 mod destinations;
@@ -64,6 +66,7 @@ mod room_activity;
 mod saved_search;
 mod shipping;
 mod showcase_authoring;
+mod stream_authoring;
 pub(crate) const SEARCH_AUTHORING_TOOL: &str = "get_my_saved_search_authoring";
 pub(crate) const SEARCH_WRITE_TOOLS: [&str; 3] = [
     "create_my_saved_search",
@@ -154,6 +157,9 @@ impl AccountMcpServer {
         if client.write_permissions().room_moderation {
             routes += Self::room_moderation_router();
         }
+        if client.write_permissions().automatic_bids {
+            routes += Self::automatic_bids_router();
+        }
         if client.write_permissions().bids {
             routes += Self::bid_submission_router();
         }
@@ -162,6 +168,12 @@ impl AccountMcpServer {
         }
         if client.write_permissions().shipping_rules {
             routes += Self::shipping_rule_write_router();
+        }
+        if client.write_permissions().stream_authoring {
+            routes += Self::stream_authoring_read_router();
+        }
+        if client.write_permissions().stream_plans {
+            routes += Self::stream_authoring_write_router();
         }
         if client.write_permissions().showcase_authoring {
             routes += Self::showcase_authoring_read_router();
@@ -1774,6 +1786,16 @@ impl ServerHandler for AccountMcpServer {
             if self.client.write_permissions().shipping_rules {
                 text.push_str(
                     " Use change_my_shipping_rule for one revision-checked goods or parcel change.",
+                );
+            }
+            if self.client.write_permissions().stream_authoring {
+                text.push_str(
+                    " Use get_my_stream_authoring to review stream readiness, schedule and lineup.",
+                );
+            }
+            if self.client.write_permissions().stream_plans {
+                text.push_str(
+                    " Use change_my_stream_plan for one reviewed schedule or lineup change.",
                 );
             }
             if self.client.write_permissions().showcase_authoring {
