@@ -39,6 +39,7 @@ impl AccountApiClient {
             .connect_timeout(config.request_timeout().min(Duration::from_secs(10)))
             .timeout(config.request_timeout())
             .redirect(Policy::none())
+            .retry(reqwest::retry::never())
             .user_agent(concat!("budna-mcp/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(ClientBuildError::HttpClient)?;
@@ -47,6 +48,7 @@ impl AccountApiClient {
             config,
             resource: resource.to_owned(),
             service_credential,
+            private_watchlist_writes: false,
         })
     }
 }

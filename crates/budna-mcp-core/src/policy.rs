@@ -3,6 +3,7 @@
 pub enum ToolCapability {
     PublicExplore,
     AccountRead,
+    PrivateWatchlistWrite,
 }
 
 /// The concrete capability profile exposed by a server instance.
@@ -15,6 +16,7 @@ pub enum ToolCapability {
 pub enum ToolPolicy {
     PublicExplore,
     AccountRead,
+    AccountWatchlistPilot,
 }
 
 impl ToolPolicy {
@@ -25,7 +27,12 @@ impl ToolPolicy {
     pub const fn allows(&self, capability: ToolCapability) -> bool {
         matches!(
             (self, capability),
-            (Self::PublicExplore, ToolCapability::PublicExplore)
+            (
+                Self::AccountWatchlistPilot,
+                ToolCapability::AccountRead
+                    | ToolCapability::PublicExplore
+                    | ToolCapability::PrivateWatchlistWrite
+            ) | (Self::PublicExplore, ToolCapability::PublicExplore)
                 | (
                     Self::AccountRead,
                     ToolCapability::AccountRead | ToolCapability::PublicExplore

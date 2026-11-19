@@ -3,11 +3,11 @@
 ## Product Direction
 
 Budna MCP is intended to grow into a full MCP integration for the Budna API.
-The current release profile is deliberately limited to public marketplace
+The default Public Explore profile is deliberately limited to public marketplace
 exploration. Do not interpret that milestone boundary as a permanent
 read-only architecture.
 
-Current tools may call only approved public GET endpoints for listing
+Public Explore tools may call only approved public GET endpoints for listing
 discovery, listing details and attributes, related listing discovery, public
 seller listing discovery, listing feeds, category, filter, brand and location
 browsing, search suggestions, collections, live streams, public seller profiles
@@ -17,7 +17,11 @@ instead of naming them. Do not add
 credentials, protected endpoints, mutations, view recording, contact
 submission, bidding, buying, messaging, or account actions to this profile.
 
-Future authenticated or state-changing capability profiles require an explicit
+Account Read serves delegated reads. The opt-in account-watchlist-pilot adds
+only setting one listing’s membership in an owned private watchlist with
+watchlist:write. See docs/account-access.md for the contract and activation.
+
+Additional authenticated or state-changing capability profiles require an explicit
 design for authorization, secret storage, user consent/confirmation, CSRF,
 idempotency, auditability, rate limits, and MCP destructive/idempotent hints.
 Keep those capabilities modular rather than weakening the public Explore

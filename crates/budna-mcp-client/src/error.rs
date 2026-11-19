@@ -53,6 +53,13 @@ pub enum ClientError {
         retry_after: Option<std::time::Duration>,
     },
 
+    /// A write received a definitive rejection (4xx), or no trustworthy receipt.
+    #[error("Budna did not confirm the account action during {operation}")]
+    AccountWrite {
+        operation: &'static str,
+        rejection_status: Option<u16>,
+    },
+
     #[error("Budna API returned an invalid JSON response during {operation}")]
     Decode {
         operation: &'static str,
@@ -100,6 +107,7 @@ impl ClientError {
             Self::InvalidInput { operation, .. }
             | Self::Endpoint { operation, .. }
             | Self::Request { operation, .. }
+            | Self::AccountWrite { operation, .. }
             | Self::Api { operation, .. }
             | Self::Decode { operation, .. }
             | Self::UnsuccessfulEnvelope { operation }
@@ -118,6 +126,14 @@ impl ClientError {
             Self::Endpoint { .. } => "configuration",
             Self::Request { kind, .. } => kind.as_str(),
             Self::Api { .. } => "api",
+            Self::AccountWrite {
+                rejection_status: Some(_),
+                ..
+            } => "action_rejected",
+            Self::AccountWrite {
+                rejection_status: None,
+                ..
+            } => "action_outcome_unknown",
             Self::Decode { .. }
             | Self::UnsuccessfulEnvelope { .. }
             | Self::MissingData { .. }
@@ -133,6 +149,9 @@ impl ClientError {
         match self {
             Self::InvalidInput { .. } => Some(400),
             Self::Api { status, .. } => Some(*status),
+            Self::AccountWrite {
+                rejection_status, ..
+            } => *rejection_status,
             Self::PublicResourceUnavailable { .. } => Some(404),
             Self::RetryExhausted { last_error, .. } => last_error.status(),
             _ => None,
@@ -160,7 +179,15 @@ impl ClientError {
                 RequestFailureKind::Connect => "BUDNA_API_CONNECT_ERROR",
                 RequestFailureKind::Transport => "BUDNA_API_TRANSPORT_ERROR",
             }),
-            Self::Api { status, .. } => Some(public_api_error_code(*status)),
+            Self::Api { status, .. }
+            | Self::AccountWrite {
+                rejection_status: Some(status),
+                ..
+            } => Some(public_api_error_code(*status)),
+            Self::AccountWrite {
+                rejection_status: None,
+                ..
+            } => Some("ACTION_OUTCOME_UNKNOWN"),
             Self::PublicResourceUnavailable { code, .. } => Some(code),
             Self::Decode { .. }
             | Self::UnsuccessfulEnvelope { .. }
@@ -197,7 +224,9 @@ impl ClientError {
     pub fn public_message(&self) -> String {
         match self {
             Self::InvalidInput { message, .. } => message.to_string(),
-            Self::Api { status, .. } => {
+            Self::AccountWrite { rejection_status: None, .. } =>
+                "The action outcome is unknown. Check your watchlist and action history before requesting another change.".to_owned(),
+            Self::Api { status, .. } | Self::AccountWrite { rejection_status: Some(status), .. } => {
                 format!("{} (HTTP {status})", public_api_error_message(*status))
             }
             Self::Request { kind, .. } => match kind {
@@ -235,6 +264,7 @@ const fn public_api_error_code(status: u16) -> &'static str {
         403 => "API_FORBIDDEN",
         404 => "API_NOT_FOUND",
         408 => "API_TIMEOUT",
+        409 => "API_CONFLICT",
         429 => "API_RATE_LIMITED",
         500..=599 => "BUDNA_API_UNAVAILABLE",
         _ => "BUDNA_API_ERROR",
@@ -248,6 +278,7 @@ const fn public_api_error_message(status: u16) -> &'static str {
         403 => "Budna API request is not permitted",
         404 => "Budna API resource was not found",
         408 => "Budna API request timed out",
+        409 => "Budna API request conflicts with the current state",
         429 => "Budna API request was rate limited",
         500..=599 => "Budna API unavailable",
         _ => "Budna API request failed",

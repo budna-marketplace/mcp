@@ -35,6 +35,8 @@ pub struct AccountOffer {
 #[derive(Clone, Debug, Deserialize)]
 pub struct AccountWatchlist {
     pub id: i64,
+    /// Older account responses may omit visibility.
+    pub is_private: Option<bool>,
     pub name: String,
     pub is_default: bool,
     pub item_count: i64,

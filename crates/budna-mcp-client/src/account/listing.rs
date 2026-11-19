@@ -169,18 +169,6 @@ pub struct AccountListingLiveRound {
     pub final_price: Option<Money>,
 }
 
-fn image_id(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    bytes.len() == 36
-        && bytes.iter().enumerate().all(|(index, byte)| {
-            if matches!(index, 8 | 13 | 18 | 23) {
-                *byte == b'-'
-            } else {
-                byte.is_ascii_digit() || (b'a'..=b'f').contains(byte)
-            }
-        })
-}
-
 fn optional_time(value: Option<i64>) -> bool {
     value.is_none_or(|value| value >= 0)
 }
@@ -228,10 +216,10 @@ impl AccountListingDetail {
             && self.created_at >= 0
             && self.updated_at >= 0
             && self.images.len() <= 100
-            && self
-                .images
-                .iter()
-                .all(|image| image_id(&image.id) && optional_text(image.thumb_hash.as_deref(), 256))
+            && self.images.iter().all(|image| {
+                super::is_canonical_uuid(&image.id)
+                    && optional_text(image.thumb_hash.as_deref(), 256)
+            })
             && self.tags.len() <= 200
             && self.tags.iter().all(|tag| tag.len() <= 4096)
             && self.attributes.len() <= 200

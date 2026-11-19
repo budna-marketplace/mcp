@@ -1,6 +1,6 @@
 use url::Url;
 
-use crate::ConfigError;
+use crate::{ConfigError, ToolPolicy};
 
 pub const ACCOUNT_MCP_PATH: &str = "/account/mcp";
 
@@ -9,6 +9,7 @@ pub const ACCOUNT_MCP_PATH: &str = "/account/mcp";
 pub struct AccountSettings {
     issuer: String,
     resource: String,
+    policy: ToolPolicy,
 }
 
 impl AccountSettings {
@@ -28,7 +29,17 @@ impl AccountSettings {
         Ok(Self {
             issuer: issuer.origin().ascii_serialization(),
             resource: resource.to_string(),
+            policy: ToolPolicy::AccountRead,
         })
+    }
+
+    pub fn with_private_watchlist_writes(mut self) -> Self {
+        self.policy = ToolPolicy::AccountWatchlistPilot;
+        self
+    }
+
+    pub fn policy(&self) -> ToolPolicy {
+        self.policy
     }
 
     pub fn issuer(&self) -> &str {

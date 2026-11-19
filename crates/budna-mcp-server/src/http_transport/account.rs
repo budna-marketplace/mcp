@@ -13,8 +13,9 @@ use budna_mcp_client::{
     ClientError, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE,
     NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
     PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
+    WATCHLIST_WRITE_SCOPE,
 };
-use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
+use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings, ToolCapability};
 use http::{
     HeaderValue, StatusCode,
     header::{AUTHORIZATION, CACHE_CONTROL, COOKIE, WWW_AUTHENTICATE},
@@ -25,24 +26,36 @@ use rmcp::transport::streamable_http_server::{
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
-use crate::AccountMcpServer;
+use crate::{AccountMcpServer, account::WATCHLIST_MEMBERSHIP_TOOL};
 
 #[derive(Clone)]
 struct AccountAuth {
     client: AccountApiClient,
     challenge: HeaderValue,
+    metadata_url: Arc<str>,
+    watchlist_write: bool,
     slots: Arc<Semaphore>,
 }
 
 /// Builds the stateless account router with per-request authentication and HTTP controls.
 /// The caller owns TLS, listener binding and cancellation during shutdown.
 pub fn account_http_router(
-    server: AccountMcpServer,
+    mut server: AccountMcpServer,
     client: AccountApiClient,
     settings: &HttpServerSettings,
     account: &AccountSettings,
     cancellation: CancellationToken,
 ) -> Result<Router, http::header::InvalidHeaderValue> {
+    let watchlist_write = account
+        .policy()
+        .allows(ToolCapability::PrivateWatchlistWrite)
+        && client.private_watchlist_writes_enabled()
+        && server.has_watchlist_write();
+    if !watchlist_write {
+        server.restrict_to_account_reads();
+    }
+    let client = client.with_private_watchlist_writes(watchlist_write);
+    let scopes: Vec<_> = client.supported_scopes().collect();
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
         Arc::new(NeverSessionManager::default()),
@@ -53,22 +66,24 @@ pub fn account_http_router(
             .with_allowed_origins(settings.allowed_origins().iter().cloned())
             .with_cancellation_token(cancellation.child_token()),
     );
+    let metadata_url = account.metadata_url();
     let challenge = HeaderValue::from_str(&format!(
-        "Bearer resource_metadata=\"{}\", scope=\"{}\"",
-        account.metadata_url(),
+        "Bearer resource_metadata=\"{metadata_url}\", scope=\"{}\"",
         ACCOUNT_SCOPES.join(" ")
     ))?;
     let auth = AccountAuth {
         client,
         challenge,
+        metadata_url: metadata_url.into(),
+        watchlist_write,
         slots: Arc::new(Semaphore::new(8)),
     };
     let metadata = serde_json::json!({
         "resource": account.resource(),
         "authorization_servers": [account.issuer()],
-        "scopes_supported": ACCOUNT_SCOPES,
+        "scopes_supported": scopes,
         "bearer_methods_supported": ["header"],
-        "resource_name": "Budna account reads"
+        "resource_name": if watchlist_write { "Budna private watchlist pilot" } else { "Budna account reads" }
     });
     let router = Router::new()
         .nest_service(ACCOUNT_MCP_PATH, service)
@@ -121,19 +136,17 @@ async fn authenticate(
                                 .pointer("/params/name")
                                 .and_then(|value| value.as_str())
                                 .and_then(account_tool_scope)
+                                .filter(|scope| *scope != WATCHLIST_WRITE_SCOPE || auth.watchlist_write)
                         } else {
                             None
                         };
-                        if scope.is_some_and(|scope| !access.allows(scope)) {
-                            let mut response = StatusCode::FORBIDDEN.into_response();
+                        if let Some(required) = scope.filter(|scope| !access.allows(scope)) {
                             let challenge = format!(
-                                "{}, error=\"insufficient_scope\"",
-                                auth.challenge.to_str().unwrap_or("Bearer")
+                                "Bearer resource_metadata=\"{}\", scope=\"{required}\", error=\"insufficient_scope\"",
+                                auth.metadata_url
                             );
-                            if let Ok(value) = HeaderValue::from_str(&challenge) {
-                                response.headers_mut().insert(WWW_AUTHENTICATE, value);
-                            }
-                            return response;
+                            return (StatusCode::FORBIDDEN, [(WWW_AUTHENTICATE, challenge)])
+                                .into_response();
                         }
                     }
                     request = Request::from_parts(parts, Body::from(body));
@@ -163,6 +176,7 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        WATCHLIST_MEMBERSHIP_TOOL => WATCHLIST_WRITE_SCOPE,
         "get_my_account" => ACCOUNT_READ_SCOPE,
         "get_my_profile" | "get_my_achievements" | "get_my_referral" | "get_my_legal_documents" => {
             PROFILE_READ_SCOPE
@@ -283,7 +297,8 @@ mod tests {
             &api.uri(),
             resource,
             service_secret.to_owned(),
-        )?;
+        )?
+        .with_private_watchlist_writes(true); // Account Read must limit even a pilot-capable client.
         let public = BudnaMcpServer::new(PublicApiClient::new(config)?);
         let server = AccountMcpServer::new(client.clone(), Duration::from_secs(10))
             .with_public(public.clone());
@@ -360,6 +375,41 @@ mod tests {
             .await;
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
             assert_eq!(response.headers()[WWW_AUTHENTICATE], challenge);
+            assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+        }
+        Mock::given(method("POST"))
+            .and(path("/api/v1/mcp/oauth/exchange"))
+            .and(header("authorization", format!("Bearer {service_secret}")))
+            .and(body_json(
+                json!({"subject_token":"account-only","resource":resource}),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token":"synthetic-api-token","token_type":"Bearer","expires_in":60,
+                "scope":ACCOUNT_READ_SCOPE,"subject":"user_00000000-0000-4000-8000-000000000001",
+                "grant_id":"synthetic-grant","client_id":"synthetic-client","resource":resource
+            })))
+            .expect(2)
+            .mount(&api)
+            .await;
+        for (tool, scope) in [
+            ("list_my_watchlists", WATCHLIST_READ_SCOPE),
+            ("list_my_orders", ORDERS_READ_SCOPE),
+        ] {
+            let response = request(
+                &router,
+                ACCOUNT_MCP_PATH,
+                Some(json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":tool,"arguments":{}}})),
+                Some("account-only"),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN);
+            assert_eq!(
+                response.headers()[WWW_AUTHENTICATE],
+                format!(
+                    "Bearer resource_metadata=\"{}\", scope=\"{scope}\", error=\"insufficient_scope\"",
+                    account.metadata_url()
+                )
+            );
             assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
         }
         api.verify().await;

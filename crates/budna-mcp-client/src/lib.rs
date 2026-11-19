@@ -48,10 +48,11 @@ pub use account::{
     AccountSearchPriority, AccountSecondChanceOffer, AccountSellerInsights, AccountSettlementOffer,
     AccountShippingSettings, AccountShowcase, AccountStanding, AccountSubscription, AccountSummary,
     AccountTopListing, AccountTrackingEvent, AccountVerification, AccountVideo,
-    AccountWatchedListing, AccountWatchlist, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, DelegatedAccess,
+    AccountWatchedListing, AccountWatchlist, AccountWatchlistActionStatus,
+    AccountWatchlistMembershipReceipt, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, DelegatedAccess,
     FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE,
     OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE,
-    RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
+    RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
