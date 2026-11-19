@@ -6,6 +6,7 @@ mod common;
 mod discovery;
 mod listing_activity;
 mod listings;
+pub(crate) mod personal;
 mod profiles;
 mod records;
 mod selling;

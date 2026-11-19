@@ -10,11 +10,12 @@ use axum::{
 };
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
-    DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
-    MESSAGES_READ_SCOPE, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE,
-    ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE,
-    SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
-    WATCHLIST_WRITE_SCOPE, is_account_access_token,
+    DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE,
+    LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATION_STATE_SCOPE,
+    NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
+    PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, RATINGS_READ_SCOPE, SAVED_SEARCH_WRITE_SCOPE,
+    SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE,
+    is_account_access_token,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -193,6 +194,16 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        "get_my_conversation_settings" | "get_my_listing_chat_notification_setting" => {
+            MESSAGES_READ_SCOPE
+        }
+        "set_my_conversation_setting" | "hide_my_message_copy" | "set_my_listing_chat_muted" => {
+            INBOX_WRITE_SCOPE
+        }
+        "get_my_profile_authoring" => PROFILE_READ_SCOPE,
+        "update_my_public_profile" => PROFILE_WRITE_SCOPE,
+        "get_my_following_state" => FOLLOWING_READ_SCOPE,
+        "set_my_following" => FOLLOWING_WRITE_SCOPE,
         SEARCH_AUTHORING_TOOL => WATCHLIST_READ_SCOPE,
         name if SEARCH_WRITE_TOOLS.contains(&name) => SAVED_SEARCH_WRITE_SCOPE,
         NOTIFICATION_BATCH_TOOL => NOTIFICATIONS_READ_SCOPE,

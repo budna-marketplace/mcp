@@ -56,6 +56,44 @@ pub struct AccountPrivateWatchlistReceipt {
 }
 
 impl AccountApiClient {
+    pub(super) fn action_request(
+        &self,
+        operation: &'static str,
+        scope: &'static str,
+        access: &DelegatedAccess,
+        method: Method,
+        path: &str,
+        key: &str,
+    ) -> Result<reqwest::RequestBuilder, ClientError> {
+        self.require_scope(access, scope, operation)?;
+        if !is_action_id(key) {
+            return Err(invalid_input(operation, "Invalid request key"));
+        }
+        Ok(self
+            .http
+            .request(method, self.endpoint(operation, path)?)
+            .header(AUTHORIZATION, access.credential.header(operation)?)
+            .header("Idempotency-Key", key))
+    }
+    pub(super) async fn direct_receipt<T: serde::de::DeserializeOwned>(
+        &self,
+        operation: &'static str,
+        request: reqwest::RequestBuilder,
+        matches: impl FnOnce(&T) -> bool,
+    ) -> Result<T, ClientError> {
+        let envelope: ApiEnvelope<T> = self
+            .send(operation, request, 4096)
+            .await
+            .map_err(ClientError::account_write)?;
+        envelope
+            .data
+            .filter(|receipt| envelope.success && matches(receipt))
+            .ok_or(ClientError::AccountWrite {
+                operation,
+                rejection_status: None,
+            })
+    }
+
     pub async fn action_status(
         &self,
         access: &DelegatedAccess,

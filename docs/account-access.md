@@ -182,6 +182,23 @@ Changing `active` pauses or resumes alerts. A stale revision requires reading
 the search again. Receipts contain `action_id`, `search_id` and `status`.
 Browsing and editing leave match acknowledgement in Budna.
 
+### Personal inbox, profile and follows
+
+Enable `inbox:write` for personal conversation settings, hiding a participant’s
+own message copy and muting eligible listing chats. Read the current settings
+with `messages:read`. Archiving hides a conversation for this participant.
+Hiding a message copy leaves the other participant’s copy intact.
+
+Enable `profile:write` for display-name and bio changes. Use
+`get_my_profile_authoring` with `profile:read` to obtain the current revision.
+Omit fields to preserve them and supply an empty bio to clear it. The existing
+visibility setting applies. Manage public city through Budna address settings.
+
+Enable `following:write` for a single public follow or unfollow. Use
+`get_my_following_state` under `following:read` to read the exact handle,
+stable public ID and relationship. The write requires the same handle and
+stable ID. A new follow can notify the other person.
+
 ## Private watchlist management
 
 Select `BUDNA_MCP_PROFILE=account-watchlist-management` on a designated

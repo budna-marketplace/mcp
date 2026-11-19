@@ -169,6 +169,15 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `create_my_saved_search` | Account actions · `savedsearches:write` | Save a named search with validated criteria |
 | `update_my_saved_search` | Account actions · `savedsearches:write` | Edit selected criteria, change frequency, or pause or resume alerts using the observed revision |
 | `delete_my_saved_search` | Account actions · `savedsearches:write` | Delete one owned saved search at its observed revision |
+| `get_my_conversation_settings` | Account actions · `messages:read` | Read your pin, archive and mute state without sending a read receipt |
+| `set_my_conversation_setting` | Account actions · `inbox:write` | Pin, archive or mute one conversation for yourself, or reverse that setting |
+| `hide_my_message_copy` | Account actions · `inbox:write` | Hide your own copy of one message |
+| `get_my_listing_chat_notification_setting` | Account actions · `messages:read` | Read your notification preference for an eligible listing chat |
+| `set_my_listing_chat_muted` | Account actions · `inbox:write` | Mute or unmute a listing chat for your account |
+| `get_my_profile_authoring` | Account actions · `profile:read` | Read editable profile fields, their visibility and the revision |
+| `update_my_public_profile` | Account actions · `profile:write` | Change the display name or bio using the current profile revision |
+| `get_my_following_state` | Account actions · `following:read` | Resolve a public handle to a stable account ID and check the follow relationship |
+| `set_my_following` | Account actions · `following:write` | Follow or unfollow the one public account that matches both supplied identifiers |
 | `set_my_live_reminder` | Account actions · `livereminders:write` | Set or remove a personal reminder for one live session |
 | `get_my_action_status` | Write-enabled profile · original action permission | Check one receipt on the connection that submitted it |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |

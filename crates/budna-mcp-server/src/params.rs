@@ -1,3 +1,4 @@
+pub(crate) mod personal;
 mod saved_search;
 pub(crate) use saved_search::{CreateSearchParams, DeleteSearchParams, UpdateSearchParams};
 use std::{

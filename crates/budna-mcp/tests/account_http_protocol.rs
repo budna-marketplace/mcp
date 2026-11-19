@@ -1913,3 +1913,202 @@ async fn saved_search_authoring_and_lifecycle_preserve_omitted_criteria() -> Res
     server.child.wait().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn personal_settings_bind_actor_and_target_and_never_acknowledge_a_read() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000006";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "personal",
+        "own-downstream",
+        USER_A,
+        "inbox:write profile:write following:write messages:read profile:read following:read",
+    )
+    .await;
+    exchange(
+        &api,
+        "reader",
+        "read-only",
+        USER_A,
+        "messages:read profile:read following:read",
+    )
+    .await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("inbox:write following:write profile:write"),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let cases = [
+        (
+            "get_my_conversation_settings",
+            "GET",
+            "conversations/9/settings".to_owned(),
+            json!({"conversation_id":9}),
+            None,
+            json!({"conversation_id":9,"is_archived":false,"is_pinned":true,"is_muted":false}),
+        ),
+        (
+            "set_my_conversation_setting",
+            "PUT",
+            "conversations/9/settings".to_owned(),
+            json!({"conversation_id":9,"setting":"muted","enabled":true}),
+            Some(json!({"setting":"muted","enabled":true})),
+            json!({"action_id":ACTION,"status":"executed","conversation_id":9,"setting":"muted","enabled":true}),
+        ),
+        (
+            "hide_my_message_copy",
+            "DELETE",
+            "messages/11/copy".to_owned(),
+            json!({"message_id":11}),
+            None,
+            json!({"action_id":ACTION,"status":"executed","message_id":11}),
+        ),
+        (
+            "get_my_listing_chat_notification_setting",
+            "GET",
+            format!("listing-chats/{LISTING_A}/notifications"),
+            json!({"listing_id":LISTING_A}),
+            None,
+            json!({"listing_id":LISTING_A,"muted":false}),
+        ),
+        (
+            "set_my_listing_chat_muted",
+            "PUT",
+            format!("listing-chats/{LISTING_A}/notifications"),
+            json!({"listing_id":LISTING_A,"muted":true}),
+            Some(json!({"muted":true})),
+            json!({"action_id":ACTION,"status":"executed","listing_id":LISTING_A,"muted":true}),
+        ),
+        (
+            "update_my_public_profile",
+            "PATCH",
+            "profile".to_owned(),
+            json!({"expected_revision":123,"bio":""}),
+            Some(json!({"expected_revision":123,"bio":""})),
+            json!({"action_id":ACTION,"status":"executed"}),
+        ),
+        (
+            "get_my_following_state",
+            "GET",
+            "following/public_seller".to_owned(),
+            json!({"username":"public_seller"}),
+            None,
+            json!({"user_id":USER_B,"username":"public_seller","following":false}),
+        ),
+        (
+            "set_my_following",
+            "PUT",
+            "following/public_seller".to_owned(),
+            json!({"username":"public_seller","expected_user_id":USER_B,"following":true}),
+            Some(json!({"expected_user_id":USER_B,"following":true})),
+            json!({"action_id":ACTION,"status":"executed","following":true}),
+        ),
+    ];
+    for (name, verb, suffix, arguments, body, expected) in cases {
+        let mut mock = Mock::given(method(verb))
+            .and(path(format!("/api/v1/mcp/account/{suffix}")))
+            .and(matches_header("authorization", "Bearer own-downstream"));
+        if let Some(body) = body {
+            mock = mock.and(body_json(body));
+        } else {
+            mock = mock.and(wiremock::matchers::body_string(""));
+        }
+        if verb != "GET" {
+            mock = mock.and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"));
+            assert_eq!(
+                post(&client, &endpoint, "reader", call(name, arguments.clone()))
+                    .await?
+                    .status(),
+                StatusCode::FORBIDDEN
+            );
+        }
+        let mut wire = expected.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = mock
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(&client, &endpoint, "personal", call(name, arguments))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(
+            result.pointer("/result/structuredContent"),
+            Some(&expected),
+            "{name}"
+        );
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    let _profile=Mock::given(method("GET")).and(path("/api/v1/mcp/account/profile/authoring")).and(matches_header("authorization","Bearer own-downstream")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"display_name":"Old","bio":"text","public_profile":true,"revision":123,"extra":SENTINEL}}))).expect(1).mount_as_scoped(&api).await;
+    let profile: Value = post(
+        &client,
+        &endpoint,
+        "personal",
+        call("get_my_profile_authoring", json!({})),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    let actual = profile
+        .pointer("/result/structuredContent")
+        .and_then(Value::as_object)
+        .context("profile authoring")?;
+    assert_eq!(
+        actual.keys().map(String::as_str).collect::<BTreeSet<_>>(),
+        BTreeSet::from([
+            "display_name",
+            "bio",
+            "public_profile",
+            "revision",
+            "truncated",
+            "untrusted_content_notice"
+        ])
+    );
+    assert_eq!(actual["revision"], 123);
+    for (name, invalid) in [
+        (
+            "update_my_public_profile",
+            json!({"expected_revision":123,"city":"City"}),
+        ),
+        (
+            "update_my_public_profile",
+            json!({"expected_revision":123,"bio":null}),
+        ),
+        (
+            "set_my_following",
+            json!({"username":"public_seller","following":true}),
+        ),
+        (
+            "set_my_conversation_setting",
+            json!({"conversation_id":9,"setting":"seen","enabled":true}),
+        ),
+        (
+            "hide_my_message_copy",
+            json!({"message_id":11,"for_everyone":true}),
+        ),
+    ] {
+        let result: Value = post(&client, &endpoint, "personal", call(name, invalid))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&result, name, "INVALID_INPUT")?;
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}

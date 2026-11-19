@@ -8,6 +8,9 @@ pub enum ToolCapability {
     PrivateWatchlistWrite,
     PrivateWatchlistManagement,
     ListingDraftCreate,
+    InboxWrite,
+    ProfileWrite,
+    FollowingWrite,
     LiveReminderWrite,
     NotificationStateWrite,
     SavedSearchWrite,
@@ -65,6 +68,9 @@ impl ToolPolicy {
             ToolCapability::ListingDraftCreate => writes.listing_drafts,
             ToolCapability::SavedSearchWrite => writes.saved_searches,
             ToolCapability::NotificationStateWrite => writes.notification_state,
+            ToolCapability::InboxWrite => writes.inbox,
+            ToolCapability::ProfileWrite => writes.profile,
+            ToolCapability::FollowingWrite => writes.following,
             ToolCapability::LiveReminderWrite => writes.live_reminders,
         }
     }

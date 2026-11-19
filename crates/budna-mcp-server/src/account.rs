@@ -49,6 +49,7 @@ use crate::{
 mod actions;
 mod draft;
 mod notification_state;
+mod personal;
 mod saved_search;
 pub(crate) const SEARCH_AUTHORING_TOOL: &str = "get_my_saved_search_authoring";
 pub(crate) const SEARCH_WRITE_TOOLS: [&str; 3] = [
@@ -106,6 +107,15 @@ impl AccountMcpServer {
         }
         if client.listing_draft_creation_enabled() {
             routes += Self::listing_draft_router();
+        }
+        if client.write_permissions().inbox {
+            routes += Self::inbox_actions_router();
+        }
+        if client.write_permissions().profile {
+            routes += Self::profile_actions_router();
+        }
+        if client.write_permissions().following {
+            routes += Self::following_actions_router();
         }
         if client.write_permissions().saved_searches {
             routes += Self::saved_search_router();
@@ -1634,6 +1644,15 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.client.write_permissions().saved_searches {
                 text.push_str(" get_my_saved_search_authoring reads account limits. With savedsearches:write, create_my_saved_search, update_my_saved_search and delete_my_saved_search can change one saved search. Use the observed revision for edits and deletion.");
+            }
+            if self.client.write_permissions().inbox {
+                text.push_str(" get_my_conversation_settings and get_my_listing_chat_notification_setting check your own preferences. With inbox:write, set_my_conversation_setting, set_my_listing_chat_muted and hide_my_message_copy organize your own inbox.");
+            }
+            if self.client.write_permissions().profile {
+                text.push_str(" get_my_profile_authoring reads current profile fields and revision. update_my_public_profile changes your display name or bio with profile:write.");
+            }
+            if self.client.write_permissions().following {
+                text.push_str(" get_my_following_state resolves a public target. set_my_following follows or unfollows that account with following:write.");
             }
             text.push_str(" Use get_my_action_status to reconcile a receipt on its original connection. Only executed confirms success.");
             text
