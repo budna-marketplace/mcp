@@ -26,7 +26,9 @@ use thiserror::Error;
 pub use account::BIDS_WRITE_SCOPE;
 pub use account::CHAT_ROOMS_READ_SCOPE;
 pub use account::DRAFT_AUTHORING_SCOPE;
+pub use account::INVENTORY_WRITE_SCOPE;
 pub use account::LIVE_REPORTS_WRITE_SCOPE;
+pub use account::PUBLICATION_WRITE_SCOPE;
 pub use account::PublicRoomMessage;
 pub use account::RATINGS_WRITE_SCOPE;
 pub use account::ROOM_MODERATION_READ_SCOPE;
@@ -81,7 +83,18 @@ pub use account::{
     WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
     is_action_id, is_watchlist_name,
 };
+pub use account::{
+    AuthoringShowcaseKind, AuthoringShowcaseStatus, ShowcaseAuthoring, ShowcaseAuthoringDetails,
+    ShowcaseCandidateTerms, ShowcaseChange, ShowcaseChangeReceipt, ShowcaseListingRefusal,
+    ShowcaseMemberTerms,
+};
 pub use account::{BidAmount, BidCurrency, BidQuote, BidSubmissionReceipt};
+pub use account::{
+    DraftAttribute, DraftAttributeValue, DraftAuthoringState, DraftCondition, DraftEdit,
+    DraftFieldChanges, DraftFieldState, DraftListingType, DraftMarket, DraftVatChoice,
+    ListingPrice, ShippingCarrier,
+};
+pub use account::{InventoryChange, InventoryReceipt, InventoryReview, StockOperation};
 pub use account::{OrderReviewFacts, OrderReviewReceipt, ReviewAudience};
 pub use account::{
     PUBLIC_CHAT_WRITE_SCOPE, PublicChatAudience, PublicChatBlocker, PublicChatPosting,
@@ -91,11 +104,13 @@ pub use account::{
     PackageSize, ShippingDefaultEdit, ShippingListingPage, ShippingReceipt, ShippingRuleCatalog,
     ShippingRuleEdit,
 };
+pub use account::{PublicationBlocker, PublicationPriority, PublicationReadiness};
 pub use account::{
     RoomActionName, RoomBanScope, RoomModerationView, RoomOperation, RoomReceipt,
     RoomReceiptTarget, RoomTargetKind, RoomTargets,
 };
 pub use account::{RoomParticipant, RoomReactionTarget, RoomTally};
+pub use budna_mcp_core::write_permissions::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
 pub use explore::{

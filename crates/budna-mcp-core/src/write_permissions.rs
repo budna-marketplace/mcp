@@ -15,7 +15,11 @@ pub const BIDS_WRITE_SCOPE: &str = "bids:write";
 pub const DRAFT_AUTHORING_SCOPE: &str = "draftauthoring:write";
 pub const SHIPPING_RULES_WRITE_SCOPE: &str = "shippingrules:write";
 pub const SHIPPING_RULES_READ_SCOPE: &str = "shippingrules:read";
+pub const SHOWCASE_AUTHORING_READ_SCOPE: &str = "showcaseauthoring:read";
+pub const SHOWCASES_WRITE_SCOPE: &str = "showcases:write";
 pub const SHIPPING_DEFAULTS_SCOPE: &str = "shippingdefaults:write";
+pub const INVENTORY_WRITE_SCOPE: &str = "inventory:write";
+pub const PUBLICATION_WRITE_SCOPE: &str = "listingpublication:write";
 pub const INBOX_WRITE_SCOPE: &str = "inbox:write";
 pub const PROFILE_WRITE_SCOPE: &str = "profile:write";
 pub const FOLLOWING_WRITE_SCOPE: &str = "following:write";
@@ -47,6 +51,10 @@ pub struct AccountWritePermissions {
     pub shipping_rules: bool,
     pub shipping_rules_read: bool,
     pub shipping_defaults: bool,
+    pub showcase_authoring: bool,
+    pub showcases: bool,
+    pub inventory: bool,
+    pub publication: bool,
     pub inbox: bool,
     pub profile: bool,
     pub following: bool,
@@ -76,6 +84,10 @@ impl AccountWritePermissions {
         shipping_rules: false,
         shipping_rules_read: false,
         shipping_defaults: false,
+        showcase_authoring: false,
+        showcases: false,
+        inventory: false,
+        publication: false,
         inbox: false,
         profile: false,
         following: false,
@@ -108,7 +120,11 @@ impl AccountWritePermissions {
                 DRAFT_AUTHORING_SCOPE => &mut permissions.draft_authoring,
                 SHIPPING_RULES_WRITE_SCOPE => &mut permissions.shipping_rules,
                 SHIPPING_RULES_READ_SCOPE => &mut permissions.shipping_rules_read,
+                SHOWCASE_AUTHORING_READ_SCOPE => &mut permissions.showcase_authoring,
+                SHOWCASES_WRITE_SCOPE => &mut permissions.showcases,
                 SHIPPING_DEFAULTS_SCOPE => &mut permissions.shipping_defaults,
+                INVENTORY_WRITE_SCOPE => &mut permissions.inventory,
+                PUBLICATION_WRITE_SCOPE => &mut permissions.publication,
                 INBOX_WRITE_SCOPE => &mut permissions.inbox,
                 PROFILE_WRITE_SCOPE => &mut permissions.profile,
                 FOLLOWING_WRITE_SCOPE => &mut permissions.following,
@@ -132,6 +148,8 @@ impl AccountWritePermissions {
         [
             self.personal_blocks_read
                 .then_some(PERSONAL_BLOCKS_READ_SCOPE),
+            self.showcase_authoring
+                .then_some(SHOWCASE_AUTHORING_READ_SCOPE),
             self.shipping_rules_read
                 .then_some(SHIPPING_RULES_READ_SCOPE),
             self.room_targets.then_some(CHAT_ROOMS_READ_SCOPE),
@@ -158,7 +176,10 @@ impl AccountWritePermissions {
             self.bids.then_some(BIDS_WRITE_SCOPE),
             self.draft_authoring.then_some(DRAFT_AUTHORING_SCOPE),
             self.shipping_rules.then_some(SHIPPING_RULES_WRITE_SCOPE),
+            self.showcases.then_some(SHOWCASES_WRITE_SCOPE),
             self.shipping_defaults.then_some(SHIPPING_DEFAULTS_SCOPE),
+            self.inventory.then_some(INVENTORY_WRITE_SCOPE),
+            self.publication.then_some(PUBLICATION_WRITE_SCOPE),
             self.inbox.then_some(INBOX_WRITE_SCOPE),
             self.profile.then_some(PROFILE_WRITE_SCOPE),
             self.following.then_some(FOLLOWING_WRITE_SCOPE),
@@ -190,6 +211,10 @@ impl AccountWritePermissions {
             shipping_rules: self.shipping_rules && other.shipping_rules,
             shipping_rules_read: self.shipping_rules_read && other.shipping_rules_read,
             shipping_defaults: self.shipping_defaults && other.shipping_defaults,
+            showcase_authoring: self.showcase_authoring && other.showcase_authoring,
+            showcases: self.showcases && other.showcases,
+            inventory: self.inventory && other.inventory,
+            publication: self.publication && other.publication,
             inbox: self.inbox && other.inbox,
             profile: self.profile && other.profile,
             following: self.following && other.following,

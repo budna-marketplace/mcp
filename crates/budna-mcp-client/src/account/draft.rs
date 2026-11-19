@@ -43,7 +43,10 @@ impl AccountApiClient {
     ) -> Result<AccountDraftEligibility, ClientError> {
         const OPERATION: &str = "get_my_listing_draft_eligibility";
         self.require_scope(access, PROFILE_READ_SCOPE, OPERATION)?;
-        if !self.listing_draft_creation_enabled() && !self.write_permissions().draft_authoring {
+        if !self.listing_draft_creation_enabled()
+            && !self.write_permissions().draft_authoring
+            && !self.write_permissions().publication
+        {
             return Err(invalid_input(
                 OPERATION,
                 "Draft creation is unavailable on this connection",

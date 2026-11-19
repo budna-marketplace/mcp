@@ -16,7 +16,7 @@ pub enum ShippingCarrier {
     Dhl,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, schemars::JsonSchema, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum PackageSize {
     Small,

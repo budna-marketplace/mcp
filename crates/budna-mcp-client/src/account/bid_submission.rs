@@ -9,7 +9,7 @@ use crate::{
 use reqwest::{Method, header::AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, schemars::JsonSchema, PartialEq)]
 pub enum BidCurrency {
     #[serde(rename = "SEK")]
     Sek,
@@ -27,7 +27,7 @@ pub struct BidAmount {
 }
 
 impl BidAmount {
-    fn valid(&self) -> bool {
+    pub(super) fn valid(&self) -> bool {
         let value = self.amount.as_str();
         let (whole, fraction) = value.split_once('.').unwrap_or((value, ""));
         is_exact_decimal(value)
@@ -37,7 +37,7 @@ impl BidAmount {
             && decimal_is_less_than_or_equal(value, "1000000")
     }
 
-    fn matches(&self, money: &Money) -> bool {
+    pub(super) fn matches(&self, money: &Money) -> bool {
         money_is_valid(money, "SEK")
             && decimal_is_less_than_or_equal(&self.amount, &money.amount)
             && decimal_is_less_than_or_equal(&money.amount, &self.amount)
@@ -74,6 +74,40 @@ pub struct BidSubmissionReceipt {
     pub bid: Money,
 }
 
+impl BidQuote {
+    pub(super) fn matches_request(&self, listing: &str, bid: &BidAmount) -> bool {
+        is_action_id(&self.quote_id)
+            && self.listing_id == listing
+            && self
+                .live_session_id
+                .as_deref()
+                .is_none_or(is_live_stream_id)
+            && self.round_ref.strip_prefix("round_").is_some_and(|s| {
+                s.len() == 43
+                    && s.bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+            })
+            && bid.matches(&self.bid)
+            && self
+                .current_bid
+                .as_ref()
+                .is_none_or(|m| money_is_valid(m, "SEK"))
+            && [
+                &self.minimum_bid,
+                &self.increment,
+                &self.buyer_protection_fee,
+                &self.unpaid_fee,
+            ]
+            .into_iter()
+            .all(|m| money_is_valid(m, "SEK"))
+            && self.payment_due_hours > 0
+            && self.payment_grace_hours == 0
+            && self.delivery_at_checkout
+            && self.ends_at > 0
+            && self.expires_at > 0
+    }
+}
+
 impl AccountApiClient {
     pub async fn prepare_bid(
         &self,
@@ -97,34 +131,7 @@ impl AccountApiClient {
         let result: ApiEnvelope<BidQuote> = self.send(OP, request, 8192).await?;
         result
             .data
-            .filter(|q| {
-                result.success
-                    && is_action_id(&q.quote_id)
-                    && q.listing_id == listing
-                    && q.live_session_id.as_deref().is_none_or(is_live_stream_id)
-                    && q.round_ref.strip_prefix("round_").is_some_and(|s| {
-                        s.len() == 43
-                            && s.bytes()
-                                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
-                    })
-                    && bid.matches(&q.bid)
-                    && q.current_bid
-                        .as_ref()
-                        .is_none_or(|m| money_is_valid(m, "SEK"))
-                    && [
-                        &q.minimum_bid,
-                        &q.increment,
-                        &q.buyer_protection_fee,
-                        &q.unpaid_fee,
-                    ]
-                    .into_iter()
-                    .all(|m| money_is_valid(m, "SEK"))
-                    && q.payment_due_hours > 0
-                    && q.payment_grace_hours == 0
-                    && q.delivery_at_checkout
-                    && q.ends_at > 0
-                    && q.expires_at > 0
-            })
+            .filter(|q| result.success && q.matches_request(listing, bid))
             .ok_or_else(|| invalid_response(OP))
     }
 

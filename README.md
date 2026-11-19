@@ -162,6 +162,10 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `rename_my_private_watchlist` | Management profile · `watchlists:write` | Rename one private, non-default watchlist you own |
 | `delete_my_private_watchlist` | Management profile · `watchlists:write` | Permanently delete one private, non-default watchlist and its memberships |
 | `get_my_listing_draft_eligibility` | Draft pilot · `profile:read` | Check seller verification and open the appropriate Budna verification page |
+| `get_my_publication_readiness` / `publish_my_quoted_draft` | Account actions · `selling:read` / `listingpublication:write` | Review eligibility, upfront costs and estimated proceeds, then publish an eligible draft immediately |
+| `get_my_draft_authoring` | Account actions · `listings:read` | Read the current fields, revision, category attributes, media count and listing VAT |
+| `edit_my_listing_draft` / `replace_my_draft_attributes` | Account actions · `draftauthoring:write` | Edit reviewed fields or intentionally replace the full category attribute set |
+| `set_my_draft_vat` / `discard_my_listing_draft` | Account actions · `draftauthoring:write` | Change an eligible company draft’s VAT treatment or discard one reviewed draft |
 | `create_my_similar_draft` | Account actions · `draftauthoring:write` | Copy supported fields from one reviewed listing into a verified seller’s unpublished draft |
 | `create_my_listing_draft` | Draft pilot · `listingdrafts:write` | Save one unpublished initial draft as the verified seller |
 | `get_my_notification_read_batch` | Account actions · `notifications:read` | Preview up to 50 eligible unread ordinary notifications |
@@ -232,6 +236,10 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `change_my_shipping_defaults` | Account actions · `shippingdefaults:write` | Change carrier or combined-shipping defaults for future listings |
 | `get_my_shipping_rules` / `list_my_shipping_rule_listings` | Account actions · `shippingrules:read` | Read kinds of goods, parcel capacities and paged listing assignments |
 | `change_my_shipping_rule` | Account actions · `shippingrules:write` | Apply one reviewed change to a kind, listing assignment or parcel |
+| `get_my_showcase_authoring` | Account actions · `showcaseauthoring:read` | Review seller verification, a showcase, affected listing deadlines and related streams |
+| `change_my_showcase` | Account actions · `showcases:write` | Create, edit or delete a draft, add one reviewed listing, publish or cancel |
+| `get_my_listing_inventory` | Account actions · `listings:read` | Review available stock, checkout reservations and open offers on an owned listing |
+| `set_my_listing_stock` / `record_my_listing_sold_elsewhere` | Account actions · `inventory:write` | Set an eligible shelf count or record a reviewed outside sale |
 | `get_my_shipping_settings` | Selling permission | Read your default carriers and combined-shipping choice |
 | `list_my_showcases` | Selling permission | List your collections, including drafts |
 | `list_my_live_sessions` | Selling permission | List your live streams with items sold and revenue |

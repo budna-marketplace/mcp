@@ -15,8 +15,17 @@ pub use room_activity::*;
 mod bid_submission;
 pub use bid_submission::*;
 mod draft_authoring;
+pub use draft_authoring::*;
+mod draft_fields;
+pub use draft_fields::*;
 mod shipping;
+mod showcase_authoring;
 pub use shipping::*;
+pub use showcase_authoring::*;
+mod inventory;
+pub use inventory::*;
+mod publication;
+pub use publication::*;
 mod inbox;
 mod personal_blocks;
 pub use personal_blocks::{OutgoingBlock, OutgoingBlocks, PersonalBlockReceipt};
@@ -34,8 +43,10 @@ use budna_mcp_core::AccountWritePermissions;
 pub use budna_mcp_core::write_permissions::BIDS_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::CHAT_ROOMS_READ_SCOPE;
 pub use budna_mcp_core::write_permissions::DRAFT_AUTHORING_SCOPE;
+pub use budna_mcp_core::write_permissions::INVENTORY_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::LIVE_REPORTS_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::PUBLIC_CHAT_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::PUBLICATION_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::RATINGS_WRITE_SCOPE;
 pub use budna_mcp_core::write_permissions::ROOM_MODERATION_READ_SCOPE;
 pub use budna_mcp_core::write_permissions::ROOM_MODERATION_WRITE_SCOPE;
@@ -1313,7 +1324,7 @@ impl AccountApiClient {
             let status = response.status();
             let draft_refused = matches!(
                 operation,
-                "create_my_listing_draft" | "create_my_similar_draft"
+                "create_my_listing_draft" | "create_my_similar_draft" | "publish_my_quoted_draft"
             ) && status == reqwest::StatusCode::FORBIDDEN;
             if !status.is_success() && !draft_refused {
                 return Err(ClientError::Api {

@@ -2298,3 +2298,5 @@ mod bid_submission;
 
 #[path = "account_http_protocol/seller_authoring.rs"]
 mod seller_authoring;
+#[path = "account_http_protocol/showcase_authoring.rs"]
+mod showcase_authoring;

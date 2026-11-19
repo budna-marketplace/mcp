@@ -11,8 +11,10 @@ use axum::{
 use budna_mcp_client::BIDS_WRITE_SCOPE;
 use budna_mcp_client::CHAT_ROOMS_READ_SCOPE;
 use budna_mcp_client::DRAFT_AUTHORING_SCOPE;
+use budna_mcp_client::INVENTORY_WRITE_SCOPE;
 use budna_mcp_client::LIVE_REPORTS_WRITE_SCOPE;
 use budna_mcp_client::PUBLIC_CHAT_WRITE_SCOPE;
+use budna_mcp_client::PUBLICATION_WRITE_SCOPE;
 use budna_mcp_client::RATINGS_WRITE_SCOPE;
 use budna_mcp_client::ROOM_MODERATION_READ_SCOPE;
 use budna_mcp_client::ROOM_MODERATION_WRITE_SCOPE;
@@ -30,6 +32,7 @@ use budna_mcp_client::{
     SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
     WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
+use budna_mcp_client::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
     HeaderValue, StatusCode,
@@ -220,10 +223,21 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
         "prepare_my_bid" => BIDS_READ_SCOPE,
         "submit_my_quoted_bid" => BIDS_WRITE_SCOPE,
-        "create_my_similar_draft" => DRAFT_AUTHORING_SCOPE,
+        "get_my_draft_authoring" => LISTINGS_READ_SCOPE,
+        "edit_my_listing_draft"
+        | "discard_my_listing_draft"
+        | "replace_my_draft_attributes"
+        | "set_my_draft_vat"
+        | "create_my_similar_draft" => DRAFT_AUTHORING_SCOPE,
         "change_my_shipping_defaults" => SHIPPING_DEFAULTS_SCOPE,
         "get_my_shipping_rules" | "list_my_shipping_rule_listings" => SHIPPING_RULES_READ_SCOPE,
         "change_my_shipping_rule" => SHIPPING_RULES_WRITE_SCOPE,
+        "get_my_showcase_authoring" => SHOWCASE_AUTHORING_READ_SCOPE,
+        "change_my_showcase" => SHOWCASES_WRITE_SCOPE,
+        "get_my_listing_inventory" => LISTINGS_READ_SCOPE,
+        "set_my_listing_stock" | "record_my_listing_sold_elsewhere" => INVENTORY_WRITE_SCOPE,
+        "get_my_publication_readiness" => SELLING_READ_SCOPE,
+        "publish_my_quoted_draft" => PUBLICATION_WRITE_SCOPE,
         "get_my_order_rating_eligibility" => ORDERS_READ_SCOPE,
         "rate_my_order_counterparty" => RATINGS_WRITE_SCOPE,
         "list_my_room_reaction_targets" => CHAT_ROOMS_READ_SCOPE,

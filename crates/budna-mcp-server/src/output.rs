@@ -5,15 +5,19 @@ pub(crate) mod bid_submission;
 mod collections;
 mod common;
 mod discovery;
+pub(crate) mod draft_authoring;
+pub(crate) mod inventory;
 mod listing_activity;
 mod listings;
 pub(crate) mod messages;
 pub(crate) mod personal;
 mod profiles;
+pub(crate) mod publication;
 mod records;
 pub(crate) mod room_activity;
 mod selling;
 pub(crate) mod shipping;
+pub(crate) mod showcase_authoring;
 mod taxonomy;
 
 pub(crate) use account::{
