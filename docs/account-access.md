@@ -141,6 +141,21 @@ The pilot grant covers only the action above. Keep general availability
 and any broader watchlist permissions behind separate rollout and consent
 review. Use Account Read or Public Explore to turn off the write tool.
 
+## Configuring account actions
+
+Use the HTTP profile `account-actions` to enable multiple independently consented
+families on one connection. Set `BUDNA_MCP_WRITE_SCOPES` to the exact
+space-separated permissions approved for the deployment. For example,
+`watchlist:write livereminders:write` enables private listing membership and
+personal live reminders. Unknown, duplicate and empty permission lists fail
+startup. A client also needs current consent for each tool it invokes.
+The standalone profile starts with public Explore off.
+
+`set_my_live_reminder` takes a canonical `session_id` and `reminded` boolean.
+Its receipt contains `action_id`, `session_id`, `reminded` and `status`.
+Use `list_my_live_reminders` under `watchlist:read` to check the current state.
+The write does not join a stream or record audience activity.
+
 ## Private watchlist management
 
 Select `BUDNA_MCP_PROFILE=account-watchlist-management` on a designated

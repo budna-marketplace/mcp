@@ -5,6 +5,12 @@ mod draft;
 mod listing;
 mod models;
 mod records;
+mod reminder;
+use budna_mcp_core::AccountWritePermissions;
+pub use budna_mcp_core::write_permissions::{
+    DRAFT_CREATE_SCOPE, LIVE_REMINDER_WRITE_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_WRITE_SCOPE,
+};
+pub use reminder::LiveReminderReceipt;
 mod selling;
 mod watchlist;
 
@@ -49,9 +55,6 @@ pub const PROFILE_READ_SCOPE: &str = "profile:read";
 pub const SELLING_READ_SCOPE: &str = "selling:read";
 pub const FOLLOWING_READ_SCOPE: &str = "following:read";
 pub const COMPANY_READ_SCOPE: &str = "company:read";
-pub const WATCHLIST_WRITE_SCOPE: &str = "watchlist:write";
-pub const DRAFT_CREATE_SCOPE: &str = "listingdrafts:write";
-pub const WATCHLIST_MANAGE_SCOPE: &str = "watchlists:write";
 /// Delegated permissions supported by the read-only account profile, in consent order.
 pub const ACCOUNT_SCOPES: [&str; 14] = [
     ACCOUNT_READ_SCOPE,
@@ -133,50 +136,49 @@ pub struct AccountApiClient {
     config: ClientConfig,
     resource: String,
     service_credential: Credential,
-    private_watchlist_writes: bool,
-    private_watchlist_management: bool,
-    listing_draft_creation: bool,
+    writes: AccountWritePermissions,
 }
 
 impl AccountApiClient {
     /// Selects whether this instance accepts the private-watchlist pilot scope.
     pub fn with_private_watchlist_writes(mut self, enabled: bool) -> Self {
-        self.private_watchlist_writes = enabled;
+        self.writes.watchlist_membership = enabled;
         self
     }
 
     pub fn private_watchlist_writes_enabled(&self) -> bool {
-        self.private_watchlist_writes
+        self.writes.watchlist_membership
     }
 
     pub fn with_private_watchlist_management(mut self, enabled: bool) -> Self {
-        self.private_watchlist_management = enabled;
+        self.writes.watchlist_management = enabled;
         self
     }
 
     pub fn private_watchlist_management_enabled(&self) -> bool {
-        self.private_watchlist_management
+        self.writes.watchlist_management
     }
 
     pub fn with_listing_draft_creation(mut self, enabled: bool) -> Self {
-        self.listing_draft_creation = enabled;
+        self.writes.listing_drafts = enabled;
         self
     }
 
     pub fn listing_draft_creation_enabled(&self) -> bool {
-        self.listing_draft_creation
+        self.writes.listing_drafts
+    }
+
+    pub fn with_write_permissions(mut self, permissions: AccountWritePermissions) -> Self {
+        self.writes = permissions;
+        self
+    }
+
+    pub fn write_permissions(&self) -> AccountWritePermissions {
+        self.writes
     }
 
     pub fn supported_write_scopes(&self) -> impl Iterator<Item = &'static str> {
-        [
-            self.private_watchlist_writes
-                .then_some(WATCHLIST_WRITE_SCOPE),
-            self.private_watchlist_management
-                .then_some(WATCHLIST_MANAGE_SCOPE),
-            self.listing_draft_creation.then_some(DRAFT_CREATE_SCOPE),
-        ]
-        .into_iter()
-        .flatten()
+        self.writes.scopes()
     }
 
     /// Scope metadata and token validation must describe the same profile.

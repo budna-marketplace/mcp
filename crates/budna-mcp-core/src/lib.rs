@@ -4,6 +4,8 @@
 pub mod account;
 pub mod config;
 pub mod policy;
+pub mod write_permissions;
+pub use write_permissions::AccountWritePermissions;
 
 pub use account::{ACCOUNT_MCP_PATH, AccountSettings};
 pub use config::{

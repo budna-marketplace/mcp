@@ -148,6 +148,15 @@ impl WatchlistMembershipParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct LiveReminderParams {
+    #[schemars(length(min = 41, max = 41), regex(pattern = LIVE_STREAM_ID_PATTERN))]
+    pub session_id: String,
+    /// True sets a reminder for this account. False removes it.
+    pub reminded: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AccountActionStatusParams {
     /// Canonical action reference from a receipt on this connection.
     #[schemars(length(min = 36, max = 36))]

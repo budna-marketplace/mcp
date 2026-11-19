@@ -10,12 +10,12 @@ use axum::{
 };
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
-    DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE,
-    NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
-    PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE,
-    WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
+    DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
+    MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE,
+    PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE,
+    WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
-use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings, ToolCapability};
+use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
     HeaderValue, StatusCode,
     header::{AUTHORIZATION, CACHE_CONTROL, COOKIE, WWW_AUTHENTICATE},
@@ -29,8 +29,8 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     AccountMcpServer,
     account::{
-        ACTION_STATUS_TOOL, DRAFT_CREATE_TOOL, DRAFT_ELIGIBILITY_TOOL, WATCHLIST_MANAGEMENT_TOOLS,
-        WATCHLIST_MEMBERSHIP_TOOL,
+        ACTION_STATUS_TOOL, DRAFT_CREATE_TOOL, DRAFT_ELIGIBILITY_TOOL, REMINDER_TOOL,
+        WATCHLIST_MANAGEMENT_TOOLS, WATCHLIST_MEMBERSHIP_TOOL,
     },
 };
 
@@ -51,24 +51,12 @@ pub fn account_http_router(
     account: &AccountSettings,
     cancellation: CancellationToken,
 ) -> Result<Router, http::header::InvalidHeaderValue> {
-    let watchlist_write = account
+    let configured = account
         .policy()
-        .allows(ToolCapability::PrivateWatchlistWrite)
-        && client.private_watchlist_writes_enabled()
-        && server.has_watchlist_write();
-    let management = account
-        .policy()
-        .allows(ToolCapability::PrivateWatchlistManagement)
-        && client.private_watchlist_management_enabled()
-        && server.has_watchlist_management();
-    let drafts = account.policy().allows(ToolCapability::ListingDraftCreate)
-        && client.listing_draft_creation_enabled()
-        && server.has_listing_drafts();
-    server.restrict_write_tools(watchlist_write, management, drafts);
-    let client = client
-        .with_private_watchlist_writes(watchlist_write)
-        .with_private_watchlist_management(management)
-        .with_listing_draft_creation(drafts);
+        .write_permissions()
+        .intersection(client.write_permissions());
+    let permissions = server.limit_permissions(configured);
+    let client = client.with_write_permissions(permissions);
     let scopes: Vec<_> = client.supported_scopes().collect();
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
@@ -84,6 +72,7 @@ pub fn account_http_router(
     let challenge = HeaderValue::from_str(&format!(
         "Bearer resource_metadata=\"{metadata_url}\", scope=\"{ACCOUNT_READ_SCOPE}\""
     ))?;
+    let has_writes = client.supported_write_scopes().next().is_some();
     let auth = AccountAuth {
         client,
         challenge,
@@ -95,7 +84,7 @@ pub fn account_http_router(
         "authorization_servers": [account.issuer()],
         "scopes_supported": scopes,
         "bearer_methods_supported": ["header"],
-        "resource_name": if drafts { "Budna listing drafts" } else if management { "Budna private watchlists" } else if watchlist_write { "Budna private watchlist pilot" } else { "Budna account reads" }
+        "resource_name": if has_writes { "Budna account actions" } else { "Budna account reads" }
     });
     let router = Router::new()
         .nest_service(ACCOUNT_MCP_PATH, service)
@@ -200,6 +189,7 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        REMINDER_TOOL => LIVE_REMINDER_WRITE_SCOPE,
         DRAFT_CREATE_TOOL => DRAFT_CREATE_SCOPE,
         DRAFT_ELIGIBILITY_TOOL => PROFILE_READ_SCOPE,
         WATCHLIST_MEMBERSHIP_TOOL => WATCHLIST_WRITE_SCOPE,

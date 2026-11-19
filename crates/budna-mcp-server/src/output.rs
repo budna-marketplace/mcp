@@ -13,7 +13,8 @@ mod taxonomy;
 
 pub(crate) use account::{
     AccountListingsOutput, AccountOutput, ActionStatusOutput, DraftEligibilityOutput,
-    DraftReceiptOutput, PrivateWatchlistOutput, WatchlistMembershipOutput,
+    DraftReceiptOutput, LiveReminderReceiptOutput, PrivateWatchlistOutput,
+    WatchlistMembershipOutput,
 };
 pub(crate) use account_detail::AccountListingDetailOutput;
 pub(crate) use activity::{

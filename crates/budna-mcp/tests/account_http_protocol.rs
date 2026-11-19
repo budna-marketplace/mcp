@@ -105,8 +105,28 @@ async fn start_http_server(
     account_profile: Option<&str>,
     public_explore: Option<bool>,
 ) -> Result<AccountServer> {
+    start_http_server_with_scopes(
+        api_url,
+        request_timeout_secs,
+        account_profile,
+        public_explore,
+        None,
+    )
+    .await
+}
+
+async fn start_http_server_with_scopes(
+    api_url: &str,
+    request_timeout_secs: u64,
+    account_profile: Option<&str>,
+    public_explore: Option<bool>,
+    write_scopes: Option<&str>,
+) -> Result<AccountServer> {
     let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp"));
     command.env_clear();
+    if let Some(scopes) = write_scopes {
+        command.env("BUDNA_MCP_WRITE_SCOPES", scopes);
+    }
     if let Some(profile) = account_profile {
         command.env("BUDNA_MCP_SERVICE_SECRET", SERVICE).args([
             "--profile",
@@ -1521,6 +1541,135 @@ async fn draft_profile_requires_fresh_consent_and_recovers_verification_on_web()
         .json()
         .await?;
     assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn combined_profile_advertises_only_configured_families_and_requires_each_grant() -> Result<()>
+{
+    const SESSION: &str = "live_00000000-0000-4000-8000-000000000002";
+    const ACTION: &str = "00000000-0000-4000-8000-000000000003";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "reminder",
+        "reminder-downstream",
+        USER_A,
+        "livereminders:write",
+    )
+    .await;
+    exchange(&api, "saver", "saver-downstream", USER_B, "watchlist:write").await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("watchlist:write livereminders:write"),
+    )
+    .await?;
+    let origin = format!("http://{}", server.address);
+    let endpoint = format!("{origin}/account/mcp");
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let metadata: Value = client
+        .get(format!(
+            "{origin}/.well-known/oauth-protected-resource/account/mcp"
+        ))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let scopes = metadata["scopes_supported"]
+        .as_array()
+        .context("permissions")?;
+    assert!(
+        scopes.contains(&json!("livereminders:write"))
+            && scopes.contains(&json!("watchlist:write"))
+    );
+    assert!(
+        !scopes.contains(&json!("listingdrafts:write"))
+            && !scopes.contains(&json!("watchlists:write"))
+    );
+    let list: Value = post(
+        &client,
+        &endpoint,
+        "reminder",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    let tools = list
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .context("tools")?;
+    let writes = tools
+        .iter()
+        .filter(|tool| tool["annotations"]["readOnlyHint"] == false)
+        .map(|tool| tool["name"].as_str().unwrap_or_default())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        writes,
+        BTreeSet::from(["set_my_live_reminder", WATCHLIST_WRITE])
+    );
+    assert!(
+        !tools
+            .iter()
+            .any(|t| t["name"] == "get_my_listing_draft_eligibility")
+    );
+    for reminded in [true, false] {
+        let args = json!({"session_id":SESSION,"reminded":reminded});
+        let denied = post(
+            &client,
+            &endpoint,
+            "saver",
+            call("set_my_live_reminder", args.clone()),
+        )
+        .await?;
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        assert!(
+            denied.headers()[header::WWW_AUTHENTICATE]
+                .to_str()?
+                .contains("livereminders:write")
+        );
+        let receipt = json!({"session_id":SESSION,"reminded":reminded,"action_id":ACTION,"status":"executed"});
+        let mut wire = receipt.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = Mock::given(method("PUT"))
+            .and(path(format!(
+                "/api/v1/mcp/account/live-reminders/{SESSION}"
+            )))
+            .and(matches_header(
+                "authorization",
+                "Bearer reminder-downstream",
+            ))
+            .and(body_json(json!({"reminded":reminded})))
+            .and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(
+            &client,
+            &endpoint,
+            "reminder",
+            call("set_my_live_reminder", args),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        assert!(!result.to_string().contains(SENTINEL));
+    }
     server.child.kill().await?;
     server.child.wait().await?;
     Ok(())

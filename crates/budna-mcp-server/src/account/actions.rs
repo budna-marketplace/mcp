@@ -1,4 +1,5 @@
 use super::*;
+use crate::{output::LiveReminderReceiptOutput, params::LiveReminderParams};
 use crate::{
     output::{ActionStatusOutput, PrivateWatchlistOutput},
     params::{
@@ -132,6 +133,35 @@ impl AccountMcpServer {
         self.execute(
             operation,
             self.client.change_private_watchlist(&access, change, &key),
+        )
+        .await
+    }
+}
+
+#[tool_router(router = reminder_router, vis = "pub(super)")]
+impl AccountMcpServer {
+    #[tool(
+        title = "Set or remove a live reminder",
+        description = "On the customer's explicit request, set or remove their personal reminder for one live session with livereminders:write. The readback list needs watchlist:read. Only executed confirms completion.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = true,
+            idempotent_hint = false,
+            open_world_hint = true
+        )
+    )]
+    pub async fn set_my_live_reminder(
+        &self,
+        Parameters(input): Parameters<SafeToolParams<LiveReminderParams>>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<Json<LiveReminderReceiptOutput>, CallToolResult> {
+        let input = input.parse().map_err(|e| input_error(REMINDER_TOOL, &e))?;
+        let access = request_access(&context, REMINDER_TOOL)?;
+        let key = uuid::Uuid::new_v4().to_string();
+        self.execute(
+            REMINDER_TOOL,
+            self.client
+                .set_live_reminder(&access, &input.session_id, input.reminded, &key),
         )
         .await
     }

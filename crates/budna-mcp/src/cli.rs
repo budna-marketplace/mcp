@@ -22,6 +22,10 @@ pub struct Cli {
     #[arg(long, env = "BUDNA_MCP_ACCOUNT_RESOURCE")]
     account_resource: Option<String>,
 
+    /// Space-separated deployment permissions for the explicit account-actions profile.
+    #[arg(long, env = "BUDNA_MCP_WRITE_SCOPES")]
+    account_write_scopes: Option<String>,
+
     /// Include public Explore tools and their UI on the account resource (account-read defaults to true).
     #[arg(long, env = "BUDNA_MCP_ACCOUNT_PUBLIC_EXPLORE")]
     account_public_explore: Option<bool>,
@@ -83,6 +87,7 @@ impl Cli {
             account_issuer,
             account_resource,
             account_public_explore,
+            account_write_scopes,
             api_url,
             public_listing_origin,
             image_origin,
@@ -105,6 +110,9 @@ impl Cli {
         let settings = settings
             .with_http_server(http_server)
             .with_public_urls(public_urls);
+        if profile != CliProfile::AccountActions && account_write_scopes.is_some() {
+            return Err(ConfigError::InvalidAccountSettings);
+        }
         match profile {
             CliProfile::PublicExplore
                 if account_issuer.is_some()
@@ -117,7 +125,8 @@ impl Cli {
             CliProfile::AccountRead
             | CliProfile::AccountWatchlistPilot
             | CliProfile::AccountWatchlistManagement
-            | CliProfile::AccountListingDraftPilot => {
+            | CliProfile::AccountListingDraftPilot
+            | CliProfile::AccountActions => {
                 let account = AccountSettings::new(
                     account_issuer
                         .as_deref()
@@ -127,6 +136,13 @@ impl Cli {
                         .ok_or(ConfigError::InvalidAccountSettings)?,
                 )?;
                 settings.with_account(match profile {
+                    CliProfile::AccountActions => account.with_write_permissions(
+                        budna_mcp_core::AccountWritePermissions::from_scopes(
+                            account_write_scopes
+                                .as_deref()
+                                .ok_or(ConfigError::InvalidAccountSettings)?,
+                        )?,
+                    ),
                     CliProfile::AccountListingDraftPilot => account.with_listing_draft_creation(),
                     CliProfile::AccountWatchlistManagement => {
                         account.with_private_watchlist_management()
@@ -146,6 +162,7 @@ enum CliProfile {
     AccountWatchlistPilot,
     AccountWatchlistManagement,
     AccountListingDraftPilot,
+    AccountActions,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]

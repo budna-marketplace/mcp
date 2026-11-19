@@ -236,6 +236,7 @@ dependencies = [
 name = "budna-mcp-client"
 version = "0.8.2"
 dependencies = [
+ "budna-mcp-core",
  "httpdate",
  "reqwest",
  "serde",

@@ -1,3 +1,5 @@
+use crate::AccountWritePermissions;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ToolCapability {
@@ -6,6 +8,7 @@ pub enum ToolCapability {
     PrivateWatchlistWrite,
     PrivateWatchlistManagement,
     ListingDraftCreate,
+    LiveReminderWrite,
 }
 
 /// The concrete capability profile exposed by a server instance.
@@ -21,6 +24,7 @@ pub enum ToolPolicy {
     AccountWatchlistPilot,
     AccountWatchlistManagement,
     AccountListingDraftPilot,
+    AccountActions(AccountWritePermissions),
 }
 
 impl ToolPolicy {
@@ -28,28 +32,37 @@ impl ToolPolicy {
         Self::PublicExplore
     }
 
+    pub const fn write_permissions(self) -> AccountWritePermissions {
+        let none = AccountWritePermissions::NONE;
+        match self {
+            Self::PublicExplore | Self::AccountRead => none,
+            Self::AccountWatchlistPilot => AccountWritePermissions {
+                watchlist_membership: true,
+                ..none
+            },
+            Self::AccountWatchlistManagement => AccountWritePermissions {
+                watchlist_membership: true,
+                watchlist_management: true,
+                ..none
+            },
+            Self::AccountListingDraftPilot => AccountWritePermissions {
+                listing_drafts: true,
+                ..none
+            },
+            Self::AccountActions(permissions) => permissions,
+        }
+    }
+
     pub const fn allows(&self, capability: ToolCapability) -> bool {
-        matches!(
-            (self, capability),
-            (
-                Self::AccountListingDraftPilot,
-                ToolCapability::AccountRead
-                    | ToolCapability::PublicExplore
-                    | ToolCapability::ListingDraftCreate
-            ) | (
-                Self::AccountWatchlistManagement,
-                ToolCapability::PrivateWatchlistManagement
-            ) | (
-                Self::AccountWatchlistPilot | Self::AccountWatchlistManagement,
-                ToolCapability::AccountRead
-                    | ToolCapability::PublicExplore
-                    | ToolCapability::PrivateWatchlistWrite
-            ) | (Self::PublicExplore, ToolCapability::PublicExplore)
-                | (
-                    Self::AccountRead,
-                    ToolCapability::AccountRead | ToolCapability::PublicExplore
-                )
-        )
+        let writes = self.write_permissions();
+        match capability {
+            ToolCapability::PublicExplore => true,
+            ToolCapability::AccountRead => !matches!(self, Self::PublicExplore),
+            ToolCapability::PrivateWatchlistWrite => writes.watchlist_membership,
+            ToolCapability::PrivateWatchlistManagement => writes.watchlist_management,
+            ToolCapability::ListingDraftCreate => writes.listing_drafts,
+            ToolCapability::LiveReminderWrite => writes.live_reminders,
+        }
     }
 }
 

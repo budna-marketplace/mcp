@@ -220,3 +220,22 @@ impl From<budna_mcp_client::DraftReceipt> for DraftReceiptOutput {
         }
     }
 }
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct LiveReminderReceiptOutput {
+    pub action_id: String,
+    pub session_id: String,
+    pub reminded: bool,
+    pub status: WatchlistActionStatusOutput,
+}
+
+impl From<budna_mcp_client::LiveReminderReceipt> for LiveReminderReceiptOutput {
+    fn from(receipt: budna_mcp_client::LiveReminderReceipt) -> Self {
+        Self {
+            action_id: receipt.action_id,
+            session_id: receipt.session_id,
+            reminded: receipt.reminded,
+            status: receipt.status.into(),
+        }
+    }
+}

@@ -48,6 +48,11 @@ impl AccountSettings {
         self
     }
 
+    pub fn with_write_permissions(mut self, permissions: crate::AccountWritePermissions) -> Self {
+        self.policy = ToolPolicy::AccountActions(permissions);
+        self
+    }
+
     pub fn policy(&self) -> ToolPolicy {
         self.policy
     }
