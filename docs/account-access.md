@@ -141,6 +141,164 @@ The pilot grant covers only the action above. Keep general availability
 and any broader watchlist permissions behind separate rollout and consent
 review. Use Account Read or Public Explore to turn off the write tool.
 
+## Configuring account actions
+
+For tools that advertise `request_id`, generate a UUID when the customer requests the change. Keep that UUID and the exact arguments across reconnects, timeouts and retries. A different change gets a fresh UUID. A quote-bound commitment uses its own advertised quote ID. Check the returned action receipt from the original connected app. Only `executed` confirms completion.
+
+
+Use the HTTP profile `account-actions` to enable multiple independently consented
+families on one connection. Set `BUDNA_MCP_WRITE_SCOPES` to the exact
+space-separated permissions approved for the deployment. Include `personalblocks:read`, `chatrooms:read` or `roommoderation:read` explicitly when they are needed. For example,
+`watchlist:write livereminders:write` enables private listing membership and
+personal live reminders. Unknown, duplicate and empty permission lists fail
+startup. A client also needs current consent for each tool it invokes.
+The standalone profile starts with public Explore off.
+
+`set_my_live_reminder` takes a canonical `session_id` and `reminded` boolean.
+Its receipt contains `action_id`, `session_id`, `reminded` and `status`.
+Use `list_my_live_reminders` under `watchlist:read` to check the current state.
+The write does not join a stream or record audience activity.
+
+Under the `notificationstate:write` deployment permission,
+`get_my_notification_read_batch` uses a `notifications:read` grant to return
+up to 50 eligible unread IDs and `has_more`. With the separate
+`notificationstate:write` grant, send exactly the IDs the customer wants to
+acknowledge to `mark_my_notifications_read`. Later arrivals retain their state.
+Protected, foreign or unavailable IDs reject the entire request. The receipt
+contains `action_id`, `status` and `requested_count`. The count includes
+eligible IDs that another client already acknowledged.
+
+Use `get_budna_account_destination` on the combined profile to open the
+appropriate Budna web area for a first-party task. This accepts a fixed task
+name. The tool constructs the URL from the configured first-party origin and
+returns no session material. Verification, payment and connected-app approval
+take place in the customer's own browser.
+
+### Saved searches
+
+Enable `savedsearches:write` on the account-actions deployment.
+`get_my_saved_search_authoring` uses `watchlist:read` to return usage, the
+account limit and allowed frequencies. Resolve category, filter and location
+choices using the marketplace reads. For creation, give the new search a
+name and supply the criteria. Monetary bounds use exact decimal strings, with SEK for Swedish searches
+and NOK for Norwegian searches. An omitted market on creation uses SEK. Frequencies are immediate, daily or weekly.
+
+Read the saved search to obtain its current `updated_at`. Send that value as
+`expected_updated_at` to edit or delete. On edit, omitted scalar criteria are
+preserved and an explicit null clears the supplied criterion. Set or remove
+individual taxonomy filters with entries such as `{"field":"brand","value":null}`.
+Changing `active` pauses or resumes alerts. A stale revision requires reading
+the search again. Receipts contain `action_id`, `search_id` and `status`.
+Browsing and editing leave match acknowledgement in Budna.
+
+### Personal inbox, profile and follows
+
+Enable `inbox:write` for personal conversation settings, hiding a participant’s
+own message copy and muting eligible listing chats. Read the current settings
+with `messages:read`. Archiving hides a conversation for this participant.
+Hiding a message copy leaves the other participant’s copy intact.
+
+Enable `profile:write` for display-name and bio changes. Use
+`get_my_profile_authoring` with `profile:read` to obtain the current revision.
+Omit fields to preserve them and supply an empty bio to clear it. The existing
+visibility setting applies. Manage public city through Budna address settings.
+
+Enable `following:write` for a single public follow or unfollow. Use
+`get_my_following_state` under `following:read` to read the exact handle,
+stable public ID and relationship. The write requires the same handle and
+stable ID. A new follow can notify the other person.
+
+### Personal blocks
+
+With `messages:write`, one customer request can start a private conversation,
+send a message, reply to a specific message or replace the text of a message
+the customer sent within its edit window. Use the read tools under
+`messages:read` to confirm the other participant’s current public username
+and stable ID, and the current revision for an edit. Sending can notify the
+recipient and reopen the thread. These tools preserve the requested text and
+Budna’s moderation rules. To react to a visible private message, grant
+`messagereactions:write` separately. Pass one supported emoji or explicitly
+pass `null` to remove the customer’s reaction. The reaction read returns the
+customer’s choice and aggregate counts.
+
+Room reactions, reports and seller moderation use independent grants.
+`chatrooms:read` returns public message and bid IDs, aggregate reaction
+counts and the customer’s choices. `roomreactions:write` sets one emoji
+to the requested state on one eligible target. A shop-stream report uses
+`livereports:write` and the actual message ID. Report receipts acknowledge
+filing. Staff determine the outcome.
+
+`roommoderation:read` previews the owner’s eligible participants and
+the scope of a ban. `roommoderation:write` permits the applicable pin,
+hide, report or ban action. A seller can lift a shop-stream ban across
+their live chats. Hiding a room post is permanent through the app's
+ordinary controls. These tools accept only the public participant and
+post identifiers needed for that action.
+
+For an order rating, use `get_my_order_rating_eligibility` with `orders:read`.
+Budna derives the other party and the rating direction from the selected
+transaction. Submission needs `ratings:write`, one to five customer-chosen
+stars, the explicit marketplace audience and either the customer’s exact
+comment or an explicit `null` for a star-only rating. Eligibility depends
+on the transaction and which side the customer was on. A qualifying unpaid
+auction closure can allow the seller to rate the buyer.
+
+Public posting requires its own `publicchat:write` consent. With
+`messages:read`, check the posting rules and available reply targets for the
+exact room. To submit, provide its public room ID, the explicit audience
+`public`, the text to post and, for a reply, the parent message ID.
+Budna rechecks eligibility and moderation rules when it receives the post.
+
+`personalblocks:read` and `personalblocks:write` are independent opt-in
+permissions. The read returns only the connected account’s outgoing blocks,
+with public IDs and handles. Supply the returned `next_after` for the next
+page. Blocking removes reciprocal follows and pauses standing automatic bids
+between the accounts. Unblocking restores neither. Explain these effects
+before submitting the customer’s request. The receipt contains `action_id`,
+`status`, the target `user_id` and the requested `blocked` state.
+
+## Private watchlist management
+
+Select `BUDNA_MCP_PROFILE=account-watchlist-management` on a designated
+HTTP deployment. Public Explore on this profile requires explicit opt-in.
+Budna advertises enabled permissions in resource discovery. Existing
+`watchlist:write` consent covers only listing membership. The customer
+selects the separate `watchlists:write` permission to manage their lists.
+
+| Tool | Inputs | Result |
+| --- | --- | --- |
+| `create_my_private_watchlist` | `name`, a nonblank name of up to 255 UTF-8 bytes without control characters | Creates one private, non-default list. |
+| `rename_my_private_watchlist` | `watchlist_id` and `name` | Changes the name of one owned private, non-default list. |
+| `delete_my_private_watchlist` | `watchlist_id` | Permanently removes the list and its memberships. Listings saved in other lists stay there. |
+| `get_my_action_status` | `action_id` from one receipt | Reads the action on its original connection with the permission that submitted it. |
+
+A management receipt contains `action_id`, `watchlist_id` and `status`.
+The list ID may be unknown while creation is unresolved. Only `executed`
+confirms completion. To resolve a receipt, the status tool returns the same
+action reference, its current state and an optional expiry in epoch milliseconds.
+When a receipt is lost, check Connected apps in Budna and read the affected list
+before requesting another change. Private list names never appear in receipts.
+Public, default, missing and foreign lists return the same unavailable result
+for rename and delete. List discovery still requires `watchlist:read`.
+
+## Verified listing drafts
+
+The opt-in HTTP profile `account-listing-draft-pilot` accepts a separate
+`listingdrafts:write` grant for creating one initial draft. Its optional
+`get_my_listing_draft_eligibility` read uses `profile:read`. The result contains
+`seller_verification` and an optional `verification_url` on the configured
+first-party web origin. Complete verification in that browser session and check
+again. Budna rechecks the seller at the point where it saves the draft.
+A connected company verifies its own organization.
+
+`create_my_listing_draft` requires a `market` of `swedish` or `norwegian`
+and `currency` of `SEK`. Omit `title` and `description` for a blank draft.
+Supplied text must be nonblank, with at most 200 and 10,000 characters
+respectively. The server supplies ownership, status and defaults. Add media or
+continue editing in Budna. The receipt contains `action_id`, `listing_id`
+and `status`. Check `get_my_action_status` on the originating connection
+when a receipt is pending or unknown.
+
 ## Read permissions and tools
 
 | Tool | Scope | Output |
@@ -295,3 +453,89 @@ failure recovery using synthetic accounts. Complete privacy review of the
 account data delivered to each AI host. Disconnecting blocks future access;
 it does not recall information already delivered to another service. This
 source profile does not establish a live deployment or compliance approval.
+
+### Bidding
+
+Operators can enable `bids:write` on an account-actions deployment with the matching bidding API. Preparing a bid under `bids:read` returns an expiring quote for one listing, auction round and exact amount in SEK. Review the minimum, increment, protection fee and whether it is mandatory, nonpayment fee, shipping selection at checkout and payment deadline before submission.
+
+Submission requires `bids:write` and the original quote, listing and amount. A pending receipt includes a link to the requesting customer’s Budna approval page. Read the action status for its outcome. If the submission response is lost, retry the same terms with the same quote. A new quote represents a new intent.
+
+### Automatic bidding
+
+Automatic bidding requires its own `autobids:write` permission. With the automatic-bid capability enabled, `bids:read` shows the customer’s current instruction and prepares a short-lived quote for one exact maximum. A quote identifies the listing and auction round and shows buyer-protection and nonpayment fees at that maximum. Setting or raising the maximum may place a binding bid immediately and allows subsequent automatic bids up to the cap. Budna applies the customer’s approval policy and spending limits to the full maximum.
+
+Use the quote ID and original maximum for a submission retry. Pausing requires the revision from the current instruction and a stable idempotency key. A successful pause stops future bidding and preserves bids already placed.
+
+A historical maximum keeps the currency it was set in, and a new maximum is always in SEK. Budna does not quote a new maximum over one set in another currency. A listing the customer cannot see on Budna reads as not found, while the customer’s own instruction on it stays readable and can still be paused.
+
+### Similar drafts and shipping rules
+
+To create a similar unpublished draft, the customer selects an owned source, reads its `updated_at`, and grants `draftauthoring:write`. The action checks seller verification and copies the supported source fields. Media, bid history, orders and identity stay outside the copy. Supply one `request_id` UUID per intended draft and reuse it after an interrupted request.
+
+The seller’s existing shipping settings provide a revision when the API supports editing. `shippingdefaults:write` allows changing the carrier selection or combined-shipping default for future listings. `shippingrules:read` allows reading kinds of goods, their listing counts, parcel capacities and pages of owned listings. `shippingrules:write` permits one change at a time. Read the revision, show the resulting change and submit that revision with a stable `request_id`. Moving a listing or deleting a kind affects future combined quotes. Budna sets the delivery price.
+
+With `showcaseauthoring:read`, read the seller’s current capacity before creating a draft. For an existing showcase, review its revision, visible items, banner status and any scheduled or live stream. Include one owned listing in the read to preview whether its deadline would move. `showcases:write` authorizes a single change against that exact review. Creating a draft and publishing require a verified seller. Upload the banner on Budna before publishing. Cancelling releases member listings and closes associated streams. Deleting a draft removes its attached sessions. Reuse the request UUID when retrieving a receipt after an interrupted call.
+
+With draft authoring enabled and `listings:read` granted, use `get_listing_creation_rules` for the selected category and market. The result includes allowed listing formats and conditions, fields inherited from parent categories, publication requirements and value limits. Use `list_listing_creation_options` to page or search a field’s allowed choices. Both reads use the same category rules revision across pages. A field or option marked `supported_in_mcp: false` needs review on Budna. Send numeric attributes as exact decimal strings in canonical form, such as `"2.5"` or `"0"`. Pass the returned `rules_revision` as `expected_rules_revision` when replacing attributes. If the category changes, read the new options before resubmitting. The listing’s own revision tracks separate seller edits.
+
+With draft authoring enabled, read the latest draft and category rules before editing. Every edit includes the reviewed listing revision and a UUID for the customer’s requested change. An omitted field retains its current value. Explicit clear operations are available for eligible shipping fields and listing VAT. Replacing attributes is a complete replacement, including an explicitly empty set. Use it only when the complete current set is visible and the customer intends the replacement. Discard applies only to an owned unpublished draft. Quantity, publication, media attachment, account tax registration and payment each follow a separate flow.
+
+### Seller inventory
+
+Read the owner’s inventory review before setting a shelf count or recording an outside sale. The separate `inventory:write` permission applies only to these two operations. The supplied revision, available quantity and checkout reservations must still match. A positive absolute stock count can put an eligible sold-out in-stock listing back on sale. Recording a sale elsewhere closes the remaining listing and rejects open offers, so it also requires the reviewed count of affected offers. A standing bid or purchase in progress can prevent the sale. The action creates no Budna order. Use the same request UUID to reconcile an interrupted submission.
+
+### Listing publication
+
+Publication uses its own fresh grant. Review the seller’s draft, eligible media, current terms, blockers, upfront amount due and the estimated fees and proceeds at the stated sale price. The readiness read issues a quote only for an eligible immediate publication. Future starts require an updated draft. The seller completes identity or payment steps on Budna. Submit the reviewed revision and quote with a stable request ID, then read the action and the owner’s listing. Changing a promotion is a separate first-party choice.
+
+### Seller stream schedules and announced listings
+
+Use `get_my_stream_authoring` with `streamauthoring:read` to review your shop, listing or showcase before scheduling. For an existing stream, select its stream ID to review the schedule, follower notification setting and full ordered lineup. With `streamplans:write`, submit one change with the reviewed revision and a request UUID. Scheduling requires an eligible target, verified seller and selling readiness. Complete identity or payout steps on Budna. A scheduled stream can appear publicly and followers can receive notifications. Choose eligible listings from your active inventory. Change the lineup one listing at a time. Use the Budna app to start and host the broadcast.
+
+### Combined shipping
+
+Select two to 25 unpaid orders in ascending order for a combined shipping review. The review shows the seller, each item amount and quantity, applicable fees, current and proposed deadlines and whether a seller rule supplies a package. A buyer request always opens a Budna approval. Approving groups the orders and clears previous delivery selections. The buyer chooses delivery, protection and payment in Budna. The seller can quote or decline and the buyer can dissolve an eligible group using its latest revision. Revising a quote can clear a previous carrier selection. Reuse the request UUID when recovering an interrupted request.
+
+### Offer negotiations
+
+With the offer capability enabled, `offers:read` can prepare one move on a listing. The quote identifies the buyer or seller role and shows the total for all units, the amounts on the table before and after the move, the next responder and any applicable fees or payment deadline. New proposals leave the stock available. Acceptance reserves the offered quantity and creates a binding unpaid order. Delivery and payment take place in Budna.
+
+Submitting the reviewed move requires `offers:write`. Budna applies the customer's connected-app spending and approval settings to a new offer, raise, counter, lowered counter or acceptance. Rejecting an incoming proposal and withdrawing one's own proposal are direct actions. Use the original quote ID, digest and proposal for retries. A completed acceptance receipt contains the order reference.
+
+## Changes to existing listings
+
+Enable `listingmanagement:write` for eligible edits, extensions, relisting and deletion. Preview the proposed change under `selling:read`. Show the seller any fee, time change and watcher notification, then send the identical operation with its quote, revision and request ID. A relist opens a new round and keeps the listing identity. An exceptional withdrawal belongs in Budna.
+
+## Order disputes
+
+Use `orders:read` to check the connected party’s available actions, current case and order revisions, offer ID, exact discount and deadline. With `disputecases:write` the customer can open a case or send their exact statement to the parties and Budna. Opening a case can hold a payout. The claimant must approve withdrawing the case in Budna.
+
+With `disputesettlements:write` the buyer can decline the current discount or the seller can withdraw their proposal. A new proposal and a buyer’s acceptance each require first-party confirmation of the amount and currency. A seller proposal stays open for 24 hours from approval. Acceptance requests the native refund. The provider processes the transfer separately. The app and MCP can read the resulting order and case. Use Budna to submit evidence or reach support.
+
+### Second-chance auction sales
+
+A seller can review a closed unpaid auction order with `orders:read`. Budna selects eligible runner-up bidders and offers the same fixed price to one bidder at a time. Starting a cascade under `secondchances:write` requires first-party approval. The seller can cancel a live cascade directly.
+
+With `offers:read`, an invited buyer can resolve their received offer to their personal invitation and review its price, fees, response window and payment deadline. Acceptance under `secondchanceanswers:write` requires approval in Budna and returns the resulting unpaid order. A decline passes the opportunity on. Each submission uses its original quote as the idempotency key.
+
+### Order returns
+
+With `returnreview:read`, `get_my_return_terms` shows the participant’s role, order amount, current refundable amount when available, online refund deadline, statutory deadline, who pays return postage and who handles the refund. Use the supplied Budna order link to pay for a return label, book it or supply sensitive evidence.
+
+With a separate `returns:write` grant, `change_my_order_return` takes the order ID, current revision, a stable UUID request ID and one change. A qualifying consumer buyer can request a statutory withdrawal. A seller can agree to take an eligible purchase back or confirm that the return arrived. These three changes require the owner’s approval on Budna. The buyer can directly submit or correct own return tracking or cancel an eligible open return. Budna checks the current tracking lock, paid label, order parties, protection requirements and payment state again when applying the change. Use the order terms to distinguish a provider refund, manual review and a direct refund owed by the seller. Tracking numbers are omitted from action receipts.
+
+### Fulfillment and pickup
+
+An enrolled client may request the four fulfillment permissions independently. With `fulfillmentreview:read`, use `get_my_fulfillment_terms` with a positive order ID and the intended operation. A combined delivery identifies every affected order and listing. The review returns a revision, the remaining funded balance and the consequences for payment and any eligible non-receipt disputes.
+
+A seller with `sellerfulfillment:write` can record actual dispatch or handover, or set tracking for seller-arranged shipping. The separate `carrierbookings:write` permission books the carrier already selected for the funded order or parcel. Budna keeps carrier documents on the order page. Reuse the same request ID after an interrupted call. A carrier outcome that needs reconciliation stays visible in action history.
+
+A buyer with `buyerreceipts:write` requests a first-party approval on Budna. Confirming actual delivery starts the 48-hour inspection period. Confirming in-person receipt makes the payment eligible for release immediately, subject to remaining holds, and closes the eligible non-receipt disputes listed in the review.
+
+### Binding Buy Now orders
+
+An enrolled buyer with `orders:read` can inspect an existing checkout for a listing. Open the listing on Budna to start checkout or select delivery. A quote binds that selection, item quantity, fees, total, payment deadline, and whether the auction ends. The independent `checkoutorders:write` grant lets the buyer request approval in Budna. Once approved, Budna holds the stock and returns the unpaid order and deadline. The buyer pays on Budna. An expired quote requires another review. Retry the original submission to reconcile its receipt after a lost response.
+
+### Order closure and relisting
+
+Read the buyer or seller’s own order with `orders:read`. Quote either cancellation or an overdue seller close. The quote identifies who owes a fee, the refund amount and route, any retained partial payment, and whether units are restored. Requesting the reviewed closure under `orderclosures:write` requires approval in Budna. A buyer withdrawing from a qualifying paid business order uses the statutory withdrawal tools. After closure the seller can quote and perform the independent `ordersrelist:write` action on the original terms. Re-read the order to resolve an interrupted close or relist. Retry only the outstanding step.

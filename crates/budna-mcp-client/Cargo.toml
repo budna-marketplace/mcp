@@ -13,8 +13,10 @@ categories.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+budna-mcp-core.workspace = true
 httpdate.workspace = true
 reqwest.workspace = true
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

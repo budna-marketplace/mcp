@@ -66,6 +66,10 @@ pub struct AccountSavedSearch {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AccountSavedSearchQuery {
+    pub search_mode: Option<String>,
+    pub sort_by: Option<String>,
+    pub sort_order: Option<String>,
+    pub location_id: Option<i32>,
     pub text: Option<String>,
     pub category_id: Option<i32>,
     pub market: Option<String>,
@@ -475,6 +479,10 @@ impl AccountSavedSearch {
             && self.updated_at >= 0
             && optional_text(query.text.as_deref(), 4096)
             && query.category_id.is_none_or(|id| id > 0)
+            && query.location_id.is_none_or(|id| id > 0)
+            && [&query.sort_order, &query.sort_by, &query.search_mode]
+                .iter()
+                .all(|v| optional_text(v.as_deref(), 128))
             && [&query.market, &query.condition, &query.listing_type]
                 .into_iter()
                 .all(|value| optional_text(value.as_deref(), 64))

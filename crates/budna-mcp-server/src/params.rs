@@ -1,3 +1,12 @@
+pub(crate) mod automatic_bids;
+pub(crate) mod bid_submission;
+pub(crate) mod messages;
+pub(crate) mod offer_actions;
+pub(crate) mod personal;
+pub(crate) mod room_activity;
+mod saved_search;
+pub(crate) mod second_chances;
+pub(crate) use saved_search::{CreateSearchParams, DeleteSearchParams, UpdateSearchParams};
 use std::{
     borrow::Cow,
     collections::BTreeMap,
@@ -144,6 +153,55 @@ impl WatchlistMembershipParams {
         }
         validate_listing_id(&self.listing_id)
     }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NotificationReadParams {
+    /// The exact eligible notification IDs the customer chose.
+    #[schemars(length(min = 1, max = 50))]
+    pub notification_ids: Vec<i64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LiveReminderParams {
+    #[schemars(length(min = 41, max = 41), regex(pattern = LIVE_STREAM_ID_PATTERN))]
+    pub session_id: String,
+    /// True sets a reminder for this account. False removes it.
+    pub reminded: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountActionStatusParams {
+    /// Canonical action reference from a receipt on this connection.
+    #[schemars(length(min = 36, max = 36))]
+    pub action_id: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CreateWatchlistParams {
+    /// Private list name, up to 255 UTF-8 bytes.
+    #[schemars(length(min = 1, max = 255))]
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RenameWatchlistParams {
+    #[schemars(range(min = 1))]
+    pub watchlist_id: i64,
+    #[schemars(length(min = 1, max = 255))]
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteWatchlistParams {
+    #[schemars(range(min = 1))]
+    pub watchlist_id: i64,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -506,6 +564,17 @@ impl schemars::JsonSchema for CustomFiltersParam {
             }
         })
     }
+}
+
+/// Binds one explicit customer intent to one durable account action, including across reconnections.
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WithRequestId<T> {
+    /// Allocate one UUID per intended change. Reuse the same UUID and arguments on retries.
+    #[schemars(length(min = 36, max = 36))]
+    pub request_id: String,
+    #[serde(flatten)]
+    pub fields: T,
 }
 
 #[derive(Debug)]
@@ -1272,7 +1341,7 @@ pub enum MarketParam {
 }
 
 impl MarketParam {
-    const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::Norwegian => "norwegian",
             Self::Swedish => "swedish",
@@ -1574,6 +1643,31 @@ fn is_valid_filter_name(value: &str) -> bool {
         && value
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DraftParams {
+    pub market: MarketParam,
+    pub currency: DraftCurrencyParam,
+    #[schemars(length(min = 1, max = 200))]
+    pub title: Option<String>,
+    #[schemars(length(min = 1, max = 10000))]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub enum DraftCurrencyParam {
+    #[serde(rename = "SEK")]
+    Sek,
+}
+
+impl DraftCurrencyParam {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Sek => "SEK",
+        }
+    }
 }
 
 #[cfg(test)]

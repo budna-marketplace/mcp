@@ -157,6 +157,10 @@ fn saved_search_filters_become_bounded_name_value_pairs() {
             id: 13,
             name: "Film cameras".to_owned(),
             query: AccountSavedSearchQuery {
+                location_id: Some(2),
+                search_mode: Some("hybrid".into()),
+                sort_by: Some("price".into()),
+                sort_order: Some("asc".into()),
                 text: Some("leica".to_owned()),
                 category_id: Some(4),
                 market: None,
@@ -178,6 +182,15 @@ fn saved_search_filters_become_bounded_name_value_pairs() {
             updated_at: 1,
         }]));
     let query = &output.items[0].query;
+    assert_eq!(
+        (
+            query.location_id,
+            query.search_mode.as_deref(),
+            query.sort_by.as_deref(),
+            query.sort_order.as_deref()
+        ),
+        (Some(2), Some("hybrid"), Some("price"), Some("asc"))
+    );
     assert_eq!(query.filters.len(), 20);
     assert_eq!(query.filters[0].name, "filter_00");
     assert!(output.truncated);

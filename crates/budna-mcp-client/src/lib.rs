@@ -23,36 +23,156 @@ use reqwest::{
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
+pub use account::BIDS_WRITE_SCOPE;
+pub use account::CHAT_ROOMS_READ_SCOPE;
+pub use account::DISPUTE_CASES_WRITE_SCOPE;
+pub use account::DISPUTE_SETTLEMENTS_WRITE_SCOPE;
+pub use account::DRAFT_AUTHORING_SCOPE;
+pub use account::INVENTORY_WRITE_SCOPE;
+pub use account::LISTING_MANAGEMENT_WRITE_SCOPE;
+pub use account::LIVE_REPORTS_WRITE_SCOPE;
+pub use account::PUBLICATION_WRITE_SCOPE;
+pub use account::PublicRoomMessage;
+pub use account::RATINGS_WRITE_SCOPE;
+pub use account::ROOM_MODERATION_READ_SCOPE;
+pub use account::ROOM_MODERATION_WRITE_SCOPE;
+pub use account::ROOM_REACTIONS_WRITE_SCOPE;
+pub use account::SHIPPING_DEFAULTS_SCOPE;
+pub use account::SHIPPING_RULES_READ_SCOPE;
+pub use account::SHIPPING_RULES_WRITE_SCOPE;
 pub use account::{
-    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountAchievement, AccountAchievements, AccountApiClient,
-    AccountAutoBid, AccountBadge, AccountBid, AccountBoost, AccountBuyerProtection,
-    AccountCompanies, AccountCompany, AccountCompanyDetail, AccountCompanyInvitation,
-    AccountCompanyInvoicing, AccountCompanyMember, AccountConversation,
-    AccountConversationMessages, AccountCreditBalance, AccountCredits, AccountCurrencyTotals,
-    AccountDebt, AccountDispute, AccountDisputeDetail, AccountDisputeStatement,
-    AccountEngagementDay, AccountEngagementLive, AccountEngagementPeriod, AccountFollow,
-    AccountInvoice, AccountLegalDocument, AccountLegalDocuments, AccountListingAttribute,
-    AccountListingAttributeValue, AccountListingAuction, AccountListingChat, AccountListingDetail,
-    AccountListingFixedPrice, AccountListingImage, AccountListingLive, AccountListingLiveRound,
-    AccountListingLiveStream, AccountListingPage, AccountListingPromotion, AccountListingReserve,
-    AccountListingRound, AccountListingShipping, AccountListingShowcase, AccountListingSummary,
-    AccountListingTag, AccountListingVat, AccountListingVideo, AccountLiveReminder,
-    AccountLiveSession, AccountLocation, AccountMessage, AccountMessageMatch, AccountMessageSearch,
+    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountAchievement, AccountAchievements,
+    AccountActionState, AccountActionStatus, AccountApiClient, AccountAutoBid, AccountBadge,
+    AccountBid, AccountBoost, AccountBuyerProtection, AccountCompanies, AccountCompany,
+    AccountCompanyDetail, AccountCompanyInvitation, AccountCompanyInvoicing, AccountCompanyMember,
+    AccountConversation, AccountConversationMessages, AccountCreditBalance, AccountCredits,
+    AccountCurrencyTotals, AccountDebt, AccountDispute, AccountDisputeDetail,
+    AccountDisputeStatement, AccountDraftEligibility, AccountEngagementDay, AccountEngagementLive,
+    AccountEngagementPeriod, AccountFollow, AccountInvoice, AccountLegalDocument,
+    AccountLegalDocuments, AccountListingAttribute, AccountListingAttributeValue,
+    AccountListingAuction, AccountListingChat, AccountListingDetail, AccountListingFixedPrice,
+    AccountListingImage, AccountListingLive, AccountListingLiveRound, AccountListingLiveStream,
+    AccountListingPage, AccountListingPromotion, AccountListingReserve, AccountListingRound,
+    AccountListingShipping, AccountListingShowcase, AccountListingSummary, AccountListingTag,
+    AccountListingVat, AccountListingVideo, AccountLiveReminder, AccountLiveSession,
+    AccountLocation, AccountMessage, AccountMessageMatch, AccountMessageSearch,
     AccountMoneySummary, AccountNotification, AccountNotificationPreferences, AccountOffer,
     AccountOfferHistory, AccountOfferStep, AccountOnboardingStep, AccountOrder, AccountOrderDetail,
     AccountOrderGroup, AccountOrderReturn, AccountOrderTracking, AccountOwnBoost,
     AccountOwnDispute, AccountPage, AccountPaymentActivity, AccountPaymentActivityEntry,
     AccountPayout, AccountPayoutMethod, AccountPayoutSetup, AccountPayouts, AccountPriorityCredits,
-    AccountProfile, AccountRating, AccountReferral, AccountReferralRewards, AccountReferralStep,
-    AccountRefund, AccountSavedSearch, AccountSavedSearchMatch, AccountSavedSearchQuery,
-    AccountSearchPriority, AccountSecondChanceOffer, AccountSellerInsights, AccountSettlementOffer,
+    AccountPrivateWatchlistReceipt, AccountProfile, AccountRating, AccountReferral,
+    AccountReferralRewards, AccountReferralStep, AccountRefund, AccountSavedSearch,
+    AccountSavedSearchMatch, AccountSavedSearchQuery, AccountSearchPriority,
+    AccountSecondChanceOffer, AccountSellerInsights, AccountSettlementOffer,
     AccountShippingSettings, AccountShowcase, AccountStanding, AccountSubscription, AccountSummary,
     AccountTopListing, AccountTrackingEvent, AccountVerification, AccountVideo,
     AccountWatchedListing, AccountWatchlist, AccountWatchlistActionStatus,
-    AccountWatchlistMembershipReceipt, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, DelegatedAccess,
-    FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE,
-    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE,
-    RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE,
+    AccountWatchlistMembershipReceipt, AddressedText, BIDS_READ_SCOPE, COMPANY_READ_SCOPE,
+    ConversationAudience, ConversationSetting, ConversationSettingReceipt, ConversationSettings,
+    DRAFT_CREATE_SCOPE, DelegatedAccess, DraftInput, DraftReceipt, DraftVerification,
+    FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, FollowReceipt, FollowState, INBOX_WRITE_SCOPE,
+    LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, ListingChatPreference,
+    ListingChatPreferenceReceipt, LiveReminderReceipt, MESSAGE_REACTIONS_WRITE_SCOPE,
+    MESSAGES_READ_SCOPE, MESSAGES_WRITE_SCOPE, MessageAction, MessageActionReceipt,
+    MessageAuthoring, MessageCopyReceipt, MessageReactionReceipt, MessageReactionView,
+    MessageRecipient, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, NotificationReadBatch,
+    NotificationReadReceipt, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, OutgoingBlock, OutgoingBlocks,
+    PAYMENTS_READ_SCOPE, PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE,
+    PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, PersonalBlockReceipt, PrivateWatchlistChange,
+    ProfileAuthoring, ProfileEditReceipt, RATINGS_READ_SCOPE, ReactionEmoji,
+    SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, SavedSearchAuthoring, SavedSearchChange,
+    SavedSearchChanges, SavedSearchReceipt, SearchCriteriaPatch, SearchPrice,
+    WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
+    is_action_id, is_watchlist_name,
+};
+pub use account::{
+    AUTOBIDS_WRITE_SCOPE, PauseMaximumReceipt, SetMaximumReceipt, StandingBidQuote,
+    StandingBidState, StandingBidStatus,
+};
+pub use account::{
+    AuthoringShowcaseKind, AuthoringShowcaseStatus, ShowcaseAuthoring, ShowcaseAuthoringDetails,
+    ShowcaseCandidateTerms, ShowcaseChange, ShowcaseChangeReceipt, ShowcaseListingRefusal,
+    ShowcaseMemberTerms,
+};
+pub use account::{BidAmount, BidCurrency, BidQuote, BidSubmissionReceipt};
+pub use account::{
+    BindingCheckoutQuote, BindingCheckoutReceipt, BindingCheckoutTerms,
+    CHECKOUT_ORDERS_WRITE_SCOPE, CheckoutDelivery, PersonalCheckoutPhase, PersonalCheckoutState,
+};
+pub use account::{
+    CaseActionReceipt, CaseAudience, CaseChange, CaseCurrency, CaseDecision, CaseDiscount,
+    CaseOffer, CaseReason, CaseRemedy, CaseSide, CaseTerms, DisputeOptions,
+};
+pub use account::{
+    ChanceIntent, ChanceOperation, ChanceOrderStatus, SECOND_CHANCE_ANSWERS_WRITE_SCOPE,
+    SECOND_CHANCES_WRITE_SCOPE, SecondChanceAnswer, SecondChanceInvitation, SecondChancePrice,
+    SecondChanceQuote, SecondChanceReceipt, SecondChanceSale, SecondChanceSaleState,
+};
+pub use account::{
+    CloseOrderChoice, ClosedOrderState, ClosingOrigin, ClosingPayment, ClosingRefund, ClosingRole,
+    ORDER_CLOSURES_WRITE_SCOPE, ORDERS_RELIST_WRITE_SCOPE, OrderClosureMove, OrderClosureQuote,
+    OrderClosureReceipt, OrderClosureTerms, OwnOrderClosure,
+};
+pub use account::{
+    CombinedParcelMember, CombinedParcelReceipt, CombinedParcelTerms, ParcelManagement,
+    ParcelPrice, ParcelRole, ParcelSelection, ParcelStatus,
+};
+pub use account::{
+    CreationField, CreationFilterType, CreationOption, CreationOptions, CreationOptionsQuery,
+    CreationRules, CreationRulesQuery, CreationValueKind,
+};
+pub use account::{
+    DraftAttribute, DraftAttributeValue, DraftAuthoringState, DraftCondition, DraftEdit,
+    DraftFieldChanges, DraftFieldState, DraftListingType, DraftMarket, DraftVatChoice,
+    ListingPrice, ShippingCarrier,
+};
+pub use account::{
+    FulfillmentMember, FulfillmentOperation, FulfillmentReceipt, FulfillmentTerms, OutboundCarrier,
+    OutboundTracking,
+};
+pub use account::{InventoryChange, InventoryReceipt, InventoryReview, StockOperation};
+pub use account::{
+    ListingChangeKind, ListingManagementBlocker, ListingManagementChange, ListingManagementReview,
+};
+pub use account::{
+    NegotiationChange, NegotiationMove, NegotiationParty, NegotiationPreview, NegotiationReceipt,
+    NegotiationTerms, OFFERS_WRITE_SCOPE, OfferTotal,
+};
+pub use account::{OrderReviewFacts, OrderReviewReceipt, ReviewAudience};
+pub use account::{
+    PUBLIC_CHAT_WRITE_SCOPE, PublicChatAudience, PublicChatBlocker, PublicChatPosting,
+    PublicChatReceipt, PublicChatRole,
+};
+pub use account::{
+    PackageSize, ShippingDefaultEdit, ShippingListingPage, ShippingReceipt, ShippingRuleCatalog,
+    ShippingRuleEdit,
+};
+pub use account::{
+    PlannedStreamStatus, StreamAuthoring, StreamPlanChange, StreamPlanDetails, StreamPlanReceipt,
+    StreamPlanTarget,
+};
+pub use account::{PublicationBlocker, PublicationPriority, PublicationReadiness};
+pub use account::{
+    RefundVia, ReturnCarrier, ReturnChange, ReturnKind, ReturnPostage, ReturnReceipt, ReturnRole,
+    ReturnState, ReturnTerms,
+};
+pub use account::{
+    RoomActionName, RoomBanScope, RoomModerationView, RoomOperation, RoomReceipt,
+    RoomReceiptTarget, RoomTargetKind, RoomTargets,
+};
+pub use account::{RoomParticipant, RoomReactionTarget, RoomTally};
+pub use budna_mcp_core::write_permissions::{
+    BUYER_RECEIPTS_SCOPE, CARRIER_BOOKINGS_SCOPE, FULFILLMENT_REVIEW_SCOPE,
+    SELLER_FULFILLMENT_SCOPE,
+};
+pub use budna_mcp_core::write_permissions::{
+    PARCEL_MANAGEMENT_SCOPE, PARCEL_REQUESTS_SCOPE, PARCEL_REVIEW_SCOPE,
+};
+pub use budna_mcp_core::write_permissions::{RETURN_REVIEW_SCOPE, RETURNS_WRITE_SCOPE};
+pub use budna_mcp_core::write_permissions::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
+pub use budna_mcp_core::write_permissions::{
+    STREAM_AUTHORING_READ_SCOPE, STREAM_PLANS_WRITE_SCOPE,
 };
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};

@@ -1,17 +1,43 @@
 mod account;
 mod account_detail;
 mod activity;
+pub(crate) mod automatic_bids;
+pub(crate) mod bid_submission;
+pub(crate) mod binding_checkout;
 mod collections;
 mod common;
+pub(crate) mod creation_rules;
 mod discovery;
+pub(crate) mod dispute_cases;
+pub(crate) mod draft_authoring;
+pub(crate) mod fulfillment;
+pub(crate) mod inventory;
 mod listing_activity;
+pub(crate) mod listing_management;
 mod listings;
+pub(crate) mod messages;
+pub(crate) mod offer_actions;
+pub(crate) mod order_closure;
+pub(crate) mod parcel;
+pub(crate) mod personal;
 mod profiles;
+pub(crate) mod publication;
 mod records;
+pub(crate) mod returns;
+pub(crate) mod room_activity;
+pub(crate) mod second_chances;
 mod selling;
+pub(crate) mod shipping;
+pub(crate) mod showcase_authoring;
+pub(crate) mod stream_authoring;
 mod taxonomy;
 
-pub(crate) use account::{AccountListingsOutput, AccountOutput, WatchlistMembershipOutput};
+pub(crate) use account::{
+    AccountListingsOutput, AccountOutput, ActionStatusOutput, DraftEligibilityOutput,
+    DraftReceiptOutput, LiveReminderReceiptOutput, NotificationReadBatchOutput,
+    NotificationReadReceiptOutput, PrivateWatchlistOutput, SavedSearchAuthoringOutput,
+    SavedSearchReceiptOutput, WatchlistMembershipOutput,
+};
 pub(crate) use account_detail::AccountListingDetailOutput;
 pub(crate) use activity::{
     AccountAutoBidOutput, AccountBidOutput, AccountCompaniesOutput, AccountCompanyDetailOutput,
@@ -178,16 +204,7 @@ fn truncate_json_text(value: &mut String, max_raw_bytes: usize, max_encoded_byte
 /// that renders invisibly or reorders what a reader sees.
 fn is_hidden_character(character: char) -> bool {
     (character.is_control() && !matches!(character, '\n' | '\t'))
-        || matches!(
-            character,
-            '\u{061C}'
-                | '\u{200B}'..='\u{200F}'
-                | '\u{202A}'..='\u{202E}'
-                | '\u{2060}'..='\u{2064}'
-                | '\u{2066}'..='\u{2069}'
-                | '\u{FEFF}'
-                | '\u{E0000}'..='\u{E007F}'
-        )
+        || budna_mcp_core::is_hidden_format(character)
 }
 
 const fn json_encoded_character_len(character: char) -> usize {

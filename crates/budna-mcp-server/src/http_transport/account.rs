@@ -8,14 +8,44 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use budna_mcp_client::CHAT_ROOMS_READ_SCOPE;
+use budna_mcp_client::DISPUTE_CASES_WRITE_SCOPE;
+use budna_mcp_client::DISPUTE_SETTLEMENTS_WRITE_SCOPE;
+use budna_mcp_client::DRAFT_AUTHORING_SCOPE;
+use budna_mcp_client::INVENTORY_WRITE_SCOPE;
+use budna_mcp_client::LISTING_MANAGEMENT_WRITE_SCOPE;
+use budna_mcp_client::LIVE_REPORTS_WRITE_SCOPE;
+use budna_mcp_client::PUBLIC_CHAT_WRITE_SCOPE;
+use budna_mcp_client::PUBLICATION_WRITE_SCOPE;
+use budna_mcp_client::RATINGS_WRITE_SCOPE;
+use budna_mcp_client::ROOM_MODERATION_READ_SCOPE;
+use budna_mcp_client::ROOM_MODERATION_WRITE_SCOPE;
+use budna_mcp_client::ROOM_REACTIONS_WRITE_SCOPE;
+use budna_mcp_client::SHIPPING_DEFAULTS_SCOPE;
+use budna_mcp_client::SHIPPING_RULES_READ_SCOPE;
+use budna_mcp_client::SHIPPING_RULES_WRITE_SCOPE;
 use budna_mcp_client::{
-    ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE,
-    ClientError, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, MESSAGES_READ_SCOPE,
-    NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE,
-    PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE, WATCHLIST_READ_SCOPE,
-    WATCHLIST_WRITE_SCOPE,
+    ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
+    DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE,
+    LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE, MESSAGE_REACTIONS_WRITE_SCOPE,
+    MESSAGES_READ_SCOPE, MESSAGES_WRITE_SCOPE, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE,
+    OFFERS_READ_SCOPE, ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PERSONAL_BLOCKS_READ_SCOPE,
+    PERSONAL_BLOCKS_WRITE_SCOPE, PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE, RATINGS_READ_SCOPE,
+    SAVED_SEARCH_WRITE_SCOPE, SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE,
+    WATCHLIST_WRITE_SCOPE, is_account_access_token,
 };
-use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings, ToolCapability};
+use budna_mcp_client::{AUTOBIDS_WRITE_SCOPE, BIDS_WRITE_SCOPE, OFFERS_WRITE_SCOPE};
+use budna_mcp_client::{
+    BUYER_RECEIPTS_SCOPE, CARRIER_BOOKINGS_SCOPE, FULFILLMENT_REVIEW_SCOPE,
+    SELLER_FULFILLMENT_SCOPE,
+};
+use budna_mcp_client::{
+    PARCEL_MANAGEMENT_SCOPE, PARCEL_REQUESTS_SCOPE, PARCEL_REVIEW_SCOPE, RETURN_REVIEW_SCOPE,
+    RETURNS_WRITE_SCOPE,
+};
+use budna_mcp_client::{SHOWCASE_AUTHORING_READ_SCOPE, SHOWCASES_WRITE_SCOPE};
+use budna_mcp_client::{STREAM_AUTHORING_READ_SCOPE, STREAM_PLANS_WRITE_SCOPE};
+use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
     HeaderValue, StatusCode,
     header::{AUTHORIZATION, CACHE_CONTROL, COOKIE, WWW_AUTHENTICATE},
@@ -26,14 +56,21 @@ use rmcp::transport::streamable_http_server::{
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
-use crate::{AccountMcpServer, account::WATCHLIST_MEMBERSHIP_TOOL};
+use crate::{
+    AccountMcpServer,
+    account::{
+        ACTION_STATUS_TOOL, DRAFT_CREATE_TOOL, DRAFT_ELIGIBILITY_TOOL, NOTIFICATION_BATCH_TOOL,
+        NOTIFICATION_READ_TOOL, REMINDER_TOOL, SEARCH_AUTHORING_TOOL, SEARCH_WRITE_TOOLS,
+        WATCHLIST_MANAGEMENT_TOOLS, WATCHLIST_MEMBERSHIP_TOOL,
+    },
+};
 
 #[derive(Clone)]
 struct AccountAuth {
     client: AccountApiClient,
+    enabled_tools: Arc<std::collections::HashSet<std::borrow::Cow<'static, str>>>,
     challenge: HeaderValue,
     metadata_url: Arc<str>,
-    watchlist_write: bool,
     slots: Arc<Semaphore>,
 }
 
@@ -46,16 +83,15 @@ pub fn account_http_router(
     account: &AccountSettings,
     cancellation: CancellationToken,
 ) -> Result<Router, http::header::InvalidHeaderValue> {
-    let watchlist_write = account
+    let configured = account
         .policy()
-        .allows(ToolCapability::PrivateWatchlistWrite)
-        && client.private_watchlist_writes_enabled()
-        && server.has_watchlist_write();
-    if !watchlist_write {
-        server.restrict_to_account_reads();
-    }
-    let client = client.with_private_watchlist_writes(watchlist_write);
+        .write_permissions()
+        .intersection(client.write_permissions());
+    let permissions = server.limit_permissions(configured);
+    let client = client.with_write_permissions(permissions);
     let scopes: Vec<_> = client.supported_scopes().collect();
+    server.apply_account_profile(account.policy());
+    let enabled_tools = Arc::new(server.enabled_account_tools());
     let service = StreamableHttpService::new(
         move || Ok::<_, io::Error>(server.clone()),
         Arc::new(NeverSessionManager::default()),
@@ -68,14 +104,14 @@ pub fn account_http_router(
     );
     let metadata_url = account.metadata_url();
     let challenge = HeaderValue::from_str(&format!(
-        "Bearer resource_metadata=\"{metadata_url}\", scope=\"{}\"",
-        ACCOUNT_SCOPES.join(" ")
+        "Bearer resource_metadata=\"{metadata_url}\", scope=\"{ACCOUNT_READ_SCOPE}\""
     ))?;
+    let has_writes = client.supported_write_scopes().next().is_some();
     let auth = AccountAuth {
         client,
+        enabled_tools,
         challenge,
         metadata_url: metadata_url.into(),
-        watchlist_write,
         slots: Arc::new(Semaphore::new(8)),
     };
     let metadata = serde_json::json!({
@@ -83,7 +119,7 @@ pub fn account_http_router(
         "authorization_servers": [account.issuer()],
         "scopes_supported": scopes,
         "bearer_methods_supported": ["header"],
-        "resource_name": if watchlist_write { "Budna private watchlist pilot" } else { "Budna account reads" }
+        "resource_name": if has_writes { "Budna account actions" } else { "Budna account reads" }
     });
     let router = Router::new()
         .nest_service(ACCOUNT_MCP_PATH, service)
@@ -108,7 +144,7 @@ async fn authenticate(
             .and_then(|header| header.split_once(' '))
             .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("Bearer"))
             .map(|(_, token)| token);
-        let Some(token) = token.filter(|_| credentials.next().is_none()) else {
+        let Some(token) = token.filter(|token| credentials.next().is_none() && is_account_access_token(token)) else {
             return unauthorized(&auth);
         };
         let Ok(_permit) = auth.slots.try_acquire() else {
@@ -135,8 +171,19 @@ async fn authenticate(
                             message
                                 .pointer("/params/name")
                                 .and_then(|value| value.as_str())
-                                .and_then(account_tool_scope)
-                                .filter(|scope| *scope != WATCHLIST_WRITE_SCOPE || auth.watchlist_write)
+                                .filter(|name| auth.enabled_tools.contains(*name))
+                                .and_then(|name| {
+                                    if name == ACTION_STATUS_TOOL {
+                                        // The API checks the specific grant and scope of the stored receipt.
+                                        if auth.client.supported_write_scopes().any(|scope| access.allows(scope)) {
+                                            None
+                                        } else {
+                                            auth.client.supported_write_scopes().next()
+                                        }
+                                    } else {
+                                        account_tool_scope(name)
+                                    }
+                                })
                         } else {
                             None
                         };
@@ -176,7 +223,105 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        "get_my_message_recipient"
+        | "get_my_conversation_audience"
+        | "get_my_message_authoring"
+        | "get_my_message_reaction" => MESSAGES_READ_SCOPE,
+        "start_my_conversation" | "send_my_message" | "reply_to_my_message" | "edit_my_message" => {
+            MESSAGES_WRITE_SCOPE
+        }
+        "set_my_message_reaction" => MESSAGE_REACTIONS_WRITE_SCOPE,
+        "get_my_chat_message" | "get_my_chat_posting" => MESSAGES_READ_SCOPE,
+        "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
+        "get_my_automatic_bid_state" | "prepare_my_automatic_bid_maximum" => BIDS_READ_SCOPE,
+        "set_my_quoted_automatic_bid_maximum" | "pause_my_automatic_bid" => AUTOBIDS_WRITE_SCOPE,
+        "get_my_order_closure" | "prepare_my_order_closure" | "prepare_my_closed_order_relist" => {
+            ORDERS_READ_SCOPE
+        }
+        "submit_my_quoted_order_closure" => budna_mcp_client::ORDER_CLOSURES_WRITE_SCOPE,
+        "relist_my_quoted_closed_order" => budna_mcp_client::ORDERS_RELIST_WRITE_SCOPE,
+        "get_my_binding_checkout" | "prepare_my_binding_checkout_order" => ORDERS_READ_SCOPE,
+        "submit_my_quoted_checkout_order" => budna_mcp_client::CHECKOUT_ORDERS_WRITE_SCOPE,
+        "get_my_second_chance_sale" | "prepare_my_second_chance_sale" => ORDERS_READ_SCOPE,
+        "get_my_second_chance_invitation" | "prepare_my_second_chance_answer" => OFFERS_READ_SCOPE,
+        "submit_my_quoted_second_chance_sale" => budna_mcp_client::SECOND_CHANCES_WRITE_SCOPE,
+        "submit_my_quoted_second_chance_answer" => {
+            budna_mcp_client::SECOND_CHANCE_ANSWERS_WRITE_SCOPE
+        }
+        "prepare_my_offer_change" => OFFERS_READ_SCOPE,
+        "submit_my_quoted_offer_change" => OFFERS_WRITE_SCOPE,
+        "prepare_my_bid" => BIDS_READ_SCOPE,
+        "submit_my_quoted_bid" => BIDS_WRITE_SCOPE,
+        "get_listing_creation_rules"
+        | "list_listing_creation_options"
+        | "get_my_draft_authoring" => LISTINGS_READ_SCOPE,
+        "edit_my_listing_draft"
+        | "discard_my_listing_draft"
+        | "replace_my_draft_attributes"
+        | "set_my_draft_vat"
+        | "create_my_similar_draft" => DRAFT_AUTHORING_SCOPE,
+        "change_my_shipping_defaults" => SHIPPING_DEFAULTS_SCOPE,
+        "get_my_shipping_rules" | "list_my_shipping_rule_listings" => SHIPPING_RULES_READ_SCOPE,
+        "change_my_shipping_rule" => SHIPPING_RULES_WRITE_SCOPE,
+        "get_my_fulfillment_terms" => FULFILLMENT_REVIEW_SCOPE,
+        "update_my_seller_fulfillment" => SELLER_FULFILLMENT_SCOPE,
+        "book_my_order_shipment" => CARRIER_BOOKINGS_SCOPE,
+        "confirm_my_order_receipt" => BUYER_RECEIPTS_SCOPE,
+        "get_my_return_terms" => RETURN_REVIEW_SCOPE,
+        "change_my_order_return" => RETURNS_WRITE_SCOPE,
+        "get_my_combined_parcel_terms" => PARCEL_REVIEW_SCOPE,
+        "request_my_combined_parcel" => PARCEL_REQUESTS_SCOPE,
+        "change_my_combined_parcel" => PARCEL_MANAGEMENT_SCOPE,
+        "get_my_stream_authoring" => STREAM_AUTHORING_READ_SCOPE,
+        "change_my_stream_plan" => STREAM_PLANS_WRITE_SCOPE,
+        "get_my_showcase_authoring" => SHOWCASE_AUTHORING_READ_SCOPE,
+        "change_my_showcase" => SHOWCASES_WRITE_SCOPE,
+        "get_my_listing_inventory" => LISTINGS_READ_SCOPE,
+        "set_my_listing_stock" | "record_my_listing_sold_elsewhere" => INVENTORY_WRITE_SCOPE,
+        "get_my_publication_readiness" => SELLING_READ_SCOPE,
+        "publish_my_quoted_draft" => PUBLICATION_WRITE_SCOPE,
+        "get_my_order_rating_eligibility" => ORDERS_READ_SCOPE,
+        "rate_my_order_counterparty" => RATINGS_WRITE_SCOPE,
+        "list_my_room_reaction_targets" => CHAT_ROOMS_READ_SCOPE,
+        "list_my_room_moderation_participants" => ROOM_MODERATION_READ_SCOPE,
+        "set_my_room_reaction" => ROOM_REACTIONS_WRITE_SCOPE,
+        "report_live_chat_post" => LIVE_REPORTS_WRITE_SCOPE,
+        "set_my_room_message_pinned"
+        | "hide_my_room_message"
+        | "report_my_room_participant"
+        | "ban_my_room_participant"
+        | "unban_my_room_participant" => ROOM_MODERATION_WRITE_SCOPE,
+        "prepare_my_listing_change" => SELLING_READ_SCOPE,
+        "apply_my_quoted_listing_change" => LISTING_MANAGEMENT_WRITE_SCOPE,
+        "get_my_order_dispute_options" => ORDERS_READ_SCOPE,
+        "open_my_order_dispute" | "add_my_dispute_statement" | "request_withdraw_my_dispute" => {
+            DISPUTE_CASES_WRITE_SCOPE
+        }
+        "decline_my_dispute_settlement"
+        | "withdraw_my_settlement_offer"
+        | "propose_my_dispute_settlement"
+        | "accept_my_dispute_settlement" => DISPUTE_SETTLEMENTS_WRITE_SCOPE,
+        "get_my_conversation_settings" | "get_my_listing_chat_notification_setting" => {
+            MESSAGES_READ_SCOPE
+        }
+        "set_my_conversation_setting" | "hide_my_message_copy" | "set_my_listing_chat_muted" => {
+            INBOX_WRITE_SCOPE
+        }
+        "get_my_profile_authoring" => PROFILE_READ_SCOPE,
+        "update_my_public_profile" => PROFILE_WRITE_SCOPE,
+        "get_my_following_state" => FOLLOWING_READ_SCOPE,
+        "set_my_following" => FOLLOWING_WRITE_SCOPE,
+        "list_my_personal_blocks" => PERSONAL_BLOCKS_READ_SCOPE,
+        "set_my_personal_block" => PERSONAL_BLOCKS_WRITE_SCOPE,
+        SEARCH_AUTHORING_TOOL => WATCHLIST_READ_SCOPE,
+        name if SEARCH_WRITE_TOOLS.contains(&name) => SAVED_SEARCH_WRITE_SCOPE,
+        NOTIFICATION_BATCH_TOOL => NOTIFICATIONS_READ_SCOPE,
+        NOTIFICATION_READ_TOOL => NOTIFICATION_STATE_SCOPE,
+        REMINDER_TOOL => LIVE_REMINDER_WRITE_SCOPE,
+        DRAFT_CREATE_TOOL => DRAFT_CREATE_SCOPE,
+        DRAFT_ELIGIBILITY_TOOL => PROFILE_READ_SCOPE,
         WATCHLIST_MEMBERSHIP_TOOL => WATCHLIST_WRITE_SCOPE,
+        name if WATCHLIST_MANAGEMENT_TOOLS.contains(&name) => WATCHLIST_MANAGE_SCOPE,
         "get_my_account" => ACCOUNT_READ_SCOPE,
         "get_my_profile" | "get_my_achievements" | "get_my_referral" | "get_my_legal_documents" => {
             PROFILE_READ_SCOPE
@@ -339,7 +484,7 @@ mod tests {
             json!({
                 "resource": resource,
                 "authorization_servers": [api.uri()],
-                "scopes_supported": ACCOUNT_SCOPES,
+                "scopes_supported": budna_mcp_client::ACCOUNT_SCOPES,
                 "bearer_methods_supported": ["header"],
                 "resource_name": "Budna account reads"
             })
@@ -362,8 +507,7 @@ mod tests {
         }
 
         let challenge = format!(
-            "Bearer resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/account/mcp\", scope=\"{}\"",
-            ACCOUNT_SCOPES.join(" ")
+            "Bearer resource_metadata=\"https://mcp.example.test/.well-known/oauth-protected-resource/account/mcp\", scope=\"{ACCOUNT_READ_SCOPE}\""
         );
         for token in [None, Some("invalid")] {
             let response = request(

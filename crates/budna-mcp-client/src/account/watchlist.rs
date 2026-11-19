@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use super::{
     AccountApiClient, ApiEnvelope, ClientError, DelegatedAccess, WATCHLIST_WRITE_SCOPE,
-    invalid_input, is_canonical_uuid, is_listing_id,
+    invalid_input, is_action_id, is_listing_id,
 };
 
 /// State of the original request. Replaying a receipt does not check current membership.
@@ -23,10 +23,6 @@ pub struct AccountWatchlistMembershipReceipt {
     /// The desired state supplied in the original request.
     pub saved: bool,
     pub status: AccountWatchlistActionStatus,
-}
-
-fn is_action_id(value: &str) -> bool {
-    is_canonical_uuid(value) && value != "00000000-0000-0000-0000-000000000000"
 }
 
 impl AccountApiClient {
@@ -58,12 +54,7 @@ impl AccountApiClient {
         let envelope: ApiEnvelope<AccountWatchlistMembershipReceipt> = self
             .send(OPERATION, request, 4096)
             .await
-            .map_err(|error| ClientError::AccountWrite {
-                operation: OPERATION,
-                rejection_status: error
-                    .status()
-                    .filter(|status| matches!(status, 400 | 401 | 403 | 404 | 409 | 422 | 429)),
-            })?;
+            .map_err(ClientError::account_write)?;
         envelope
             .data
             .filter(|receipt| {

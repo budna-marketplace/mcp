@@ -69,6 +69,13 @@ async fn post(
         .await?)
 }
 
+const REQUEST_ID: &str = "2b27deac-9422-465d-b498-f1642f898668";
+
+fn write_call(name: &str, mut arguments: Value) -> Value {
+    arguments["request_id"] = json!(REQUEST_ID);
+    call(name, arguments)
+}
+
 fn call(name: &str, arguments: Value) -> Value {
     json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":name,"arguments":arguments}})
 }
@@ -77,7 +84,7 @@ fn watchlist_args(saved: bool) -> Value {
     json!({"watchlist_id":7,"listing_id":LISTING_A,"saved":saved})
 }
 
-fn assert_write_error(response: &Value, code: &str) -> Result<()> {
+fn assert_write_error(response: &Value, operation: &str, code: &str) -> Result<()> {
     assert_eq!(response.pointer("/result/isError"), Some(&json!(true)));
     assert!(response.pointer("/result/structuredContent").is_none());
     let error: Value = serde_json::from_str(
@@ -86,7 +93,7 @@ fn assert_write_error(response: &Value, code: &str) -> Result<()> {
             .and_then(Value::as_str)
             .context("tool error")?,
     )?;
-    assert_eq!(error["operation"], WATCHLIST_WRITE);
+    assert_eq!(error["operation"], operation);
     assert_eq!(error["error"]["code"], code);
     assert_eq!(error["error"]["retryable"], false);
     Ok(())
@@ -105,8 +112,28 @@ async fn start_http_server(
     account_profile: Option<&str>,
     public_explore: Option<bool>,
 ) -> Result<AccountServer> {
+    start_http_server_with_scopes(
+        api_url,
+        request_timeout_secs,
+        account_profile,
+        public_explore,
+        None,
+    )
+    .await
+}
+
+async fn start_http_server_with_scopes(
+    api_url: &str,
+    request_timeout_secs: u64,
+    account_profile: Option<&str>,
+    public_explore: Option<bool>,
+    write_scopes: Option<&str>,
+) -> Result<AccountServer> {
     let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_budna-mcp"));
     command.env_clear();
+    if let Some(scopes) = write_scopes {
+        command.env("BUDNA_MCP_WRITE_SCOPES", scopes);
+    }
     if let Some(profile) = account_profile {
         command.env("BUDNA_MCP_SERVICE_SECRET", SERVICE).args([
             "--profile",
@@ -967,6 +994,10 @@ async fn pilot_dispatches_private_watchlist_writes_only_with_the_write_grant() -
         .pointer("/result/tools")
         .and_then(Value::as_array)
         .context("pilot tools")?;
+    assert!(!tools.iter().any(|t| matches!(
+        t["name"].as_str(),
+        Some("get_my_action_status" | "get_budna_account_destination")
+    )));
     let writes: Vec<_> = tools
         .iter()
         .filter(|tool| tool["annotations"]["readOnlyHint"] != true)
@@ -1021,6 +1052,7 @@ async fn pilot_dispatches_private_watchlist_writes_only_with_the_write_grant() -
     ] {
         assert_write_error(
             &request(call(WATCHLIST_WRITE, arguments)).await?,
+            WATCHLIST_WRITE,
             "INVALID_INPUT",
         )?;
     }
@@ -1071,7 +1103,7 @@ async fn pilot_dispatches_private_watchlist_writes_only_with_the_write_grant() -
             .mount_as_scoped(&api)
             .await;
         let result = request(call(WATCHLIST_WRITE, watchlist_args(true))).await?;
-        assert_write_error(&result, code)?;
+        assert_write_error(&result, WATCHLIST_WRITE, code)?;
         assert!(!result.to_string().contains(SENTINEL));
     }
     let requests = api.received_requests().await.context("recorded requests")?;
@@ -1239,3 +1271,1122 @@ async fn account_bid_history_shows_own_bids_as_you_only_with_the_bids_permission
     server.child.wait().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn watchlist_management_requires_separate_consent_and_returns_scoped_receipts() -> Result<()>
+{
+    const ACTION: &str = "00000000-0000-4000-8000-000000000004";
+    const MANAGE: &str = "watchlists:write";
+    let api = MockServer::start().await;
+    exchange(&api, "manager", "delegated-manager", USER_A, MANAGE).await;
+    exchange(&api, "saver", "delegated-saver", USER_B, "watchlist:write").await;
+    let mut server = start_http_server(
+        &api.uri(),
+        30,
+        Some("account-watchlist-management"),
+        Some(false),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let list: Value = post(
+        &client,
+        &endpoint,
+        "manager",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    let tools = list
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .context("tools")?;
+    for args in [
+        json!({"name":"Books"}),
+        json!({"name":"Books","request_id":"bad"}),
+    ] {
+        let response = post(
+            &client,
+            &endpoint,
+            "manager",
+            call("create_my_private_watchlist", args),
+        )
+        .await?
+        .json()
+        .await?;
+        assert_write_error(&response, "create_my_private_watchlist", "INVALID_INPUT")?;
+    }
+    for (name, verb, suffix, arguments, body) in [
+        (
+            "create_my_private_watchlist",
+            "POST",
+            "",
+            json!({"name":"Books"}),
+            Some(json!({"name":"Books"})),
+        ),
+        (
+            "rename_my_private_watchlist",
+            "PUT",
+            "/7",
+            json!({"watchlist_id":7,"name":"Novels"}),
+            Some(json!({"name":"Novels"})),
+        ),
+        (
+            "delete_my_private_watchlist",
+            "DELETE",
+            "/7",
+            json!({"watchlist_id":7}),
+            None,
+        ),
+    ] {
+        let tool = tools
+            .iter()
+            .find(|tool| tool["name"] == name)
+            .context("management tool")?;
+        assert_eq!(tool["annotations"]["readOnlyHint"], false);
+        assert_eq!(tool["inputSchema"]["additionalProperties"], false);
+        assert_eq!(
+            tool["annotations"]["destructiveHint"],
+            name != "create_my_private_watchlist"
+        );
+        let denied = post(
+            &client,
+            &endpoint,
+            "saver",
+            write_call(name, arguments.clone()),
+        )
+        .await?;
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        assert!(
+            denied.headers()[header::WWW_AUTHENTICATE]
+                .to_str()?
+                .contains(MANAGE)
+        );
+        let mut route = Mock::given(method(verb))
+            .and(path(format!(
+                "/api/v1/mcp/account/private-watchlists{suffix}"
+            )))
+            .and(matches_header("authorization", "Bearer delegated-manager"))
+            .and(matches_header("idempotency-key", REQUEST_ID));
+        if let Some(body) = body {
+            route = route.and(body_json(body));
+        } else {
+            route = route.and(wiremock::matchers::body_string(""));
+        }
+        let receipt = json!({"watchlist_id":7,"action_id":ACTION,"status":"executed"});
+        let mut wire = receipt.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = route
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(&client, &endpoint, "manager", write_call(name, arguments))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    let denied = post(
+        &client,
+        &endpoint,
+        "manager",
+        call(WATCHLIST_WRITE, watchlist_args(true)),
+    )
+    .await?;
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+    for args in [
+        json!({"name":" "}),
+        json!({"name":"a\u{0}b"}),
+        json!({"name":"日".repeat(86)}),
+        json!({"name":"books","is_public":true}),
+    ] {
+        let invalid: Value = post(
+            &client,
+            &endpoint,
+            "manager",
+            write_call("create_my_private_watchlist", args),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_write_error(&invalid, "create_my_private_watchlist", "INVALID_INPUT")?;
+    }
+    for status in [
+        "executed",
+        "executing",
+        "unknown",
+        "awaiting_confirmation",
+        "declined",
+        "expired",
+        "failed",
+        "refused",
+    ] {
+        let _route = Mock::given(method("GET")).and(path(format!("/api/v1/mcp/account/actions/{ACTION}")))
+            .and(matches_header("authorization","Bearer delegated-manager"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"id":ACTION,"status":status,"expires_at":null,"extra":SENTINEL}})))
+            .expect(1).mount_as_scoped(&api).await;
+        let result: Value = post(
+            &client,
+            &endpoint,
+            "manager",
+            call("get_my_action_status", json!({"action_id":ACTION})),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_eq!(
+            result.pointer("/result/structuredContent"),
+            Some(&json!({"action_id":ACTION,"status":status,"expires_at":null}))
+        );
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn draft_profile_requires_fresh_consent_and_recovers_verification_on_web() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000005";
+    const CHECK: &str = "get_my_listing_draft_eligibility";
+    const CREATE: &str = "create_my_listing_draft";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "seller",
+        "seller-downstream",
+        USER_A,
+        "profile:read listingdrafts:write",
+    )
+    .await;
+    exchange(
+        &api,
+        "profile",
+        "profile-downstream",
+        USER_B,
+        "profile:read",
+    )
+    .await;
+    let mut server = start_http_server(
+        &api.uri(),
+        30,
+        Some("account-listing-draft-pilot"),
+        Some(false),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let body = json!({"currency":"SEK","market":"swedish"});
+    let denied = post(
+        &client,
+        &endpoint,
+        "profile",
+        write_call(CREATE, body.clone()),
+    )
+    .await?;
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+    assert!(
+        denied.headers()[header::WWW_AUTHENTICATE]
+            .to_str()?
+            .contains("listingdrafts:write")
+    );
+    for (state, destination) in [
+        ("satisfied", None),
+        ("verify_identity_on_budna", Some("/account/verification")),
+        (
+            "verify_company_on_budna",
+            Some("/account/wallet?setup=payouts"),
+        ),
+    ] {
+        let _route=Mock::given(method("GET")).and(path("/api/v1/mcp/account/listing-draft-eligibility"))
+            .and(matches_header("authorization","Bearer seller-downstream"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"seller_verification":state,"verification_url":"https://example.invalid/untrusted","extra":SENTINEL}})))
+            .expect(1).mount_as_scoped(&api).await;
+        let result: Value = post(&client, &endpoint, "seller", call(CHECK, json!({})))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(
+            result.pointer("/result/structuredContent"),
+            Some(
+                &json!({"seller_verification":state,"verification_url":destination.map(|path|format!("https://connect.budna.se{path}"))})
+            )
+        );
+    }
+    let submit = || {
+        Mock::given(method("POST"))
+            .and(path("/api/v1/mcp/account/listing-drafts"))
+            .and(matches_header("authorization", "Bearer seller-downstream"))
+            .and(header_regex("idempotency-key", "^[0-9a-f-]{36}$"))
+            .and(body_json(body.clone()))
+    };
+    {
+        let _route =
+            submit()
+                .respond_with(ResponseTemplate::new(403).set_body_json(
+                    json!({"code":"SELLER_VERIFICATION_REQUIRED","detail":SENTINEL}),
+                ))
+                .expect(1)
+                .mount_as_scoped(&api)
+                .await;
+        let refused: Value = post(
+            &client,
+            &endpoint,
+            "seller",
+            write_call(CREATE, body.clone()),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_write_error(&refused, CREATE, "SELLER_VERIFICATION_REQUIRED")?;
+        assert!(!refused.to_string().contains(SENTINEL));
+    }
+    for bad in [
+        json!({"currency":"SEK","market":"swedish","seller_id":USER_B}),
+        json!({"currency":"NOK","market":"norwegian"}),
+        json!({"currency":"SEK","market":"swedish","title":"\u{202e}incorrect"}),
+    ] {
+        let result: Value = post(&client, &endpoint, "seller", write_call(CREATE, bad))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&result, CREATE, "INVALID_INPUT")?;
+    }
+    let receipt = json!({"action_id":ACTION,"listing_id":LISTING_A,"status":"executed"});
+    let _route = submit()
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":receipt})),
+        )
+        .expect(1)
+        .mount_as_scoped(&api)
+        .await;
+    let result: Value = post(
+        &client,
+        &endpoint,
+        "seller",
+        write_call(CREATE, body.clone()),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn combined_profile_advertises_only_configured_families_and_requires_each_grant() -> Result<()>
+{
+    const SESSION: &str = "live_00000000-0000-4000-8000-000000000002";
+    const ACTION: &str = "00000000-0000-4000-8000-000000000003";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "reminder",
+        "reminder-downstream",
+        USER_A,
+        "livereminders:write",
+    )
+    .await;
+    exchange(&api, "saver", "saver-downstream", USER_B, "watchlist:write").await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("watchlist:write livereminders:write"),
+    )
+    .await?;
+    let origin = format!("http://{}", server.address);
+    let endpoint = format!("{origin}/account/mcp");
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let metadata: Value = client
+        .get(format!(
+            "{origin}/.well-known/oauth-protected-resource/account/mcp"
+        ))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let scopes = metadata["scopes_supported"]
+        .as_array()
+        .context("permissions")?;
+    assert!(
+        scopes.contains(&json!("livereminders:write"))
+            && scopes.contains(&json!("watchlist:write"))
+    );
+    assert!(
+        !scopes.contains(&json!("listingdrafts:write"))
+            && !scopes.contains(&json!("watchlists:write"))
+    );
+    let list: Value = post(
+        &client,
+        &endpoint,
+        "reminder",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    let tools = list
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .context("tools")?;
+    let writes = tools
+        .iter()
+        .filter(|tool| tool["annotations"]["readOnlyHint"] == false)
+        .map(|tool| tool["name"].as_str().unwrap_or_default())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        writes,
+        BTreeSet::from(["set_my_live_reminder", WATCHLIST_WRITE])
+    );
+    assert!(
+        !tools
+            .iter()
+            .any(|t| t["name"] == "get_my_listing_draft_eligibility")
+    );
+    let destination = "get_budna_account_destination";
+    assert!(
+        tools
+            .iter()
+            .any(|t| t["name"] == destination && t["annotations"]["readOnlyHint"] == true)
+    );
+    let handoff: Value = post(
+        &client,
+        &endpoint,
+        "reminder",
+        call(destination, json!({"task":"verify_identity"})),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    assert_eq!(
+        handoff.pointer("/result/structuredContent"),
+        Some(
+            &json!({"task":"verify_identity","web_url":"https://connect.budna.se/account/verification"})
+        )
+    );
+    for invalid in [
+        json!({"task":"https://example.invalid"}),
+        json!({"task":"verify_identity","web_url":"https://example.invalid"}),
+    ] {
+        let response: Value = post(&client, &endpoint, "reminder", call(destination, invalid))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&response, destination, "INVALID_INPUT")?;
+    }
+    for reminded in [true, false] {
+        let args = json!({"session_id":SESSION,"reminded":reminded});
+        let denied = post(
+            &client,
+            &endpoint,
+            "saver",
+            write_call("set_my_live_reminder", args.clone()),
+        )
+        .await?;
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        assert!(
+            denied.headers()[header::WWW_AUTHENTICATE]
+                .to_str()?
+                .contains("livereminders:write")
+        );
+        let receipt = json!({"session_id":SESSION,"reminded":reminded,"action_id":ACTION,"status":"executed"});
+        let mut wire = receipt.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = Mock::given(method("PUT"))
+            .and(path(format!(
+                "/api/v1/mcp/account/live-reminders/{SESSION}"
+            )))
+            .and(matches_header(
+                "authorization",
+                "Bearer reminder-downstream",
+            ))
+            .and(body_json(json!({"reminded":reminded})))
+            .and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(
+            &client,
+            &endpoint,
+            "reminder",
+            write_call("set_my_live_reminder", args),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn notice_batch_previews_exact_ids_and_refusals_preserve_privacy() -> Result<()> {
+    const PREVIEW: &str = "get_my_notification_read_batch";
+    const MARK: &str = "mark_my_notifications_read";
+    const ACTION: &str = "00000000-0000-4000-8000-000000000004";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "both",
+        "notice-downstream",
+        USER_A,
+        "notificationstate:write notifications:read",
+    )
+    .await;
+    exchange(
+        &api,
+        "reader",
+        "reader-downstream",
+        USER_B,
+        "notifications:read",
+    )
+    .await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("notificationstate:write"),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let batch = json!({"notification_ids":[7,8],"has_more":false});
+    Mock::given(method("GET"))
+        .and(path("/api/v1/mcp/account/notifications/read-batch"))
+        .and(matches_header("authorization", "Bearer reader-downstream"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":batch})),
+        )
+        .expect(1)
+        .mount(&api)
+        .await;
+    let preview: Value = post(&client, &endpoint, "reader", call(PREVIEW, json!({})))
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    assert_eq!(preview.pointer("/result/structuredContent"), Some(&batch));
+    let args = json!({"notification_ids":[7,8]});
+    assert_eq!(
+        post(&client, &endpoint, "reader", write_call(MARK, args.clone()))
+            .await?
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    for bad in [
+        json!({"notification_ids":[]}),
+        json!({"notification_ids":[8,8]}),
+        json!({"notification_ids":[-1]}),
+        json!({"notification_ids":[7],"all":true}),
+    ] {
+        let invalid: Value = post(&client, &endpoint, "both", write_call(MARK, bad))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&invalid, MARK, "INVALID_INPUT")?;
+    }
+    let route = || {
+        Mock::given(method("PUT"))
+            .and(path("/api/v1/mcp/account/notifications/read-state"))
+            .and(matches_header("authorization", "Bearer notice-downstream"))
+            .and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"))
+            .and(body_json(args.clone()))
+    };
+    let receipt = json!({"action_id":ACTION,"status":"executed","requested_count":2});
+    {
+        let _r = route()
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":receipt})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let marked: Value = post(&client, &endpoint, "both", write_call(MARK, args.clone()))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(marked.pointer("/result/structuredContent"), Some(&receipt));
+    }
+    {
+        let _r = route()
+            .respond_with(ResponseTemplate::new(404).set_body_string(SENTINEL))
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let missing: Value = post(&client, &endpoint, "both", write_call(MARK, args.clone()))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&missing, MARK, "API_NOT_FOUND")?;
+        assert!(!missing.to_string().contains(SENTINEL));
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn saved_search_authoring_and_lifecycle_preserve_omitted_criteria() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000005";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "search-owner",
+        "search-downstream",
+        USER_A,
+        "savedsearches:write watchlist:read",
+    )
+    .await;
+    exchange(&api, "reader", "reader-scope", USER_B, "watchlist:read").await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("savedsearches:write"),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let facts =
+        json!({"limit":40,"used":2,"notification_frequencies":["immediate","daily","weekly"]});
+    Mock::given(method("GET"))
+        .and(path("/api/v1/mcp/account/saved-search-authoring"))
+        .and(matches_header("authorization", "Bearer reader-scope"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":facts})),
+        )
+        .expect(1)
+        .mount(&api)
+        .await;
+    let result: Value = post(
+        &client,
+        &endpoint,
+        "reader",
+        call("get_my_saved_search_authoring", json!({})),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    assert_eq!(result.pointer("/result/structuredContent"), Some(&facts));
+    let price = json!({"amount":"15.90","currency_code":"SEK"});
+    let create = json!({"name":"Camera","criteria":{"text":"camera","max_price":price,"filters":[{"field":"lens","value":"wide"}]},"notification_frequency":"daily"});
+    let edit = json!({"search_id":7,"expected_updated_at":123,"criteria":{"text":null,"filters":[{"field":"lens","value":null}]},"active":false});
+    for (name, verb, suffix, input, body) in [
+        (
+            "create_my_saved_search",
+            "POST",
+            "",
+            create,
+            json!({"name":"Camera","criteria":{"text":"camera","max_price":price,"filters":{"lens":"wide"}},"notification_frequency":"daily"}),
+        ),
+        (
+            "update_my_saved_search",
+            "PATCH",
+            "/7",
+            edit,
+            json!({"expected_updated_at":123,"criteria":{"text":null,"filters":{"lens":null}},"active":false}),
+        ),
+        (
+            "delete_my_saved_search",
+            "DELETE",
+            "/7",
+            json!({"search_id":7,"expected_updated_at":321}),
+            json!({"expected_updated_at":321}),
+        ),
+    ] {
+        let denied = post(
+            &client,
+            &endpoint,
+            "reader",
+            write_call(name, input.clone()),
+        )
+        .await?;
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        assert!(
+            denied.headers()[header::WWW_AUTHENTICATE]
+                .to_str()?
+                .contains("savedsearches:write")
+        );
+        let receipt = json!({"action_id":ACTION,"status":"executed","search_id":7});
+        let mut wire = receipt.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = Mock::given(method(verb))
+            .and(path(format!("/api/v1/mcp/account/saved-searches{suffix}")))
+            .and(body_json(body))
+            .and(matches_header("authorization", "Bearer search-downstream"))
+            .and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(&client, &endpoint, "search-owner", write_call(name, input))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    for criteria in [
+        json!({}),
+        json!({"max_price":{"amount":5,"currency_code":"SEK"}}),
+        json!({"max_price":{"amount":"5.001","currency_code":"SEK"}}),
+        json!({"filters":[{"field":"one","value":"a"},{"field":"one","value":null}]}),
+        json!({"account_id":7}),
+    ] {
+        let update = write_call(
+            "update_my_saved_search",
+            json!({"search_id":7,"expected_updated_at":123,"criteria":criteria}),
+        );
+        let invalid: Value = post(&client, &endpoint, "search-owner", update)
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&invalid, "update_my_saved_search", "INVALID_INPUT")?;
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn personal_settings_bind_actor_and_target_and_never_acknowledge_a_read() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000006";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "personal",
+        "own-downstream",
+        USER_A,
+        "inbox:write profile:write following:write messages:read profile:read following:read",
+    )
+    .await;
+    exchange(
+        &api,
+        "reader",
+        "read-only",
+        USER_A,
+        "messages:read profile:read following:read",
+    )
+    .await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("inbox:write following:write profile:write"),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let cases = [
+        (
+            "get_my_conversation_settings",
+            "GET",
+            "conversations/9/settings".to_owned(),
+            json!({"conversation_id":9}),
+            None,
+            json!({"conversation_id":9,"is_archived":false,"is_pinned":true,"is_muted":false}),
+        ),
+        (
+            "set_my_conversation_setting",
+            "PUT",
+            "conversations/9/settings".to_owned(),
+            json!({"conversation_id":9,"setting":"muted","enabled":true}),
+            Some(json!({"setting":"muted","enabled":true})),
+            json!({"action_id":ACTION,"status":"executed","conversation_id":9,"setting":"muted","enabled":true}),
+        ),
+        (
+            "hide_my_message_copy",
+            "DELETE",
+            "messages/11/copy".to_owned(),
+            json!({"message_id":11}),
+            None,
+            json!({"action_id":ACTION,"status":"executed","message_id":11}),
+        ),
+        (
+            "get_my_listing_chat_notification_setting",
+            "GET",
+            format!("listing-chats/{LISTING_A}/notifications"),
+            json!({"listing_id":LISTING_A}),
+            None,
+            json!({"listing_id":LISTING_A,"muted":false}),
+        ),
+        (
+            "set_my_listing_chat_muted",
+            "PUT",
+            format!("listing-chats/{LISTING_A}/notifications"),
+            json!({"listing_id":LISTING_A,"muted":true}),
+            Some(json!({"muted":true})),
+            json!({"action_id":ACTION,"status":"executed","listing_id":LISTING_A,"muted":true}),
+        ),
+        (
+            "update_my_public_profile",
+            "PATCH",
+            "profile".to_owned(),
+            json!({"expected_revision":123,"bio":""}),
+            Some(json!({"expected_revision":123,"bio":""})),
+            json!({"action_id":ACTION,"status":"executed"}),
+        ),
+        (
+            "get_my_following_state",
+            "GET",
+            "following/public_seller".to_owned(),
+            json!({"username":"public_seller"}),
+            None,
+            json!({"user_id":USER_B,"username":"public_seller","following":false}),
+        ),
+        (
+            "set_my_following",
+            "PUT",
+            "following/public_seller".to_owned(),
+            json!({"username":"public_seller","expected_user_id":USER_B,"following":true}),
+            Some(json!({"expected_user_id":USER_B,"following":true})),
+            json!({"action_id":ACTION,"status":"executed","following":true}),
+        ),
+    ];
+    for (name, verb, suffix, arguments, body, expected) in cases {
+        let mut mock = Mock::given(method(verb))
+            .and(path(format!("/api/v1/mcp/account/{suffix}")))
+            .and(matches_header("authorization", "Bearer own-downstream"));
+        if let Some(body) = body {
+            mock = mock.and(body_json(body));
+        } else {
+            mock = mock.and(wiremock::matchers::body_string(""));
+        }
+        if verb != "GET" {
+            mock = mock.and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"));
+            assert_eq!(
+                post(
+                    &client,
+                    &endpoint,
+                    "reader",
+                    write_call(name, arguments.clone())
+                )
+                .await?
+                .status(),
+                StatusCode::FORBIDDEN
+            );
+        }
+        let mut wire = expected.clone();
+        wire["extra"] = json!(SENTINEL);
+        let _route = mock
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":wire})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let result: Value = post(
+            &client,
+            &endpoint,
+            "personal",
+            if verb == "GET" {
+                call(name, arguments)
+            } else {
+                write_call(name, arguments)
+            },
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        assert_eq!(
+            result.pointer("/result/structuredContent"),
+            Some(&expected),
+            "{name}"
+        );
+        assert!(!result.to_string().contains(SENTINEL));
+    }
+    let _profile=Mock::given(method("GET")).and(path("/api/v1/mcp/account/profile/authoring")).and(matches_header("authorization","Bearer own-downstream")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"display_name":"Old","bio":"text","public_profile":true,"revision":123,"extra":SENTINEL}}))).expect(1).mount_as_scoped(&api).await;
+    let profile: Value = post(
+        &client,
+        &endpoint,
+        "personal",
+        call("get_my_profile_authoring", json!({})),
+    )
+    .await?
+    .error_for_status()?
+    .json()
+    .await?;
+    let actual = profile
+        .pointer("/result/structuredContent")
+        .and_then(Value::as_object)
+        .context("profile authoring")?;
+    assert_eq!(
+        actual.keys().map(String::as_str).collect::<BTreeSet<_>>(),
+        BTreeSet::from([
+            "display_name",
+            "bio",
+            "public_profile",
+            "revision",
+            "truncated",
+            "untrusted_content_notice"
+        ])
+    );
+    assert_eq!(actual["revision"], 123);
+    for (name, invalid) in [
+        (
+            "update_my_public_profile",
+            json!({"expected_revision":123,"city":"City"}),
+        ),
+        (
+            "update_my_public_profile",
+            json!({"expected_revision":123,"bio":null}),
+        ),
+        (
+            "set_my_following",
+            json!({"username":"public_seller","following":true}),
+        ),
+        (
+            "set_my_conversation_setting",
+            json!({"conversation_id":9,"setting":"seen","enabled":true}),
+        ),
+        (
+            "hide_my_message_copy",
+            json!({"message_id":11,"for_everyone":true}),
+        ),
+    ] {
+        let result: Value = post(&client, &endpoint, "personal", write_call(name, invalid))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&result, name, "INVALID_INPUT")?;
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn block_discovery_and_mutations_require_independent_explicit_grants() -> Result<()> {
+    const ACTION: &str = "00000000-0000-4000-8000-000000000007";
+    const READ: &str = "personalblocks:read";
+    const WRITE: &str = "personalblocks:write";
+    let api = MockServer::start().await;
+    exchange(&api, "reader", "block-reader", USER_A, READ).await;
+    exchange(&api, "writer", "block-writer", USER_A, WRITE).await;
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    for scopes in [READ, "personalblocks:read personalblocks:write"] {
+        let mut server = start_http_server_with_scopes(
+            &api.uri(),
+            30,
+            Some("account-actions"),
+            Some(false),
+            Some(scopes),
+        )
+        .await?;
+        let endpoint = format!("http://{}/account/mcp", server.address);
+        let list: Value = post(
+            &client,
+            &endpoint,
+            "reader",
+            json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        let available = list
+            .pointer("/result/tools")
+            .and_then(Value::as_array)
+            .context("tools")?;
+        assert!(
+            available
+                .iter()
+                .any(|t| t["name"] == "list_my_personal_blocks")
+        );
+        assert_eq!(
+            available
+                .iter()
+                .any(|t| t["name"] == "set_my_personal_block"),
+            scopes != READ
+        );
+        assert_eq!(
+            available
+                .iter()
+                .any(|t| t["name"] == "get_my_action_status"),
+            scopes != READ
+        );
+        let _read=Mock::given(method("GET")).and(path("/api/v1/mcp/account/personal-blocks")).and(matches_header("authorization","Bearer block-reader")).and(wiremock::matchers::query_param("limit","20"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":{"items":[{"user_id":USER_B,"username":"public_seller","extra":SENTINEL}],"next_after":null}}))).expect(1).mount_as_scoped(&api).await;
+        let page: Value = post(
+            &client,
+            &endpoint,
+            "reader",
+            call("list_my_personal_blocks", json!({})),
+        )
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+        let content = page
+            .pointer("/result/structuredContent")
+            .and_then(Value::as_object)
+            .context("outgoing blocks")?;
+        assert_eq!(
+            content.keys().map(String::as_str).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["items", "next_after", "untrusted_content_notice"])
+        );
+        assert_eq!(
+            content["items"],
+            json!([{"user_id":USER_B,"username":"public_seller"}])
+        );
+        if scopes != READ {
+            let args = json!({"user_id":USER_B,"blocked":true});
+            assert_eq!(
+                post(
+                    &client,
+                    &endpoint,
+                    "reader",
+                    write_call("set_my_personal_block", args.clone())
+                )
+                .await?
+                .status(),
+                StatusCode::FORBIDDEN
+            );
+            assert_eq!(
+                post(
+                    &client,
+                    &endpoint,
+                    "writer",
+                    call("list_my_personal_blocks", json!({}))
+                )
+                .await?
+                .status(),
+                StatusCode::FORBIDDEN
+            );
+            let receipt =
+                json!({"user_id":USER_B,"blocked":true,"action_id":ACTION,"status":"executed"});
+            let _write = Mock::given(method("PUT"))
+                .and(path(format!(
+                    "/api/v1/mcp/account/personal-blocks/{USER_B}"
+                )))
+                .and(matches_header("authorization", "Bearer block-writer"))
+                .and(body_json(json!({"blocked":true})))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(json!({"success":true,"data":receipt})),
+                )
+                .expect(1)
+                .mount_as_scoped(&api)
+                .await;
+            let result: Value = post(
+                &client,
+                &endpoint,
+                "writer",
+                write_call("set_my_personal_block", args),
+            )
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+            assert_eq!(result.pointer("/result/structuredContent"), Some(&receipt));
+        }
+        server.child.kill().await?;
+        server.child.wait().await?;
+    }
+    Ok(())
+}
+
+#[path = "account_http_protocol/messages.rs"]
+mod messages;
+
+#[path = "account_http_protocol/ratings.rs"]
+mod ratings;
+
+#[path = "account_http_protocol/rooms.rs"]
+mod rooms;
+
+#[path = "account_http_protocol/automatic_bids.rs"]
+mod automatic_bids;
+#[path = "account_http_protocol/bid_submission.rs"]
+mod bid_submission;
+
+#[path = "account_http_protocol/creation_rules.rs"]
+mod creation_rules;
+#[path = "account_http_protocol/parcel.rs"]
+mod parcel;
+#[path = "account_http_protocol/seller_authoring.rs"]
+mod seller_authoring;
+#[path = "account_http_protocol/showcase_authoring.rs"]
+mod showcase_authoring;
+#[path = "account_http_protocol/stream_authoring.rs"]
+mod stream_authoring;
+
+#[path = "account_http_protocol/cases_and_listing.rs"]
+mod cases_and_listing;
+
+#[path = "account_http_protocol/offer_actions.rs"]
+mod offer_actions;
+
+#[path = "account_http_protocol/returns.rs"]
+mod returns;
+
+#[path = "account_http_protocol/second_chances.rs"]
+mod second_chances;
+
+#[path = "account_http_protocol/fulfillment.rs"]
+mod fulfillment;
+
+#[path = "account_http_protocol/checkout_closure.rs"]
+mod checkout_closure;

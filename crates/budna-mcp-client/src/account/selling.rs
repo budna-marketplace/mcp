@@ -117,6 +117,7 @@ pub struct AccountVideo {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AccountShippingSettings {
+    pub revision: Option<String>,
     pub provider_codes: Option<Vec<String>>,
     pub combined_enabled: Option<bool>,
     pub updated_at: Option<i64>,
@@ -259,9 +260,13 @@ impl AccountListingPromotion {
 
 impl AccountShippingSettings {
     pub(super) fn is_valid(&self) -> bool {
-        self.provider_codes
-            .as_ref()
-            .is_none_or(|codes| codes.len() <= 10 && codes.iter().all(|value| code(value)))
+        self.revision
+            .as_deref()
+            .is_none_or(super::shipping::valid_revision)
+            && self
+                .provider_codes
+                .as_ref()
+                .is_none_or(|codes| codes.len() <= 10 && codes.iter().all(|value| code(value)))
             && optional_time(self.updated_at)
     }
 }

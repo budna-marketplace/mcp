@@ -177,6 +177,15 @@ pub struct AccountSavedSearchOutput {
 
 #[derive(Debug, Serialize, schemars::JsonSchema)]
 pub struct AccountSavedSearchQueryOutput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location_id: Option<i32>,
+
     #[schemars(length(max = 512))]
     pub text: Option<String>,
     pub category_id: Option<i32>,
@@ -221,6 +230,10 @@ impl From<AccountPage<AccountSavedSearch>> for AccountPageOutput<AccountSavedSea
                 id: search.id,
                 name: budget.text(search.name, MAX_NAME_BYTES),
                 query: AccountSavedSearchQueryOutput {
+                    search_mode: budget.optional_text(query.search_mode, 128),
+                    sort_by: budget.optional_text(query.sort_by, 128),
+                    sort_order: budget.optional_text(query.sort_order, 128),
+                    location_id: query.location_id,
                     text: budget.optional_text(query.text, MAX_DISPLAY_TEXT_BYTES),
                     category_id: query.category_id,
                     market: budget.optional_text(query.market, 64),

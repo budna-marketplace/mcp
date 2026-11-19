@@ -48,7 +48,7 @@ impl AccountApiClient {
             config,
             resource: resource.to_owned(),
             service_credential,
-            private_watchlist_writes: false,
+            writes: Default::default(),
         })
     }
 }

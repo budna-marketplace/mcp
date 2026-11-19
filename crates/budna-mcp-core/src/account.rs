@@ -38,6 +38,21 @@ impl AccountSettings {
         self
     }
 
+    pub fn with_private_watchlist_management(mut self) -> Self {
+        self.policy = ToolPolicy::AccountWatchlistManagement;
+        self
+    }
+
+    pub fn with_listing_draft_creation(mut self) -> Self {
+        self.policy = ToolPolicy::AccountListingDraftPilot;
+        self
+    }
+
+    pub fn with_write_permissions(mut self, permissions: crate::AccountWritePermissions) -> Self {
+        self.policy = ToolPolicy::AccountActions(permissions);
+        self
+    }
+
     pub fn policy(&self) -> ToolPolicy {
         self.policy
     }

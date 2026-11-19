@@ -1,8 +1,94 @@
+mod actions;
 mod activity;
 mod config;
+mod direct_messages;
+mod draft;
+pub use direct_messages::*;
+mod reactions;
+pub use reactions::*;
+mod public_chat;
+pub use public_chat::*;
+mod order_review;
+pub use order_review::*;
+mod room_activity;
+pub use room_activity::*;
+mod automatic_bids;
+mod order_closure;
+pub use order_closure::*;
+mod binding_checkout;
+mod offer_actions;
+pub use binding_checkout::*;
+mod second_chances;
+pub use offer_actions::*;
+pub use second_chances::*;
+mod bid_submission;
+pub use automatic_bids::*;
+pub use bid_submission::*;
+mod creation_rules;
+pub use creation_rules::*;
+mod draft_authoring;
+pub use draft_authoring::*;
+mod draft_fields;
+pub use draft_fields::*;
+mod fulfillment;
+mod parcel;
+pub use fulfillment::*;
+mod returns;
+pub use returns::*;
+mod shipping;
+pub use parcel::*;
+mod stream_authoring;
+pub use stream_authoring::*;
+mod showcase_authoring;
+pub use shipping::*;
+pub use showcase_authoring::*;
+mod inventory;
+pub use inventory::*;
+mod publication;
+pub use publication::*;
+mod listing_management;
+pub use listing_management::*;
+mod dispute_cases;
+pub use dispute_cases::*;
+mod inbox;
+mod personal_blocks;
+pub use personal_blocks::{OutgoingBlock, OutgoingBlocks, PersonalBlockReceipt};
 mod listing;
 mod models;
+mod notification_state;
+mod search_writes;
+mod social;
+pub use inbox::*;
+pub use search_writes::*;
+pub use social::*;
 mod records;
+mod reminder;
+use budna_mcp_core::AccountWritePermissions;
+pub use budna_mcp_core::write_permissions::BIDS_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::CHAT_ROOMS_READ_SCOPE;
+pub use budna_mcp_core::write_permissions::DISPUTE_CASES_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::DISPUTE_SETTLEMENTS_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::DRAFT_AUTHORING_SCOPE;
+pub use budna_mcp_core::write_permissions::INVENTORY_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::LISTING_MANAGEMENT_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::LIVE_REPORTS_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::PUBLIC_CHAT_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::PUBLICATION_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::RATINGS_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::ROOM_MODERATION_READ_SCOPE;
+pub use budna_mcp_core::write_permissions::ROOM_MODERATION_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::ROOM_REACTIONS_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::SHIPPING_DEFAULTS_SCOPE;
+pub use budna_mcp_core::write_permissions::SHIPPING_RULES_READ_SCOPE;
+pub use budna_mcp_core::write_permissions::SHIPPING_RULES_WRITE_SCOPE;
+pub use budna_mcp_core::write_permissions::{
+    DRAFT_CREATE_SCOPE, FOLLOWING_WRITE_SCOPE, INBOX_WRITE_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
+    MESSAGE_REACTIONS_WRITE_SCOPE, MESSAGES_WRITE_SCOPE, NOTIFICATION_STATE_SCOPE,
+    PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE, PROFILE_WRITE_SCOPE,
+    SAVED_SEARCH_WRITE_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_WRITE_SCOPE,
+};
+pub use notification_state::{NotificationReadBatch, NotificationReadReceipt};
+pub use reminder::LiveReminderReceipt;
 mod selling;
 mod watchlist;
 
@@ -22,7 +108,9 @@ use reqwest::{
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
 use zeroize::Zeroizing;
 
+pub use actions::*;
 pub use activity::*;
+pub use draft::*;
 pub use listing::*;
 pub use models::{AccountListingPage, AccountListingSummary, AccountPage, AccountSummary};
 pub use records::*;
@@ -45,7 +133,6 @@ pub const PROFILE_READ_SCOPE: &str = "profile:read";
 pub const SELLING_READ_SCOPE: &str = "selling:read";
 pub const FOLLOWING_READ_SCOPE: &str = "following:read";
 pub const COMPANY_READ_SCOPE: &str = "company:read";
-pub const WATCHLIST_WRITE_SCOPE: &str = "watchlist:write";
 /// Delegated permissions supported by the read-only account profile, in consent order.
 pub const ACCOUNT_SCOPES: [&str; 14] = [
     ACCOUNT_READ_SCOPE,
@@ -127,31 +214,62 @@ pub struct AccountApiClient {
     config: ClientConfig,
     resource: String,
     service_credential: Credential,
-    private_watchlist_writes: bool,
+    writes: AccountWritePermissions,
 }
 
 impl AccountApiClient {
     /// Selects whether this instance accepts the private-watchlist pilot scope.
     pub fn with_private_watchlist_writes(mut self, enabled: bool) -> Self {
-        self.private_watchlist_writes = enabled;
+        self.writes.watchlist_membership = enabled;
         self
     }
 
     pub fn private_watchlist_writes_enabled(&self) -> bool {
-        self.private_watchlist_writes
+        self.writes.watchlist_membership
+    }
+
+    pub fn with_private_watchlist_management(mut self, enabled: bool) -> Self {
+        self.writes.watchlist_management = enabled;
+        self
+    }
+
+    pub fn private_watchlist_management_enabled(&self) -> bool {
+        self.writes.watchlist_management
+    }
+
+    pub fn with_listing_draft_creation(mut self, enabled: bool) -> Self {
+        self.writes.listing_drafts = enabled;
+        self
+    }
+
+    pub fn listing_draft_creation_enabled(&self) -> bool {
+        self.writes.listing_drafts
+    }
+
+    pub fn with_write_permissions(mut self, permissions: AccountWritePermissions) -> Self {
+        self.writes = permissions;
+        self
+    }
+
+    pub fn write_permissions(&self) -> AccountWritePermissions {
+        self.writes
+    }
+
+    pub fn supported_write_scopes(&self) -> impl Iterator<Item = &'static str> {
+        self.writes.scopes()
     }
 
     /// Scope metadata and token validation must describe the same profile.
     pub fn supported_scopes(&self) -> impl Iterator<Item = &'static str> {
-        ACCOUNT_SCOPES.into_iter().chain(
-            self.private_watchlist_writes
-                .then_some(WATCHLIST_WRITE_SCOPE),
-        )
+        ACCOUNT_SCOPES
+            .into_iter()
+            .chain(self.writes.additional_read_scopes())
+            .chain(self.supported_write_scopes())
     }
 
     pub async fn exchange(&self, token: &str) -> Result<DelegatedAccess, ClientError> {
         const OPERATION: &str = "authorize_account_request";
-        if token.len() > 512 || !valid_credential(token) {
+        if !is_account_access_token(token) {
             return Err(unauthorized(OPERATION));
         }
         let endpoint = self.endpoint(OPERATION, "mcp/oauth/exchange")?;
@@ -1231,7 +1349,11 @@ impl AccountApiClient {
                 .await
                 .map_err(|source| crate::request_error(operation, source))?;
             let status = response.status();
-            if !status.is_success() {
+            let draft_refused = matches!(
+                operation,
+                "create_my_listing_draft" | "create_my_similar_draft" | "publish_my_quoted_draft"
+            ) && status == reqwest::StatusCode::FORBIDDEN;
+            if !status.is_success() && !draft_refused {
                 return Err(ClientError::Api {
                     operation,
                     status: status.as_u16(),
@@ -1261,6 +1383,26 @@ impl AccountApiClient {
                     });
                 }
                 body.extend_from_slice(&chunk);
+            }
+            if draft_refused {
+                #[derive(Deserialize)]
+                struct Refusal<'a> {
+                    code: &'a str,
+                }
+                return Err(
+                    if serde_json::from_slice::<Refusal>(&body)
+                        .is_ok_and(|p| p.code == "SELLER_VERIFICATION_REQUIRED")
+                    {
+                        ClientError::SellerVerificationRequired { operation }
+                    } else {
+                        ClientError::Api {
+                            operation,
+                            status: 403,
+                            code: None,
+                            retry_after: None,
+                        }
+                    },
+                );
             }
             serde_json::from_slice(&body)
                 .map_err(|source| ClientError::Decode { operation, source })
@@ -1340,6 +1482,11 @@ fn is_canonical_uuid(value: &str) -> bool {
                 byte.is_ascii_digit() || (b'a'..=b'f').contains(byte)
             }
         })
+}
+
+/// Checks the allowed bearer syntax and size before spending exchange capacity.
+pub fn is_account_access_token(value: &str) -> bool {
+    value.len() <= 512 && valid_credential(value)
 }
 
 fn valid_credential(value: &str) -> bool {
