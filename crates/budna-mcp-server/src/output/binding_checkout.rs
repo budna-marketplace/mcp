@@ -89,7 +89,7 @@ impl From<(BindingCheckoutReceipt, &str)> for CheckoutReceiptOutput {
             session_id: r.session_id,
             order_id: r.order_id,
             payment_deadline: r.payment_deadline,
-            confirmation_url: confirmation_url,
+            confirmation_url,
         }
     }
 }

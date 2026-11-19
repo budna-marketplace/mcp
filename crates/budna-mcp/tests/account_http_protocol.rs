@@ -2362,6 +2362,8 @@ mod automatic_bids;
 #[path = "account_http_protocol/bid_submission.rs"]
 mod bid_submission;
 
+#[path = "account_http_protocol/creation_rules.rs"]
+mod creation_rules;
 #[path = "account_http_protocol/parcel.rs"]
 mod parcel;
 #[path = "account_http_protocol/seller_authoring.rs"]
@@ -2385,3 +2387,6 @@ mod second_chances;
 
 #[path = "account_http_protocol/fulfillment.rs"]
 mod fulfillment;
+
+#[path = "account_http_protocol/checkout_closure.rs"]
+mod checkout_closure;

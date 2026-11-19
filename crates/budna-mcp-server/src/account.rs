@@ -52,6 +52,7 @@ mod automatic_bids;
 mod bid_submission;
 mod binding_checkout;
 mod blocks;
+mod creation_rules;
 mod destinations;
 mod direct_messages;
 mod dispute_cases;
@@ -63,6 +64,7 @@ mod inventory;
 mod listing_management;
 mod notification_state;
 mod offer_actions;
+mod order_closure;
 mod order_review;
 mod parcel;
 mod personal;
@@ -166,6 +168,15 @@ impl AccountMcpServer {
         if client.write_permissions().room_moderation {
             routes += Self::room_moderation_router();
         }
+        if client.write_permissions().orders_relist || client.write_permissions().order_closures {
+            routes += Self::order_closure_state_router();
+        }
+        if client.write_permissions().orders_relist {
+            routes += Self::closed_relist_router();
+        }
+        if client.write_permissions().order_closures {
+            routes += Self::order_closure_router();
+        }
         if client.write_permissions().checkout_orders {
             routes += Self::binding_checkout_router();
         }
@@ -185,6 +196,7 @@ impl AccountMcpServer {
             routes += Self::bid_submission_router();
         }
         if client.write_permissions().draft_authoring {
+            routes += Self::creation_rules_router();
             routes += Self::draft_authoring_router();
         }
         if client.write_permissions().shipping_rules {
@@ -1843,6 +1855,7 @@ impl ServerHandler for AccountMcpServer {
                 text.push_str(" prepare_my_bid quotes one exact bid. submit_my_quoted_bid submits the same terms and can require approval in Budna.");
             }
             if self.client.write_permissions().draft_authoring {
+                text.push_str(" Use get_listing_creation_rules and list_listing_creation_options for current category publication requirements and accepted values.");
                 text.push_str(" create_my_similar_draft copies eligible listing fields into one unpublished draft after seller verification.");
             }
             if self.client.write_permissions().shipping_rules {

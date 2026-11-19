@@ -22,6 +22,8 @@ pub enum ToolCapability {
     OfferChange,
     SecondChanceSale,
     SecondChanceAnswer,
+    OrderClosures,
+    ClosedOrderRelist,
     BindingCheckout,
 
     DraftAuthoringWrite,
@@ -122,6 +124,8 @@ impl ToolPolicy {
             ToolCapability::OfferChange => writes.offers,
             ToolCapability::SecondChanceSale => writes.second_chances,
             ToolCapability::SecondChanceAnswer => writes.second_chance_answers,
+            ToolCapability::OrderClosures => writes.order_closures,
+            ToolCapability::ClosedOrderRelist => writes.orders_relist,
             ToolCapability::BindingCheckout => writes.checkout_orders,
 
             ToolCapability::DraftAuthoringWrite => writes.draft_authoring,

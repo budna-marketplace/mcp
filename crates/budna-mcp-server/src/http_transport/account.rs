@@ -235,6 +235,11 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "post_public_chat_message" => PUBLIC_CHAT_WRITE_SCOPE,
         "get_my_automatic_bid_state" | "prepare_my_automatic_bid_maximum" => BIDS_READ_SCOPE,
         "set_my_quoted_automatic_bid_maximum" | "pause_my_automatic_bid" => AUTOBIDS_WRITE_SCOPE,
+        "get_my_order_closure" | "prepare_my_order_closure" | "prepare_my_closed_order_relist" => {
+            ORDERS_READ_SCOPE
+        }
+        "submit_my_quoted_order_closure" => budna_mcp_client::ORDER_CLOSURES_WRITE_SCOPE,
+        "relist_my_quoted_closed_order" => budna_mcp_client::ORDERS_RELIST_WRITE_SCOPE,
         "get_my_binding_checkout" | "prepare_my_binding_checkout_order" => ORDERS_READ_SCOPE,
         "submit_my_quoted_checkout_order" => budna_mcp_client::CHECKOUT_ORDERS_WRITE_SCOPE,
         "get_my_second_chance_sale" | "prepare_my_second_chance_sale" => ORDERS_READ_SCOPE,
@@ -247,7 +252,9 @@ pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
         "submit_my_quoted_offer_change" => OFFERS_WRITE_SCOPE,
         "prepare_my_bid" => BIDS_READ_SCOPE,
         "submit_my_quoted_bid" => BIDS_WRITE_SCOPE,
-        "get_my_draft_authoring" => LISTINGS_READ_SCOPE,
+        "get_listing_creation_rules"
+        | "list_listing_creation_options"
+        | "get_my_draft_authoring" => LISTINGS_READ_SCOPE,
         "edit_my_listing_draft"
         | "discard_my_listing_draft"
         | "replace_my_draft_attributes"

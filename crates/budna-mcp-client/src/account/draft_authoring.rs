@@ -78,10 +78,11 @@ impl DraftAttributeValue {
             Self::Number(s) => {
                 let d = s.strip_prefix('-').unwrap_or(s);
                 let (whole, frac) = d.split_once('.').unwrap_or((d, ""));
-                s.len() <= 30
-                    && crate::is_exact_decimal(d)
+                crate::is_exact_decimal(d)
+                    && whole.len() <= 11
                     && (whole == "0" || !whole.starts_with('0'))
-                    && frac.len() <= 28
+                    && frac.len() <= 4
+                    && (!writing || (!frac.ends_with('0') && s != "-0"))
             }
             Self::Boolean(_) => true,
             Self::Date(v) => *v > 0,
@@ -159,6 +160,7 @@ pub struct DraftAuthoringState {
 pub enum DraftEdit<'a> {
     Fields(&'a DraftFieldChanges),
     Attributes(&'a [DraftAttribute]),
+    ReviewedAttributes(&'a [DraftAttribute], &'a str),
     Vat(Option<DraftVatChoice>),
     Discard,
 }
@@ -226,6 +228,13 @@ impl AccountApiClient {
                 "/attributes",
                 serde_json::json!({"expected_revision":expected_revision,"attributes":attributes}),
                 valid_attributes(attributes, true),
+            ),
+            DraftEdit::ReviewedAttributes(attributes, rules) => (
+                "replace_my_draft_attributes",
+                Method::PUT,
+                "/attributes",
+                serde_json::json!({"expected_revision":expected_revision,"attributes":attributes,"expected_rules_revision":rules}),
+                valid_attributes(attributes, true) && super::shipping::valid_revision(rules),
             ),
             DraftEdit::Vat(treatment) => (
                 "set_my_draft_vat",

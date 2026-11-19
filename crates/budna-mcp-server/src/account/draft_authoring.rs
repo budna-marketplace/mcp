@@ -45,6 +45,9 @@ struct ReplaceDraftAttributes {
     expected_revision: i64,
     #[schemars(length(min = 36, max = 36))]
     request_id: String,
+    /// Category rule fingerprint from get_listing_creation_rules. It binds edits to the reviewed taxonomy.
+    #[schemars(length(min = 43, max = 43))]
+    expected_rules_revision: Option<String>,
     #[schemars(length(max = 50))]
     attributes: Vec<DraftAttribute>,
 }
@@ -171,7 +174,10 @@ impl AccountMcpServer {
                 &access,
                 &input.listing_id,
                 input.expected_revision,
-                DraftEdit::Attributes(&input.attributes),
+                match input.expected_rules_revision.as_deref() {
+                    Some(r) => DraftEdit::ReviewedAttributes(&input.attributes, r),
+                    None => DraftEdit::Attributes(&input.attributes),
+                },
                 &input.request_id,
             ),
         )

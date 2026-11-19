@@ -163,6 +163,7 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `delete_my_private_watchlist` | Management profile · `watchlists:write` | Permanently delete one private, non-default watchlist and its memberships |
 | `get_my_listing_draft_eligibility` | Draft pilot · `profile:read` | Check seller verification and open the appropriate Budna verification page |
 | `get_my_publication_readiness` / `publish_my_quoted_draft` | Account actions · `selling:read` / `listingpublication:write` | Review eligibility, upfront costs and estimated proceeds, then publish an eligible draft immediately |
+| `get_listing_creation_rules` / `list_listing_creation_options` | Account actions · `listings:read` | Read a category’s authoring fields, required values, conditions, formats and revision. Page or search the choices allowed in that category. |
 | `get_my_draft_authoring` | Account actions · `listings:read` | Read the current fields, revision, category attributes, media count and listing VAT |
 | `edit_my_listing_draft` / `replace_my_draft_attributes` | Account actions · `draftauthoring:write` | Edit reviewed fields or intentionally replace the full category attribute set |
 | `set_my_draft_vat` / `discard_my_listing_draft` | Account actions · `draftauthoring:write` | Change an eligible company draft’s VAT treatment or discard one reviewed draft |
@@ -220,6 +221,11 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `submit_my_quoted_bid` | Account actions · `bids:write` | Submit the exact quoted bid under the customer’s connected-app approval policy |
 | `get_my_automatic_bid_state` | Account actions · `bids:read` | Read the customer’s own maximum and its current revision for one auction |
 | `prepare_my_automatic_bid_maximum` | Account actions · `bids:read` | Quote a private standing maximum and show the effect of an immediate bid |
+| `get_my_order_closure` | Account actions · `orders:read` | Check a personal order, its payment deadline and its closure or relist status |
+| `prepare_my_order_closure` | Account actions · `orders:read` | Review a permitted cancellation or overdue seller close, fees, refund and stock effects |
+| `submit_my_quoted_order_closure` | Account actions · `orderclosures:write` | Request approval in Budna to close the reviewed order |
+| `prepare_my_closed_order_relist` | Account actions · `orders:read` | Review the original price and duration to relist a closed unpaid sale |
+| `relist_my_quoted_closed_order` | Account actions · `ordersrelist:write` | Publish an eligible listing after closing its unpaid order |
 | `get_my_binding_checkout` | Account actions · `orders:read` | Read an existing Buy Now checkout, its delivery-selection status and any linked order |
 | `prepare_my_binding_checkout_order` | Account actions · `orders:read` | Review quantity, delivery, all-in price, deadlines, unpaid fee and auction closure |
 | `submit_my_quoted_checkout_order` | Account actions · `checkoutorders:write` | Request approval in Budna to create one binding unpaid order |

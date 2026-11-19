@@ -11,6 +11,8 @@ pub const ROOM_MODERATION_READ_SCOPE: &str = "roommoderation:read";
 pub const ROOM_REACTIONS_WRITE_SCOPE: &str = "roomreactions:write";
 pub const LIVE_REPORTS_WRITE_SCOPE: &str = "livereports:write";
 pub const ROOM_MODERATION_WRITE_SCOPE: &str = "roommoderation:write";
+pub const ORDER_CLOSURES_WRITE_SCOPE: &str = "orderclosures:write";
+pub const ORDERS_RELIST_WRITE_SCOPE: &str = "ordersrelist:write";
 pub const CHECKOUT_ORDERS_WRITE_SCOPE: &str = "checkoutorders:write";
 pub const SECOND_CHANCES_WRITE_SCOPE: &str = "secondchances:write";
 pub const SECOND_CHANCE_ANSWERS_WRITE_SCOPE: &str = "secondchanceanswers:write";
@@ -65,6 +67,8 @@ pub struct AccountWritePermissions {
     pub room_reactions: bool,
     pub live_reports: bool,
     pub room_moderation: bool,
+    pub order_closures: bool,
+    pub orders_relist: bool,
     pub checkout_orders: bool,
     pub second_chances: bool,
     pub second_chance_answers: bool,
@@ -117,6 +121,8 @@ impl AccountWritePermissions {
         room_reactions: false,
         live_reports: false,
         room_moderation: false,
+        order_closures: false,
+        orders_relist: false,
         checkout_orders: false,
         second_chances: false,
         second_chance_answers: false,
@@ -173,6 +179,8 @@ impl AccountWritePermissions {
                 ROOM_REACTIONS_WRITE_SCOPE => &mut permissions.room_reactions,
                 LIVE_REPORTS_WRITE_SCOPE => &mut permissions.live_reports,
                 ROOM_MODERATION_WRITE_SCOPE => &mut permissions.room_moderation,
+                ORDER_CLOSURES_WRITE_SCOPE => &mut permissions.order_closures,
+                ORDERS_RELIST_WRITE_SCOPE => &mut permissions.orders_relist,
                 CHECKOUT_ORDERS_WRITE_SCOPE => &mut permissions.checkout_orders,
                 SECOND_CHANCES_WRITE_SCOPE => &mut permissions.second_chances,
                 SECOND_CHANCE_ANSWERS_WRITE_SCOPE => &mut permissions.second_chance_answers,
@@ -254,6 +262,8 @@ impl AccountWritePermissions {
             self.live_reports.then_some(LIVE_REPORTS_WRITE_SCOPE),
             self.room_moderation.then_some(ROOM_MODERATION_WRITE_SCOPE),
             self.bids.then_some(BIDS_WRITE_SCOPE),
+            self.order_closures.then_some(ORDER_CLOSURES_WRITE_SCOPE),
+            self.orders_relist.then_some(ORDERS_RELIST_WRITE_SCOPE),
             self.checkout_orders.then_some(CHECKOUT_ORDERS_WRITE_SCOPE),
             self.second_chances.then_some(SECOND_CHANCES_WRITE_SCOPE),
             self.second_chance_answers
@@ -304,6 +314,8 @@ impl AccountWritePermissions {
             room_reactions: self.room_reactions && other.room_reactions,
             live_reports: self.live_reports && other.live_reports,
             room_moderation: self.room_moderation && other.room_moderation,
+            order_closures: self.order_closures && other.order_closures,
+            orders_relist: self.orders_relist && other.orders_relist,
             checkout_orders: self.checkout_orders && other.checkout_orders,
             second_chances: self.second_chances && other.second_chances,
             second_chance_answers: self.second_chance_answers && other.second_chance_answers,
