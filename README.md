@@ -163,6 +163,8 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `delete_my_private_watchlist` | Management profile · `watchlists:write` | Permanently delete one private, non-default watchlist and its memberships |
 | `get_my_listing_draft_eligibility` | Draft pilot · `profile:read` | Check seller verification and open the appropriate Budna verification page |
 | `create_my_listing_draft` | Draft pilot · `listingdrafts:write` | Save one unpublished initial draft as the verified seller |
+| `get_my_notification_read_batch` | Account actions · `notifications:read` | Preview up to 50 eligible unread ordinary notifications |
+| `mark_my_notifications_read` | Account actions · `notificationstate:write` | Acknowledge the ordinary notification IDs the customer selected |
 | `set_my_live_reminder` | Account actions · `livereminders:write` | Set or remove a personal reminder for one live session |
 | `get_my_action_status` | Write-enabled profile · original action permission | Check one receipt on the connection that submitted it |
 | `list_my_watchlist_listings` | Watchlist permission | List the listings saved in one of your watchlists |

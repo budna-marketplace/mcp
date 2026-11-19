@@ -11,9 +11,10 @@ use axum::{
 use budna_mcp_client::{
     ACCOUNT_READ_SCOPE, AccountApiClient, BIDS_READ_SCOPE, COMPANY_READ_SCOPE, ClientError,
     DRAFT_CREATE_SCOPE, FOLLOWING_READ_SCOPE, LISTINGS_READ_SCOPE, LIVE_REMINDER_WRITE_SCOPE,
-    MESSAGES_READ_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE, ORDERS_READ_SCOPE,
-    PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE, SELLING_READ_SCOPE,
-    WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
+    MESSAGES_READ_SCOPE, NOTIFICATION_STATE_SCOPE, NOTIFICATIONS_READ_SCOPE, OFFERS_READ_SCOPE,
+    ORDERS_READ_SCOPE, PAYMENTS_READ_SCOPE, PROFILE_READ_SCOPE, RATINGS_READ_SCOPE,
+    SELLING_READ_SCOPE, WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE,
+    is_account_access_token,
 };
 use budna_mcp_core::{ACCOUNT_MCP_PATH, AccountSettings, HttpServerSettings};
 use http::{
@@ -29,8 +30,9 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     AccountMcpServer,
     account::{
-        ACTION_STATUS_TOOL, DRAFT_CREATE_TOOL, DRAFT_ELIGIBILITY_TOOL, REMINDER_TOOL,
-        WATCHLIST_MANAGEMENT_TOOLS, WATCHLIST_MEMBERSHIP_TOOL,
+        ACTION_STATUS_TOOL, DRAFT_CREATE_TOOL, DRAFT_ELIGIBILITY_TOOL, NOTIFICATION_BATCH_TOOL,
+        NOTIFICATION_READ_TOOL, REMINDER_TOOL, WATCHLIST_MANAGEMENT_TOOLS,
+        WATCHLIST_MEMBERSHIP_TOOL,
     },
 };
 
@@ -146,7 +148,7 @@ async fn authenticate(
                                             auth.client.supported_write_scopes().next()
                                         }
                                     } else {
-                                        if name == DRAFT_ELIGIBILITY_TOOL && !auth.client.listing_draft_creation_enabled() { return None; }
+                                        if (name == NOTIFICATION_BATCH_TOOL && !auth.client.write_permissions().notification_state) || (name == DRAFT_ELIGIBILITY_TOOL && !auth.client.listing_draft_creation_enabled()) { return None; }
                                         account_tool_scope(name).filter(|scope| auth.client.supported_scopes().any(|allowed| allowed == *scope))
                                     }
                                 })
@@ -189,6 +191,8 @@ async fn authenticate(
 /// The permission each account tool needs, checked before the call reaches the tool.
 pub(crate) fn account_tool_scope(name: &str) -> Option<&'static str> {
     Some(match name {
+        NOTIFICATION_BATCH_TOOL => NOTIFICATIONS_READ_SCOPE,
+        NOTIFICATION_READ_TOOL => NOTIFICATION_STATE_SCOPE,
         REMINDER_TOOL => LIVE_REMINDER_WRITE_SCOPE,
         DRAFT_CREATE_TOOL => DRAFT_CREATE_SCOPE,
         DRAFT_ELIGIBILITY_TOOL => PROFILE_READ_SCOPE,

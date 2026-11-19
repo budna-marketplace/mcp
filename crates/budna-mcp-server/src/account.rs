@@ -48,6 +48,9 @@ use crate::{
 
 mod actions;
 mod draft;
+mod notification_state;
+pub(crate) const NOTIFICATION_BATCH_TOOL: &str = "get_my_notification_read_batch";
+pub(crate) const NOTIFICATION_READ_TOOL: &str = "mark_my_notifications_read";
 pub(crate) const REMINDER_TOOL: &str = "set_my_live_reminder";
 pub(crate) const DRAFT_CREATE_TOOL: &str = "create_my_listing_draft";
 pub(crate) const DRAFT_ELIGIBILITY_TOOL: &str = "get_my_listing_draft_eligibility";
@@ -96,6 +99,9 @@ impl AccountMcpServer {
         }
         if client.listing_draft_creation_enabled() {
             routes += Self::listing_draft_router();
+        }
+        if client.write_permissions().notification_state {
+            routes += Self::notification_state_router();
         }
         if client.write_permissions().live_reminders {
             routes += Self::reminder_router();
@@ -188,7 +194,8 @@ impl AccountMcpServer {
         })
         .await
         .map_err(|_| {
-            if operation == REMINDER_TOOL
+            if operation == NOTIFICATION_READ_TOOL
+                || operation == REMINDER_TOOL
                 || operation == DRAFT_CREATE_TOOL
                 || operation == WATCHLIST_MEMBERSHIP_TOOL
                 || WATCHLIST_MANAGEMENT_TOOLS.contains(&operation)
@@ -1602,6 +1609,9 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.client.write_permissions().live_reminders {
                 text.push_str(" On request, set_my_live_reminder sets or removes one reminder with livereminders:write.");
+            }
+            if self.client.write_permissions().notification_state {
+                text.push_str(" get_my_notification_read_batch previews eligible ordinary notification IDs. mark_my_notifications_read acknowledges only explicitly selected IDs with notificationstate:write.");
             }
             text.push_str(" Use get_my_action_status to reconcile a receipt on its original connection. Only executed confirms success.");
             text

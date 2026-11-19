@@ -156,6 +156,15 @@ Its receipt contains `action_id`, `session_id`, `reminded` and `status`.
 Use `list_my_live_reminders` under `watchlist:read` to check the current state.
 The write does not join a stream or record audience activity.
 
+Under the `notificationstate:write` deployment permission,
+`get_my_notification_read_batch` uses a `notifications:read` grant to return
+up to 50 eligible unread IDs and `has_more`. With the separate
+`notificationstate:write` grant, send exactly the IDs the customer wants to
+acknowledge to `mark_my_notifications_read`. Later arrivals retain their state.
+Protected, foreign or unavailable IDs reject the entire request. The receipt
+contains `action_id`, `status` and `requested_count`. The count includes
+eligible IDs that another client already acknowledged.
+
 ## Private watchlist management
 
 Select `BUDNA_MCP_PROFILE=account-watchlist-management` on a designated

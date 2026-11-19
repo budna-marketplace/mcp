@@ -239,3 +239,34 @@ impl From<budna_mcp_client::LiveReminderReceipt> for LiveReminderReceiptOutput {
         }
     }
 }
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct NotificationReadBatchOutput {
+    #[schemars(length(max = 50))]
+    pub notification_ids: Vec<i64>,
+    pub has_more: bool,
+}
+impl From<budna_mcp_client::NotificationReadBatch> for NotificationReadBatchOutput {
+    fn from(batch: budna_mcp_client::NotificationReadBatch) -> Self {
+        Self {
+            notification_ids: batch.notification_ids,
+            has_more: batch.has_more,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct NotificationReadReceiptOutput {
+    pub action_id: String,
+    pub status: WatchlistActionStatusOutput,
+    pub requested_count: u32,
+}
+impl From<budna_mcp_client::NotificationReadReceipt> for NotificationReadReceiptOutput {
+    fn from(receipt: budna_mcp_client::NotificationReadReceipt) -> Self {
+        Self {
+            action_id: receipt.action_id,
+            status: receipt.status.into(),
+            requested_count: receipt.requested_count,
+        }
+    }
+}

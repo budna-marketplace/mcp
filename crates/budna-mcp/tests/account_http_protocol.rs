@@ -1674,3 +1674,116 @@ async fn combined_profile_advertises_only_configured_families_and_requires_each_
     server.child.wait().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn notice_batch_previews_exact_ids_and_refusals_preserve_privacy() -> Result<()> {
+    const PREVIEW: &str = "get_my_notification_read_batch";
+    const MARK: &str = "mark_my_notifications_read";
+    const ACTION: &str = "00000000-0000-4000-8000-000000000004";
+    let api = MockServer::start().await;
+    exchange(
+        &api,
+        "both",
+        "notice-downstream",
+        USER_A,
+        "notificationstate:write notifications:read",
+    )
+    .await;
+    exchange(
+        &api,
+        "reader",
+        "reader-downstream",
+        USER_B,
+        "notifications:read",
+    )
+    .await;
+    let mut server = start_http_server_with_scopes(
+        &api.uri(),
+        30,
+        Some("account-actions"),
+        Some(false),
+        Some("notificationstate:write"),
+    )
+    .await?;
+    let endpoint = format!("http://{}/account/mcp", server.address);
+    let client = Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let batch = json!({"notification_ids":[7,8],"has_more":false});
+    Mock::given(method("GET"))
+        .and(path("/api/v1/mcp/account/notifications/read-batch"))
+        .and(matches_header("authorization", "Bearer reader-downstream"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":batch})),
+        )
+        .expect(1)
+        .mount(&api)
+        .await;
+    let preview: Value = post(&client, &endpoint, "reader", call(PREVIEW, json!({})))
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    assert_eq!(preview.pointer("/result/structuredContent"), Some(&batch));
+    let args = json!({"notification_ids":[7,8]});
+    assert_eq!(
+        post(&client, &endpoint, "reader", call(MARK, args.clone()))
+            .await?
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    for bad in [
+        json!({"notification_ids":[]}),
+        json!({"notification_ids":[8,8]}),
+        json!({"notification_ids":[-1]}),
+        json!({"notification_ids":[7],"all":true}),
+    ] {
+        let invalid: Value = post(&client, &endpoint, "both", call(MARK, bad))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&invalid, MARK, "INVALID_INPUT")?;
+    }
+    let route = || {
+        Mock::given(method("PUT"))
+            .and(path("/api/v1/mcp/account/notifications/read-state"))
+            .and(matches_header("authorization", "Bearer notice-downstream"))
+            .and(header_regex("idempotency-key", "^[a-f0-9-]{36}$"))
+            .and(body_json(args.clone()))
+    };
+    let receipt = json!({"action_id":ACTION,"status":"executed","requested_count":2});
+    {
+        let _r = route()
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"success":true,"data":receipt})),
+            )
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let marked: Value = post(&client, &endpoint, "both", call(MARK, args.clone()))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_eq!(marked.pointer("/result/structuredContent"), Some(&receipt));
+    }
+    {
+        let _r = route()
+            .respond_with(ResponseTemplate::new(404).set_body_string(SENTINEL))
+            .expect(1)
+            .mount_as_scoped(&api)
+            .await;
+        let missing: Value = post(&client, &endpoint, "both", call(MARK, args.clone()))
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        assert_write_error(&missing, MARK, "API_NOT_FOUND")?;
+        assert!(!missing.to_string().contains(SENTINEL));
+    }
+    server.child.kill().await?;
+    server.child.wait().await?;
+    Ok(())
+}

@@ -148,6 +148,14 @@ impl WatchlistMembershipParams {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct NotificationReadParams {
+    /// The exact eligible notification IDs the customer chose.
+    #[schemars(length(min = 1, max = 50))]
+    pub notification_ids: Vec<i64>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct LiveReminderParams {
     #[schemars(length(min = 41, max = 41), regex(pattern = LIVE_STREAM_ID_PATTERN))]
     pub session_id: String,
