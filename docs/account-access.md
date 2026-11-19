@@ -466,6 +466,8 @@ Automatic bidding requires its own `autobids:write` permission. With the automat
 
 Use the quote ID and original maximum for a submission retry. Pausing requires the revision from the current instruction and a stable idempotency key. A successful pause stops future bidding and preserves bids already placed.
 
+A historical maximum keeps the currency it was set in, and a new maximum is always in SEK. Budna does not quote a new maximum over one set in another currency. A listing the customer cannot see on Budna reads as not found, while the customer’s own instruction on it stays readable and can still be paused.
+
 ### Similar drafts and shipping rules
 
 To create a similar unpublished draft, the customer selects an owned source, reads its `updated_at`, and grants `draftauthoring:write`. The action checks seller verification and copies the supported source fields. Media, bid history, orders and identity stay outside the copy. Supply one `request_id` UUID per intended draft and reuse it after an interrupted request.

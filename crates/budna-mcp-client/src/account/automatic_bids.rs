@@ -2,7 +2,10 @@ use super::{
     AccountActionState, AccountApiClient, ApiEnvelope, BIDS_READ_SCOPE, BidAmount, BidQuote,
     ClientError, DelegatedAccess, invalid_input, invalid_response, is_action_id,
 };
-use crate::{Money, decimal_is_less_than_or_equal, is_listing_id, money_is_valid};
+use crate::{
+    Money, decimal_is_less_than_or_equal, is_currency_code, is_exact_decimal, is_listing_id,
+    money_is_valid,
+};
 use reqwest::{Method, header::AUTHORIZATION};
 use serde::Deserialize;
 
@@ -41,7 +44,9 @@ impl StandingBidState {
             && revision(&self.revision)
             && self.status.is_some() == self.maximum.is_some()
             && self.maximum.as_ref().is_none_or(|m| {
-                money_is_valid(m, "SEK")
+                // A historical maximum keeps the currency it was set in; only a new maximum is SEK.
+                is_currency_code(&m.currency_code)
+                    && is_exact_decimal(&m.amount)
                     && !decimal_is_less_than_or_equal(&m.amount, "0")
                     && decimal_is_less_than_or_equal(&m.amount, "1000000")
                     && m.amount
@@ -120,6 +125,10 @@ impl AccountApiClient {
                     && q.can_place_bid_immediately
                     && q.auction.matches_request(listing, maximum)
                     && q.existing.matches_listing(listing)
+                    && q.existing
+                        .maximum
+                        .as_ref()
+                        .is_none_or(|prior| money_is_valid(prior, "SEK"))
                     && (q.existing.status != Some(StandingBidStatus::Active)
                         || q.existing.maximum.as_ref().is_some_and(|prior| {
                             !decimal_is_less_than_or_equal(&maximum.amount, &prior.amount)

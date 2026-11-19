@@ -8,7 +8,7 @@
 
 Discover new and pre-owned items on Budna that fit your needs and budget. Compare options, check condition and compatibility, and plan pickup or delivery before you decide.
 
-Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account, listings, bids, offers, watchlists, saved searches, purchases, sales, disputes, messages, payments, notifications and ratings, with the permissions you choose. Public Explore and Account Read are read-only. An operator can enable account actions separately. The original pilot saves or removes a listing in a private watchlist. The account-actions profile adds the independently consented tools listed below.
+Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account, listings, bids, offers, watchlists, saved searches, purchases, sales, disputes, messages, payments, notifications and ratings, with the permissions you choose. Public Explore and Account Read are read-only. The account-actions profile adds the independently consented write tools listed below, which an operator enables per deployment.
 
 ## Quick start
 
@@ -157,18 +157,18 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `list_my_second_chance_offers` | Offers permission | List second-chance offers you received after an auction you bid on |
 | `get_my_offer_history` | Offers permission | Read each step of one offer's negotiation: who acted, the action and the amount |
 | `list_my_watchlists` | Watchlist read permission | List your watchlists with names, item counts and visibility when available |
-| `set_my_watchlist_membership` | Private pilot · `watchlist:write` | Save or remove one listing in one private watchlist you own |
+| `set_my_watchlist_membership` | Account actions · `watchlist:write` | Save or remove one listing in one private watchlist you own |
 | `create_my_private_watchlist` | Management profile · `watchlists:write` | Create one private watchlist |
 | `rename_my_private_watchlist` | Management profile · `watchlists:write` | Rename one private, non-default watchlist you own |
 | `delete_my_private_watchlist` | Management profile · `watchlists:write` | Permanently delete one private, non-default watchlist and its memberships |
-| `get_my_listing_draft_eligibility` | Draft pilot · `profile:read` | Check seller verification and open the appropriate Budna verification page |
+| `get_my_listing_draft_eligibility` | Account actions · `profile:read` | Check seller verification and open the appropriate Budna verification page |
 | `get_my_publication_readiness` / `publish_my_quoted_draft` | Account actions · `selling:read` / `listingpublication:write` | Review eligibility, upfront costs and estimated proceeds, then publish an eligible draft immediately |
 | `get_listing_creation_rules` / `list_listing_creation_options` | Account actions · `listings:read` | Read a category’s authoring fields, required values, conditions, formats and revision. Page or search the choices allowed in that category. |
 | `get_my_draft_authoring` | Account actions · `listings:read` | Read the current fields, revision, category attributes, media count and listing VAT |
 | `edit_my_listing_draft` / `replace_my_draft_attributes` | Account actions · `draftauthoring:write` | Edit reviewed fields or intentionally replace the full category attribute set |
 | `set_my_draft_vat` / `discard_my_listing_draft` | Account actions · `draftauthoring:write` | Change an eligible company draft’s VAT treatment or discard one reviewed draft |
 | `create_my_similar_draft` | Account actions · `draftauthoring:write` | Copy supported fields from one reviewed listing into a verified seller’s unpublished draft |
-| `create_my_listing_draft` | Draft pilot · `listingdrafts:write` | Save one unpublished initial draft as the verified seller |
+| `create_my_listing_draft` | Account actions · `listingdrafts:write` | Save one unpublished initial draft as the verified seller |
 | `get_my_notification_read_batch` | Account actions · `notifications:read` | Preview up to 50 eligible unread ordinary notifications |
 | `mark_my_notifications_read` | Account actions · `notificationstate:write` | Acknowledge the ordinary notification IDs the customer selected |
 | `get_my_saved_search_authoring` | Account actions · `watchlist:read` | Read current saved-search usage, limit and supported alert frequencies |
@@ -226,7 +226,7 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `submit_my_quoted_order_closure` | Account actions · `orderclosures:write` | Request approval in Budna to close the reviewed order |
 | `prepare_my_closed_order_relist` | Account actions · `orders:read` | Review the original price and duration to relist a closed unpaid sale |
 | `relist_my_quoted_closed_order` | Account actions · `ordersrelist:write` | Publish an eligible listing after closing its unpaid order |
-| `get_my_binding_checkout` | Account actions · `orders:read` | Read an existing Buy Now checkout, its delivery-selection status and any linked order |
+| `get_my_binding_checkout` | Account actions · `orders:read` | Read an existing Buy Now checkout, its delivery-selection status and the order while it awaits payment |
 | `prepare_my_binding_checkout_order` | Account actions · `orders:read` | Review quantity, delivery, all-in price, deadlines, unpaid fee and auction closure |
 | `submit_my_quoted_checkout_order` | Account actions · `checkoutorders:write` | Request approval in Budna to create one binding unpaid order |
 | `get_my_second_chance_sale` | Account actions · `orders:read` | Check whether an unpaid auction order you sold can start a second-chance offer or cancel an active one |
@@ -290,7 +290,7 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 
 In compatible MCP Apps clients you can also browse interactive listing cards and explicitly ask the AI to compare two to four selected listings.
 
-The pilot requires an operator-enabled deployment, a supported API and explicit watchlist write consent. The default profiles continue to serve reads. [Private watchlist pilot](docs/account-access.md#private-watchlist-pilot)
+Account actions need a deployment with writes enabled, a supported Budna API and your consent to each write permission. Every write permission is unticked by default, and a new kind of action needs fresh consent. Purchases, delivery confirmation, returns, dispute withdrawal and settlements always wait for your approval in Budna. The default profiles continue to serve reads. [Account access](docs/account-access.md)
 
 ### Permissions you control
 
@@ -302,7 +302,7 @@ The pilot requires an operator-enabled deployment, a supported API and explicit 
 
 ### Where Budna MCP is going
 
-In deployments with the account-actions profile, customers can organize private lists and searches, create a verified unpublished draft, send messages, manage supported room activity and submit their own order ratings. Operators select the families their Budna API supports. The remaining seller lifecycle, bids, offers, checkout and after-sale actions are being implemented in waves with their own eligibility and confirmation rules. The handoff records each family’s release and verification status. [Account action plan](docs/account-write-plan.md)
+With the account-actions profile, customers can organize private lists and searches, message and follow, author, publish and manage listings, showcases and streams, bid, make offers, buy, and handle fulfillment, returns, disputes and ratings. Each family has its own permission and Budna’s own eligibility and approval rules. Payment, identity verification, photo upload, physical tags and security settings stay in Budna. The plan records each family’s status and evidence. [Account action plan](docs/account-write-plan.md)
 
 ## Connect your Budna account
 
