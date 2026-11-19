@@ -21,6 +21,11 @@ Account Read serves delegated reads. The opt-in account-watchlist-pilot adds
 only setting one listing’s membership in an owned private watchlist with
 watchlist:write. See docs/account-access.md for the contract and activation.
 
+The opt-in account-actions HTTP profile combines only configured, independently
+consented families. Keep sensitive supplemental reads independently optional.
+Use the tool table in README.md and the coverage table in
+docs/account-write-plan.md when changing or reviewing an account action.
+
 Additional authenticated or state-changing capability profiles require an explicit
 design for authorization, secret storage, user consent/confirmation, CSRF,
 idempotency, auditability, rate limits, and MCP destructive/idempotent hints.

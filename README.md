@@ -8,7 +8,7 @@
 
 Discover new and pre-owned items on Budna that fit your needs and budget. Compare options, check condition and compatibility, and plan pickup or delivery before you decide.
 
-Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account, listings, bids, offers, watchlists, saved searches, purchases, sales, disputes, messages, payments, notifications and ratings, with the permissions you choose. Public Explore and Account Read are read-only. A separately enabled pilot lets a connected app save or remove one listing in one of your private watchlists.
+Use Budna from any compatible MCP client. Explore the public marketplace with no account or API key, or optionally connect your Budna account so your AI assistant can read your own account, listings, bids, offers, watchlists, saved searches, purchases, sales, disputes, messages, payments, notifications and ratings, with the permissions you choose. Public Explore and Account Read are read-only. An operator can enable account actions separately. The original pilot saves or removes a listing in a private watchlist. The account-actions profile adds the independently consented tools listed below.
 
 ## Quick start
 
@@ -249,7 +249,7 @@ The pilot requires an operator-enabled deployment, a supported API and explicit 
 
 ### Where Budna MCP is going
 
-The private watchlist pilot supports saving and removing listings. A separate opt-in profile adds private list management and requires fresh consent. Bidding, making offers, buying, managing listings and messaging are planned separately. Each new capability will arrive behind its own permission that you grant per app, sensitive actions such as bids and purchases will ask for your explicit confirmation, and you can reduce or revoke access at any time. The pilot does not grant any of those permissions. [Account action plan](docs/account-write-plan.md)
+In deployments with the account-actions profile, customers can organize private lists and searches, create a verified unpublished draft, send messages, manage supported room activity and submit their own order ratings. Operators select the families their Budna API supports. The remaining seller lifecycle, bids, offers, checkout and after-sale actions are being implemented in waves with their own eligibility and confirmation rules. The handoff records each family’s release and verification status. [Account action plan](docs/account-write-plan.md)
 
 ## Connect your Budna account
 
