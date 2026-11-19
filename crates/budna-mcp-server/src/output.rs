@@ -10,6 +10,7 @@ pub(crate) mod messages;
 pub(crate) mod personal;
 mod profiles;
 mod records;
+pub(crate) mod room_activity;
 mod selling;
 mod taxonomy;
 

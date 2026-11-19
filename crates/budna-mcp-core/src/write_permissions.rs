@@ -5,6 +5,12 @@ use crate::ConfigError;
 pub const MESSAGES_WRITE_SCOPE: &str = "messages:write";
 pub const MESSAGE_REACTIONS_WRITE_SCOPE: &str = "messagereactions:write";
 pub const PUBLIC_CHAT_WRITE_SCOPE: &str = "publicchat:write";
+pub const RATINGS_WRITE_SCOPE: &str = "ratings:write";
+pub const CHAT_ROOMS_READ_SCOPE: &str = "chatrooms:read";
+pub const ROOM_MODERATION_READ_SCOPE: &str = "roommoderation:read";
+pub const ROOM_REACTIONS_WRITE_SCOPE: &str = "roomreactions:write";
+pub const LIVE_REPORTS_WRITE_SCOPE: &str = "livereports:write";
+pub const ROOM_MODERATION_WRITE_SCOPE: &str = "roommoderation:write";
 pub const INBOX_WRITE_SCOPE: &str = "inbox:write";
 pub const PROFILE_WRITE_SCOPE: &str = "profile:write";
 pub const FOLLOWING_WRITE_SCOPE: &str = "following:write";
@@ -25,6 +31,12 @@ pub struct AccountWritePermissions {
     pub messages: bool,
     pub message_reactions: bool,
     pub public_chat: bool,
+    pub ratings: bool,
+    pub room_targets: bool,
+    pub room_safety: bool,
+    pub room_reactions: bool,
+    pub live_reports: bool,
+    pub room_moderation: bool,
     pub inbox: bool,
     pub profile: bool,
     pub following: bool,
@@ -43,6 +55,12 @@ impl AccountWritePermissions {
         messages: false,
         message_reactions: false,
         public_chat: false,
+        ratings: false,
+        room_targets: false,
+        room_safety: false,
+        room_reactions: false,
+        live_reports: false,
+        room_moderation: false,
         inbox: false,
         profile: false,
         following: false,
@@ -65,6 +83,12 @@ impl AccountWritePermissions {
                 MESSAGES_WRITE_SCOPE => &mut permissions.messages,
                 MESSAGE_REACTIONS_WRITE_SCOPE => &mut permissions.message_reactions,
                 PUBLIC_CHAT_WRITE_SCOPE => &mut permissions.public_chat,
+                RATINGS_WRITE_SCOPE => &mut permissions.ratings,
+                CHAT_ROOMS_READ_SCOPE => &mut permissions.room_targets,
+                ROOM_MODERATION_READ_SCOPE => &mut permissions.room_safety,
+                ROOM_REACTIONS_WRITE_SCOPE => &mut permissions.room_reactions,
+                LIVE_REPORTS_WRITE_SCOPE => &mut permissions.live_reports,
+                ROOM_MODERATION_WRITE_SCOPE => &mut permissions.room_moderation,
                 INBOX_WRITE_SCOPE => &mut permissions.inbox,
                 PROFILE_WRITE_SCOPE => &mut permissions.profile,
                 FOLLOWING_WRITE_SCOPE => &mut permissions.following,
@@ -85,9 +109,14 @@ impl AccountWritePermissions {
     }
 
     pub fn additional_read_scopes(self) -> impl Iterator<Item = &'static str> {
-        self.personal_blocks_read
-            .then_some(PERSONAL_BLOCKS_READ_SCOPE)
-            .into_iter()
+        [
+            self.personal_blocks_read
+                .then_some(PERSONAL_BLOCKS_READ_SCOPE),
+            self.room_targets.then_some(CHAT_ROOMS_READ_SCOPE),
+            self.room_safety.then_some(ROOM_MODERATION_READ_SCOPE),
+        ]
+        .into_iter()
+        .flatten()
     }
 
     /// Write powers only. Supplemental reads cannot authorize action receipts.
@@ -100,6 +129,10 @@ impl AccountWritePermissions {
             self.message_reactions
                 .then_some(MESSAGE_REACTIONS_WRITE_SCOPE),
             self.public_chat.then_some(PUBLIC_CHAT_WRITE_SCOPE),
+            self.ratings.then_some(RATINGS_WRITE_SCOPE),
+            self.room_reactions.then_some(ROOM_REACTIONS_WRITE_SCOPE),
+            self.live_reports.then_some(LIVE_REPORTS_WRITE_SCOPE),
+            self.room_moderation.then_some(ROOM_MODERATION_WRITE_SCOPE),
             self.inbox.then_some(INBOX_WRITE_SCOPE),
             self.profile.then_some(PROFILE_WRITE_SCOPE),
             self.following.then_some(FOLLOWING_WRITE_SCOPE),
@@ -120,6 +153,12 @@ impl AccountWritePermissions {
             messages: self.messages && other.messages,
             message_reactions: self.message_reactions && other.message_reactions,
             public_chat: self.public_chat && other.public_chat,
+            ratings: self.ratings && other.ratings,
+            room_targets: self.room_targets && other.room_targets,
+            room_safety: self.room_safety && other.room_safety,
+            room_reactions: self.room_reactions && other.room_reactions,
+            live_reports: self.live_reports && other.live_reports,
+            room_moderation: self.room_moderation && other.room_moderation,
             inbox: self.inbox && other.inbox,
             profile: self.profile && other.profile,
             following: self.following && other.following,

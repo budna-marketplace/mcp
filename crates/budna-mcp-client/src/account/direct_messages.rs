@@ -1,8 +1,9 @@
 use super::{
     AccountApiClient, AccountWatchlistActionStatus, ClientError, DelegatedAccess,
     MESSAGES_READ_SCOPE, MESSAGES_WRITE_SCOPE, actions::valid_outgoing_text, invalid_input,
-    invalid_response, is_action_id, is_listing_id, is_user_id, social::is_account_username,
+    invalid_response, is_action_id, is_listing_id, is_user_id,
 };
+use crate::is_public_username;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +77,7 @@ impl AccountApiClient {
     ) -> Result<MessageRecipient, ClientError> {
         const OP: &str = "get_my_message_recipient";
         self.require_message_read(access, OP)?;
-        if !is_account_username(username) {
+        if !is_public_username(username) {
             return Err(invalid_input(OP, "Invalid recipient handle"));
         }
         let r: MessageRecipient = self
@@ -111,7 +112,7 @@ impl AccountApiClient {
             )
             .await?;
         if r.conversation_id != id
-            || !is_account_username(&r.recipient_username)
+            || !is_public_username(&r.recipient_username)
             || !is_user_id(&r.recipient_user_id)
             || r.recipient_user_id == access.subject
             || r.listing_id
@@ -213,7 +214,7 @@ impl AccountApiClient {
         };
         if conversation.is_some_and(|id| id < 1)
             || message.is_some_and(|id| id < 1)
-            || !is_account_username(content.recipient_username)
+            || !is_public_username(content.recipient_username)
             || !is_user_id(content.recipient_user_id)
             || content.recipient_user_id == access.subject
             || !valid_outgoing_text(content.text, 10_000, true)

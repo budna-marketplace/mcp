@@ -30,7 +30,7 @@ pub struct SetReactionParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StartConversationParams {
-    #[schemars(length(min = 1, max = 64))]
+    #[schemars(length(min=4,max=15),regex(pattern=PUBLIC_USERNAME_PATTERN))]
     pub recipient_username: String,
     #[schemars(length(min=41,max=41),regex(pattern=USER_ID_PATTERN))]
     pub recipient_user_id: String,
@@ -43,7 +43,7 @@ pub struct StartConversationParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SendMessageParams {
-    #[schemars(length(min = 1, max = 64))]
+    #[schemars(length(min=4,max=15),regex(pattern=PUBLIC_USERNAME_PATTERN))]
     pub recipient_username: String,
     #[schemars(length(min=41,max=41),regex(pattern=USER_ID_PATTERN))]
     pub recipient_user_id: String,
@@ -56,7 +56,7 @@ pub struct SendMessageParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplyMessageParams {
-    #[schemars(length(min = 1, max = 64))]
+    #[schemars(length(min=4,max=15),regex(pattern=PUBLIC_USERNAME_PATTERN))]
     pub recipient_username: String,
     #[schemars(length(min=41,max=41),regex(pattern=USER_ID_PATTERN))]
     pub recipient_user_id: String,
@@ -71,7 +71,7 @@ pub struct ReplyMessageParams {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EditMessageParams {
-    #[schemars(length(min = 1, max = 64))]
+    #[schemars(length(min=4,max=15),regex(pattern=PUBLIC_USERNAME_PATTERN))]
     pub recipient_username: String,
     #[schemars(length(min=41,max=41),regex(pattern=USER_ID_PATTERN))]
     pub recipient_user_id: String,
@@ -85,7 +85,7 @@ pub struct EditMessageParams {
     pub expected_revision: i64,
 }
 
-const ROOM_PATTERN: &str =
+pub(super) const ROOM_PATTERN: &str =
     "^(listing|showcase|live)_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

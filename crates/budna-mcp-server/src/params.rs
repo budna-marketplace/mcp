@@ -1,5 +1,6 @@
 pub(crate) mod messages;
 pub(crate) mod personal;
+pub(crate) mod room_activity;
 mod saved_search;
 pub(crate) use saved_search::{CreateSearchParams, DeleteSearchParams, UpdateSearchParams};
 use std::{

@@ -23,7 +23,13 @@ use reqwest::{
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
+pub use account::CHAT_ROOMS_READ_SCOPE;
+pub use account::LIVE_REPORTS_WRITE_SCOPE;
 pub use account::PublicRoomMessage;
+pub use account::RATINGS_WRITE_SCOPE;
+pub use account::ROOM_MODERATION_READ_SCOPE;
+pub use account::ROOM_MODERATION_WRITE_SCOPE;
+pub use account::ROOM_REACTIONS_WRITE_SCOPE;
 pub use account::{
     ACCOUNT_READ_SCOPE, ACCOUNT_SCOPES, AccountAchievement, AccountAchievements,
     AccountActionState, AccountActionStatus, AccountApiClient, AccountAutoBid, AccountBadge,
@@ -70,10 +76,16 @@ pub use account::{
     WATCHLIST_MANAGE_SCOPE, WATCHLIST_READ_SCOPE, WATCHLIST_WRITE_SCOPE, is_account_access_token,
     is_action_id, is_watchlist_name,
 };
+pub use account::{OrderReviewFacts, OrderReviewReceipt, ReviewAudience};
 pub use account::{
     PUBLIC_CHAT_WRITE_SCOPE, PublicChatAudience, PublicChatBlocker, PublicChatPosting,
     PublicChatReceipt, PublicChatRole,
 };
+pub use account::{
+    RoomActionName, RoomBanScope, RoomModerationView, RoomOperation, RoomReceipt,
+    RoomReceiptTarget, RoomTargetKind, RoomTargets,
+};
+pub use account::{RoomParticipant, RoomReactionTarget, RoomTally};
 pub use config::{ClientConfig, ClientConfigError, DEFAULT_REQUEST_TIMEOUT, MAX_REQUEST_TIMEOUT};
 pub use error::{ClientError, RequestFailureKind};
 pub use explore::{

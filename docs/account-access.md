@@ -145,7 +145,7 @@ review. Use Account Read or Public Explore to turn off the write tool.
 
 Use the HTTP profile `account-actions` to enable multiple independently consented
 families on one connection. Set `BUDNA_MCP_WRITE_SCOPES` to the exact
-space-separated permissions approved for the deployment. Include optional personal-block reads explicitly. For example,
+space-separated permissions approved for the deployment. Include `personalblocks:read`, `chatrooms:read` or `roommoderation:read` explicitly when they are needed. For example,
 `watchlist:write livereminders:write` enables private listing membership and
 personal live reminders. Unknown, duplicate and empty permission lists fail
 startup. A client also needs current consent for each tool it invokes.
@@ -217,6 +217,28 @@ Budna’s moderation rules. To react to a visible private message, grant
 `messagereactions:write` separately. Pass one supported emoji or explicitly
 pass `null` to remove the customer’s reaction. The reaction read returns the
 customer’s choice and aggregate counts.
+
+Room reactions, reports and seller moderation use independent grants.
+`chatrooms:read` returns public message and bid IDs, aggregate reaction
+counts and the customer’s choices. `roomreactions:write` sets one emoji
+to the requested state on one eligible target. A shop-stream report uses
+`livereports:write` and the actual message ID. Report receipts acknowledge
+filing. Staff determine the outcome.
+
+`roommoderation:read` previews the owner’s eligible participants and
+the scope of a ban. `roommoderation:write` permits the applicable pin,
+hide, report or ban action. A seller can lift a shop-stream ban across
+their live chats. Hiding a room post is permanent through the app's
+ordinary controls. These tools accept only the public participant and
+post identifiers needed for that action.
+
+For an order rating, use `get_my_order_rating_eligibility` with `orders:read`.
+Budna derives the other party and the rating direction from the selected
+transaction. Submission needs `ratings:write`, one to five customer-chosen
+stars, the explicit marketplace audience and either the customer’s exact
+comment or an explicit `null` for a star-only rating. Eligibility depends
+on the transaction and which side the customer was on. A qualifying unpaid
+auction closure can allow the seller to rate the buyer.
 
 Public posting requires its own `publicchat:write` consent. With
 `messages:read`, check the posting rules and available reply targets for the

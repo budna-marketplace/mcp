@@ -223,3 +223,40 @@ impl From<budna_mcp_client::PersonalBlockReceipt> for PersonalBlockReceiptOutput
         }
     }
 }
+
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct OrderReviewFactsOutput {
+    pub order_id: i64,
+    pub listing_id: String,
+    pub counterparty_username: Option<String>,
+    pub eligible: bool,
+    pub audience: budna_mcp_client::ReviewAudience,
+}
+impl From<budna_mcp_client::OrderReviewFacts> for OrderReviewFactsOutput {
+    fn from(r: budna_mcp_client::OrderReviewFacts) -> Self {
+        Self {
+            order_id: r.order_id,
+            listing_id: r.listing_id,
+            counterparty_username: r.counterparty_username,
+            eligible: r.eligible,
+            audience: r.audience,
+        }
+    }
+}
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct OrderReviewReceiptOutput {
+    pub order_id: i64,
+    pub action_id: String,
+    pub rating_id: Option<i64>,
+    pub status: WatchlistActionStatusOutput,
+}
+impl From<budna_mcp_client::OrderReviewReceipt> for OrderReviewReceiptOutput {
+    fn from(r: budna_mcp_client::OrderReviewReceipt) -> Self {
+        Self {
+            order_id: r.order_id,
+            action_id: r.action_id,
+            rating_id: r.rating_id,
+            status: r.status.into(),
+        }
+    }
+}

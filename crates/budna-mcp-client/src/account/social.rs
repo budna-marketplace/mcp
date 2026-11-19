@@ -3,6 +3,7 @@ use super::{
     FOLLOWING_READ_SCOPE, FOLLOWING_WRITE_SCOPE, PROFILE_READ_SCOPE, PROFILE_WRITE_SCOPE,
     actions::valid_action_text, invalid_input, invalid_response, is_action_id, is_user_id,
 };
+use crate::is_public_username;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
@@ -29,12 +30,6 @@ pub struct FollowReceipt {
     pub action_id: String,
     pub status: AccountWatchlistActionStatus,
     pub following: bool,
-}
-
-pub(super) fn is_account_username(s: &str) -> bool {
-    s.len() <= 64
-        && s.chars().next().is_some_and(char::is_alphabetic)
-        && s.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 
 impl AccountApiClient {
@@ -110,7 +105,7 @@ impl AccountApiClient {
     ) -> Result<FollowState, ClientError> {
         const OP: &str = "get_my_following_state";
         self.require_scope(access, FOLLOWING_READ_SCOPE, OP)?;
-        if !self.write_permissions().following || !is_account_username(username) {
+        if !self.write_permissions().following || !is_public_username(username) {
             return Err(invalid_input(
                 OP,
                 "Following is unavailable or the handle is invalid",
@@ -139,7 +134,7 @@ impl AccountApiClient {
         key: &str,
     ) -> Result<FollowReceipt, ClientError> {
         const OP: &str = "set_my_following";
-        if !is_account_username(username) || !is_user_id(user_id) {
+        if !is_public_username(username) || !is_user_id(user_id) {
             return Err(invalid_input(OP, "Invalid public target reference"));
         }
         let request = self

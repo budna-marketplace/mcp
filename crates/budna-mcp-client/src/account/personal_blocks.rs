@@ -3,6 +3,7 @@ use super::{
     PERSONAL_BLOCKS_READ_SCOPE, PERSONAL_BLOCKS_WRITE_SCOPE, invalid_input, invalid_response,
     is_action_id, is_user_id,
 };
+use crate::is_public_username;
 use reqwest::Method;
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -51,8 +52,7 @@ impl AccountApiClient {
                     || item.user_id == access.subject
                     || Some(item.user_id.as_str()) == after
                     || !ids.insert(&item.user_id)
-                    || item.username.len() > 256
-                    || item.username.trim().is_empty()
+                    || !is_public_username(&item.username)
             })
             || result.next_after.as_ref().is_some_and(|cursor| {
                 result

@@ -57,7 +57,7 @@ pub struct PublicChatReceipt {
     pub message_id: Option<i64>,
     pub status: AccountWatchlistActionStatus,
 }
-fn valid_room(id: &str) -> bool {
+pub(super) fn valid_room(id: &str) -> bool {
     is_listing_id(id) || is_collection_id(id) || is_live_stream_id(id)
 }
 

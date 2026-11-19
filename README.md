@@ -173,6 +173,12 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `get_my_message_authoring` | Account actions · `messages:read` | Read the message revision and whether the sender can still edit it |
 | `start_my_conversation`, `send_my_message`, `reply_to_my_message` | Account actions · `messages:write` | Deliver one requested private message to the confirmed participant |
 | `edit_my_message` | Account actions · `messages:write` | Replace the text of one message you sent at its observed revision |
+| `list_my_room_reaction_targets` | Account actions · `chatrooms:read` | Read available post and bid reaction targets, counts and your selections |
+| `set_my_room_reaction` | Account actions · `roomreactions:write` | Add or remove one emoji on an eligible public post or bid |
+| `report_live_chat_post` | Account actions · `livereports:write` | File a report about one live shop post |
+| `list_my_room_moderation_participants` | Account actions · `roommoderation:read` | Read eligible participants and ban scope in a room you own |
+| `set_my_room_message_pinned`, `hide_my_room_message` | Account actions · `roommoderation:write` | Pin, unpin or hide a selected public post |
+| `report_my_room_participant`, `ban_my_room_participant`, `unban_my_room_participant` | Account actions · `roommoderation:write` | Moderate one participant where Budna permits that seller action |
 | `get_my_chat_message` | Account actions · `messages:read` | Read the visible message in the selected public room before replying |
 | `get_my_chat_posting` | Account actions · `messages:read` | Check eligibility, audience and reply targets in one public room |
 | `post_public_chat_message` | Account actions · `publicchat:write` | Post or reply in the specified public listing, showcase or live room |
@@ -204,6 +210,8 @@ Public tools work with no account in the local `budna-mcp` binary and at `https:
 | `get_my_order_group` | Orders permission | Read one combined shipment with its orders, amounts, carrier and deadlines |
 | `list_my_notifications` | Notifications permission | List your notifications by type, read state and related listing, order, offer or saved search |
 | `get_my_notification_preferences` | Notifications permission | Read your notification settings: channels, categories and quiet hours |
+| `get_my_order_rating_eligibility` | Account actions · `orders:read` | Preview the counterparty and rating eligibility for one owned order |
+| `rate_my_order_counterparty` | Account actions · `ratings:write` | Submit the customer’s stars and chosen comment or star-only rating |
 | `list_my_ratings` | Ratings permission | List ratings you received or gave, with the other party's public username, stars, comment and listing |
 | `get_my_money_summary` | Payments permission | Read your money totals per currency: proceeds pending, on the way, paid out, on hold or in balance, and payments made and refunded |
 | `list_my_payment_activity` | Payments permission | List your payment activity, newest first, with amount, kind and status |

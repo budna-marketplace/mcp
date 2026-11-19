@@ -52,9 +52,11 @@ mod destinations;
 mod direct_messages;
 mod draft;
 mod notification_state;
+mod order_review;
 mod personal;
 mod public_chat;
 mod reactions;
+mod room_activity;
 mod saved_search;
 pub(crate) const SEARCH_AUTHORING_TOOL: &str = "get_my_saved_search_authoring";
 pub(crate) const SEARCH_WRITE_TOOLS: [&str; 3] = [
@@ -121,6 +123,24 @@ impl AccountMcpServer {
         }
         if client.write_permissions().public_chat {
             routes += Self::public_chat_router();
+        }
+        if client.write_permissions().ratings {
+            routes += Self::order_review_router();
+        }
+        if client.write_permissions().room_targets {
+            routes += Self::room_targets_router();
+        }
+        if client.write_permissions().room_safety {
+            routes += Self::room_safety_router();
+        }
+        if client.write_permissions().room_reactions {
+            routes += Self::room_reaction_router();
+        }
+        if client.write_permissions().live_reports {
+            routes += Self::live_report_router();
+        }
+        if client.write_permissions().room_moderation {
+            routes += Self::room_moderation_router();
         }
         if client.write_permissions().inbox {
             routes += Self::inbox_actions_router();
@@ -1687,6 +1707,24 @@ impl ServerHandler for AccountMcpServer {
             }
             if self.client.write_permissions().public_chat {
                 text.push_str(" get_my_chat_message reads a visible reply target. get_my_chat_posting checks the public audience, reply targets and posting eligibility. With publicchat:write, post_public_chat_message posts the requested text or reply in the chosen room.");
+            }
+            if self.client.write_permissions().ratings {
+                text.push_str(" get_my_order_rating_eligibility checks the transaction and audience. rate_my_order_counterparty submits the customer’s chosen stars and optional review with ratings:write.");
+            }
+            if self.client.write_permissions().room_targets {
+                text.push_str(" list_my_room_reaction_targets reads anonymous reaction targets and your selections.");
+            }
+            if self.client.write_permissions().room_safety {
+                text.push_str(" list_my_room_moderation_participants reads participants eligible for moderation in a room you own.");
+            }
+            if self.client.write_permissions().room_reactions {
+                text.push_str(" set_my_room_reaction sets an explicit reaction on the chosen public post or eligible bid.");
+            }
+            if self.client.write_permissions().live_reports {
+                text.push_str(" report_live_chat_post reports one actual post in a live shop for staff review.");
+            }
+            if self.client.write_permissions().room_moderation {
+                text.push_str(" set_my_room_message_pinned, hide_my_room_message, report_my_room_participant, ban_my_room_participant and unban_my_room_participant apply the requested moderation to the selected room and participant.");
             }
             if self.client.write_permissions().inbox {
                 text.push_str(" get_my_conversation_settings and get_my_listing_chat_notification_setting check your own preferences. With inbox:write, set_my_conversation_setting, set_my_listing_chat_muted and hide_my_message_copy organize your own inbox.");

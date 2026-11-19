@@ -2286,3 +2286,9 @@ async fn block_discovery_and_mutations_require_independent_explicit_grants() -> 
 
 #[path = "account_http_protocol/messages.rs"]
 mod messages;
+
+#[path = "account_http_protocol/ratings.rs"]
+mod ratings;
+
+#[path = "account_http_protocol/rooms.rs"]
+mod rooms;

@@ -74,15 +74,15 @@ async fn private_text_and_reactions_bind_audience_target_and_independent_grants(
     for (name, input, url, output) in [
         (
             "get_my_message_recipient",
-            json!({"username":"Maja"}),
-            "message-recipients/Maja",
-            json!({"username":"Maja","user_id":USER_B}),
+            json!({"username":"maja"}),
+            "message-recipients/maja",
+            json!({"username":"maja","user_id":USER_B}),
         ),
         (
             "get_my_conversation_audience",
             json!({"conversation_id":7}),
             "conversations/7/audience",
-            json!({"conversation_id":7,"recipient_username":"Maja","recipient_user_id":USER_B,"listing_id":null}),
+            json!({"conversation_id":7,"recipient_username":"maja","recipient_user_id":USER_B,"listing_id":null}),
         ),
         (
             "get_my_message_authoring",
@@ -120,7 +120,7 @@ async fn private_text_and_reactions_bind_audience_target_and_independent_grants(
         );
     }
     let base =
-        json!({"recipient_username":"Maja","recipient_user_id":USER_B,"text":"Line one\nLine two"});
+        json!({"recipient_username":"maja","recipient_user_id":USER_B,"text":"Line one\nLine two"});
     for (name, verb, url, extras, body_extras) in [
         (
             "start_my_conversation",
@@ -226,17 +226,17 @@ async fn private_text_and_reactions_bind_audience_target_and_independent_grants(
         (
             "start_my_conversation",
             "writer",
-            json!({"recipient_username":"Maja","recipient_user_id":USER_A,"text":"hi"}),
+            json!({"recipient_username":"maja","recipient_user_id":USER_A,"text":"hi"}),
         ),
         (
             "start_my_conversation",
             "writer",
-            json!({"recipient_username":"Maja","recipient_user_id":USER_B,"text":"hi\u{202e}"}),
+            json!({"recipient_username":"maja","recipient_user_id":USER_B,"text":"hi\u{202e}"}),
         ),
         (
             "start_my_conversation",
             "writer",
-            json!({"recipient_username":"Maja","recipient_user_id":USER_B,"text":"  "}),
+            json!({"recipient_username":"maja","recipient_user_id":USER_B,"text":"  "}),
         ),
     ] {
         let r: Value = post(&client, &endpoint, token, call(name, input))
