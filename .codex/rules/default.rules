@@ -1,5 +1,5 @@
 # Commands not listed here follow the active sandbox and approval policy.
-# Registry and remote mutations always need explicit review.
+# Git pushes follow the active approval policy.
 prefix_rule(
     pattern = ["cargo", ["login", "logout", "owner", "publish", "yank"]],
     decision = "prompt",
@@ -9,16 +9,6 @@ prefix_rule(
         "cargo owner --add example budna-mcp",
         "cargo publish -p budna-mcp --locked",
         "cargo yank --version 0.1.0 budna-mcp",
-    ],
-)
-
-prefix_rule(
-    pattern = ["git", "push"],
-    decision = "prompt",
-    justification = "Pushing changes a remote repository and must be explicitly approved",
-    match = [
-        "git push origin main",
-        "git push --tags",
     ],
 )
 
